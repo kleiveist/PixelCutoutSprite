@@ -18,7 +18,7 @@ use crate::domain::{
     SCHEMA_VERSION,
 };
 use crate::render::{ClippingNotice, RenderError, RenderTransform};
-use crate::storage::{JsonStore, SaveState, StorageError, VaultRoot};
+use crate::storage::{JsonStore, SaveState, StorageError, VaultRoot, VersionStamp};
 
 use super::outfit_snapshot::{project_labels, AreaSnapshot};
 
@@ -115,6 +115,9 @@ pub struct OutfitLaunchContext {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct OutfitEditorContext {
     pub draft: OutfitDraft,
+    /// SHA-256 of the exact draft bytes loaded into this editor session. Mutations must present
+    /// this value as well as the revision so same-revision external edits are never overwritten.
+    pub draft_sha256: String,
     pub template: MotionTemplate,
     pub motion: MotionRevision,
     pub profile: ProfileRevision,
@@ -412,7 +415,26 @@ impl AppearanceService {
         expected_revision: u32,
         edits: OutfitDraftEdits,
     ) -> Result<OutfitEditorContext, AppearanceServiceError> {
-        let draft = self.persist_edits(vault, area_path, draft_id, expected_revision, edits)?;
+        self.autosave_draft_checked(vault, area_path, draft_id, expected_revision, None, edits)
+    }
+
+    pub fn autosave_draft_checked(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        draft_id: ObjectId,
+        expected_revision: u32,
+        expected_sha256: Option<&str>,
+        edits: OutfitDraftEdits,
+    ) -> Result<OutfitEditorContext, AppearanceServiceError> {
+        let draft = self.persist_edits(
+            vault,
+            area_path,
+            draft_id,
+            expected_revision,
+            expected_sha256,
+            edits,
+        )?;
         self.editor_context(vault, area_path, draft, SaveState::Saved)
     }
 
@@ -422,6 +444,18 @@ impl AppearanceService {
         area_path: &Path,
         draft_id: ObjectId,
         expected_revision: u32,
+        assets: Vec<SlotRef>,
+    ) -> Result<OutfitEditorContext, AppearanceServiceError> {
+        self.auto_assign_checked(vault, area_path, draft_id, expected_revision, None, assets)
+    }
+
+    pub fn auto_assign_checked(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        draft_id: ObjectId,
+        expected_revision: u32,
+        expected_sha256: Option<&str>,
         assets: Vec<SlotRef>,
     ) -> Result<OutfitEditorContext, AppearanceServiceError> {
         if assets.is_empty() {
@@ -614,11 +648,12 @@ impl AppearanceService {
         }
         let mut fittings = fittings.into_values().collect::<Vec<_>>();
         sort_fittings(&mut fittings);
-        self.autosave_draft(
+        self.autosave_draft_checked(
             vault,
             area_path,
             draft_id,
             expected_revision,
+            expected_sha256,
             OutfitDraftEdits {
                 fittings,
                 asset_fallback_approvals: approvals,
@@ -655,7 +690,33 @@ impl AppearanceService {
         expected_revision: u32,
         request: SaveNpcRequest,
     ) -> Result<SavedNpc, AppearanceServiceError> {
-        super::outfit_save::save_as_npc(vault, area_path, draft_id, expected_revision, request)
+        super::outfit_save::save_as_npc(
+            vault,
+            area_path,
+            draft_id,
+            expected_revision,
+            None,
+            request,
+        )
+    }
+
+    pub fn save_as_npc_checked(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        draft_id: ObjectId,
+        expected_revision: u32,
+        expected_sha256: Option<&str>,
+        request: SaveNpcRequest,
+    ) -> Result<SavedNpc, AppearanceServiceError> {
+        super::outfit_save::save_as_npc(
+            vault,
+            area_path,
+            draft_id,
+            expected_revision,
+            expected_sha256,
+            request,
+        )
     }
 
     pub fn apply_to_existing_npc(
@@ -665,7 +726,30 @@ impl AppearanceService {
         draft_id: ObjectId,
         expected_revision: u32,
     ) -> Result<SavedNpc, AppearanceServiceError> {
-        super::outfit_apply::apply_to_existing_npc(vault, area_path, draft_id, expected_revision)
+        super::outfit_apply::apply_to_existing_npc(
+            vault,
+            area_path,
+            draft_id,
+            expected_revision,
+            None,
+        )
+    }
+
+    pub fn apply_to_existing_npc_checked(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        draft_id: ObjectId,
+        expected_revision: u32,
+        expected_sha256: Option<&str>,
+    ) -> Result<SavedNpc, AppearanceServiceError> {
+        super::outfit_apply::apply_to_existing_npc(
+            vault,
+            area_path,
+            draft_id,
+            expected_revision,
+            expected_sha256,
+        )
     }
 
     fn persist_edits(
@@ -674,6 +758,7 @@ impl AppearanceService {
         area_path: &Path,
         draft_id: ObjectId,
         expected_revision: u32,
+        expected_sha256: Option<&str>,
         mut edits: OutfitDraftEdits,
     ) -> Result<OutfitDraft, AppearanceServiceError> {
         sort_fittings(&mut edits.fittings);
@@ -781,6 +866,7 @@ impl AppearanceService {
         })?;
         let resolved = vault.resolve(path)?;
         let loaded = JsonStore::default().load(&resolved)?;
+        require_expected_draft_sha(expected_sha256, &loaded.stamp)?;
         let DomainDocument::OutfitDraft(mut current) = loaded.value else {
             return Err(AppearanceServiceError::InvalidState(
                 "outfit path contains the wrong document kind".to_owned(),
@@ -826,7 +912,15 @@ impl AppearanceService {
             ));
         }
         snapshot.validate_draft_references(&draft)?;
+        let draft_path = snapshot.draft_paths.get(&draft.id).ok_or_else(|| {
+            AppearanceServiceError::InvalidState("outfit draft path is missing".to_owned())
+        })?;
+        let persisted = JsonStore::default().load(&vault.resolve(draft_path)?)?;
+        if persisted.value != DomainDocument::OutfitDraft(draft.clone()) {
+            return Err(AppearanceServiceError::Storage(StorageError::WriteConflict));
+        }
         Ok(OutfitEditorContext {
+            draft_sha256: persisted.stamp.sha256,
             missing_required_slots: missing_required_slots(&snapshot, motion, profile, &draft)?,
             inventory: snapshot.inventory_for_draft(profile.reference(), &draft),
             available_labels: project_labels(vault, snapshot.area.project_id)?,
@@ -846,6 +940,17 @@ impl AppearanceService {
             draft,
             save_state,
         })
+    }
+}
+
+fn require_expected_draft_sha(
+    expected_sha256: Option<&str>,
+    actual: &VersionStamp,
+) -> Result<(), AppearanceServiceError> {
+    if expected_sha256.is_some_and(|expected| expected != actual.sha256) {
+        Err(AppearanceServiceError::Storage(StorageError::WriteConflict))
+    } else {
+        Ok(())
     }
 }
 

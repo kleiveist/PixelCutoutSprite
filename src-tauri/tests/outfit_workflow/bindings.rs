@@ -8,6 +8,10 @@ use pixel_cutout_sprite_studio_lib::application::{
 use pixel_cutout_sprite_studio_lib::exports::{
     CancellationFlag, ExportError, ExportService, ExportStage, NeverCancel,
 };
+use pixel_cutout_sprite_studio_lib::storage::{
+    InterruptAfterStep, NoTransactionFault, RecoveryChoice, StorageError, TransactionPurpose,
+    TransactionService,
+};
 
 #[test]
 fn one_npc_keeps_walk_sprint_and_jump_with_explicit_variant_keys() {
@@ -30,7 +34,7 @@ fn one_npc_keeps_walk_sprint_and_jump_with_explicit_variant_keys() {
     assert_eq!(sprint_binding.appearance_id, saved.appearance.id);
     let sprint_folder = Path::new(&saved.character_folder)
         .join(object_folder(sprint_binding.action_key.as_str(), sprint_binding.id).unwrap());
-    assert_committed_directory_journal(
+    assert_cleaned_directory_transaction(
         &fixture,
         "binding-add",
         TransactionAction::Create,
@@ -939,7 +943,7 @@ fn duplicate_and_rename_preserve_shared_releases_but_not_identity_or_local_state
             },
         )
         .unwrap();
-    assert_committed_directory_journal(
+    assert_cleaned_directory_transaction(
         &fixture,
         "npc-duplicate",
         TransactionAction::Create,
@@ -979,7 +983,7 @@ fn duplicate_and_rename_preserve_shared_releases_but_not_identity_or_local_state
             },
         )
         .unwrap();
-    assert_committed_directory_journal(
+    assert_cleaned_directory_transaction(
         &fixture,
         "npc-rename",
         TransactionAction::Move,
@@ -1022,6 +1026,94 @@ fn duplicate_and_rename_preserve_shared_releases_but_not_identity_or_local_state
         copied.bindings[0].binding.local_overrides,
         local.local_overrides
     );
+}
+
+#[test]
+fn real_npc_rename_resumes_or_rolls_back_after_directory_move_and_reopen() {
+    for choice in [RecoveryChoice::Resume, RecoveryChoice::Rollback] {
+        let fixture = OutfitFixture::new();
+        let saved = save_standard_npc(&fixture, "Mara");
+        let old_folder = PathBuf::from(&saved.character_folder);
+        let new_folder =
+            Path::new(AREA_PATH).join(object_folder("Mara Smith", saved.character.id).unwrap());
+        let interrupted = TransactionService::with_fault(InterruptAfterStep { completed_step: 2 });
+
+        assert!(matches!(
+            BindingService.rename_npc_with_transactions(
+                &fixture.root,
+                Path::new(AREA_PATH),
+                RenameNpcRequest {
+                    character_id: saved.character.id,
+                    expected_revision: saved.character.revision,
+                    name: "Mara Smith".to_owned(),
+                },
+                &interrupted,
+            ),
+            Err(AppearanceServiceError::Storage(
+                StorageError::TransactionInterrupted { step: 2 }
+            ))
+        ));
+        assert!(!fixture
+            .root
+            .resolve(&old_folder)
+            .unwrap()
+            .as_path()
+            .exists());
+        assert!(fixture
+            .root
+            .resolve(&new_folder)
+            .unwrap()
+            .as_path()
+            .is_dir());
+
+        let transaction = TransactionService::<NoTransactionFault>::scan_open(&fixture.root)
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap();
+        assert_eq!(transaction.purpose, TransactionPurpose::CharacterRename);
+        assert!(transaction.can_resume);
+        assert!(transaction.can_rollback);
+
+        let OutfitFixture {
+            _directory, root, ..
+        } = fixture;
+        drop(root);
+        let reopened = VaultRoot::open(_directory.path()).unwrap();
+        TransactionService::default()
+            .recover_candidate(&reopened, transaction.transaction_id, choice)
+            .unwrap();
+        assert!(
+            TransactionService::<NoTransactionFault>::scan_open(&reopened)
+                .unwrap()
+                .is_empty()
+        );
+
+        let context = BindingService
+            .workspace_context(&reopened, Path::new(AREA_PATH))
+            .unwrap();
+        let npc = context
+            .npcs
+            .iter()
+            .find(|npc| npc.character.id == saved.character.id)
+            .unwrap();
+        assert_eq!(npc.character.default_appearance_id, saved.appearance.id);
+        assert_eq!(npc.bindings[0].binding.id, saved.binding.id);
+        match choice {
+            RecoveryChoice::Resume => {
+                assert_eq!(npc.character.name, "Mara Smith");
+                assert_eq!(npc.character.revision, saved.character.revision + 1);
+                assert!(reopened.resolve(&new_folder).unwrap().as_path().is_dir());
+                assert!(!reopened.resolve(&old_folder).unwrap().as_path().exists());
+            }
+            RecoveryChoice::Rollback => {
+                assert_eq!(npc.character.name, "Mara");
+                assert_eq!(npc.character.revision, saved.character.revision);
+                assert!(reopened.resolve(&old_folder).unwrap().as_path().is_dir());
+                assert!(!reopened.resolve(&new_folder).unwrap().as_path().exists());
+            }
+        }
+    }
 }
 
 fn local_override(x: i16) -> LocalOverride {
@@ -1088,7 +1180,7 @@ fn set_asset_content_hash(fixture: &OutfitFixture, asset_folder: &str, digit: &s
         .unwrap();
 }
 
-fn assert_committed_directory_journal(
+fn assert_cleaned_directory_transaction(
     fixture: &OutfitFixture,
     prefix: &str,
     action: TransactionAction,
@@ -1097,49 +1189,26 @@ fn assert_committed_directory_journal(
 ) {
     let directory = fixture.root.path().join("game/.project/transactions");
     let expected_target = expected_target.to_string_lossy().replace('\\', "/");
-    let journal = fs::read_dir(directory)
+    let lingering_journal = fs::read_dir(directory)
         .unwrap()
         .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| {
-            path.file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with(prefix))
-        })
-        .filter_map(|path| serde_json::from_slice::<TransactionJournal>(&fs::read(path).ok()?).ok())
-        .find(|journal| {
-            journal.steps.len() == 1 && journal.steps[0].target.as_str() == expected_target.as_str()
-        })
-        .unwrap();
-    assert_eq!(journal.state, TransactionState::Committed);
-    assert_eq!(journal.cursor, journal.steps.len());
-    let step = &journal.steps[0];
-    assert_eq!(step.action, action);
-    assert_eq!(step.target.as_str(), expected_target);
-    if let Some(expected_staged) = expected_staged {
-        assert_eq!(
-            step.staged.as_str(),
-            expected_staged.to_string_lossy().replace('\\', "/")
-        );
-    } else {
-        let staged = Path::new(step.staged.as_str());
-        assert_eq!(staged.parent(), Path::new(&expected_target).parent());
-        let name = staged.file_name().unwrap().to_string_lossy();
-        assert!(name.starts_with('.'));
-        assert!(name.ends_with(".staged"));
-    }
+        .find(|entry| {
+            entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| name.starts_with(prefix) && name.ends_with(".json"))
+        });
+    assert!(lingering_journal.is_none());
     assert!(fixture
         .root
-        .resolve(Path::new(step.target.as_str()))
+        .resolve(Path::new(&expected_target))
         .unwrap()
         .as_path()
         .is_dir());
-    assert!(!fixture
-        .root
-        .resolve(Path::new(step.staged.as_str()))
-        .unwrap()
-        .as_path()
-        .exists());
+    if action == TransactionAction::Move {
+        let source = expected_staged.expect("move transaction source");
+        assert!(!fixture.root.resolve(source).unwrap().as_path().exists());
+    }
 }
 
 fn mutate_saved_binding(

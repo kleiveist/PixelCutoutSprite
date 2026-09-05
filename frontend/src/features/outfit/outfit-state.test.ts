@@ -120,6 +120,16 @@ describe("outfit editor history", () => {
     expect(state.saveState).toBe("conflict");
     expect(state.present.fittings).toEqual([fitting]);
     expect(state.savingSequence).toBeNull();
+
+    state = outfitHistoryReducer(state, {
+      type: "edit",
+      edits: replaceLocalOverride(state.present, "hand_l", "s", {
+        offset_px: [9, 4],
+        rotation_deg: 0,
+      }),
+    });
+    expect(state.saveState).toBe("conflict");
+    expect(state.saveError).toBe("document changed since it was loaded");
   });
 });
 

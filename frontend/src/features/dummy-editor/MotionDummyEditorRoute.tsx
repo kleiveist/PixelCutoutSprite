@@ -6,6 +6,12 @@ import type { Direction } from "../../domain/common";
 import type { ProfileRevision } from "../../domain/profile";
 import { DirectionEditor } from "../directions";
 import {
+  classifyNativeError,
+  downloadRecoveryCopy,
+  type EditorController,
+  type EditorControllerChange,
+} from "../editing";
+import {
   TimelinePanel,
   commitMotion,
   createMotionHistory,
@@ -25,6 +31,7 @@ interface MotionDummyEditorRouteProps {
   client?: MotionClient;
   onStatus?: (message: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onEditorControllerChange?: EditorControllerChange;
   onPlaybackChange?: (playing: boolean) => void;
 }
 
@@ -40,7 +47,7 @@ const colors = [
   "#756e84",
 ];
 
-type SaveState = "idle" | "saving" | "failed";
+type SaveState = "idle" | "saving" | "failed" | "conflict";
 
 export function MotionDummyEditorRoute({
   sessionId,
@@ -48,6 +55,7 @@ export function MotionDummyEditorRoute({
   client = motionClient,
   onStatus,
   onDirtyChange,
+  onEditorControllerChange,
   onPlaybackChange,
 }: MotionDummyEditorRouteProps) {
   const [editor, setEditor] = useState<MotionEditorData | null>(null);
@@ -69,13 +77,21 @@ export function MotionDummyEditorRoute({
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [directionBusy, setDirectionBusy] = useState<Direction | null>(null);
   const [helperBusy, setHelperBusy] = useState<number | null>(null);
+  const [reloadBusy, setReloadBusy] = useState(false);
   const renderSequence = useRef(0);
   const latestDraft = useRef<MotionDraft | null>(null);
   const persistedRevision = useRef(0);
   const persistedUpdatedAt = useRef("");
+  const persistedSha256 = useRef("");
   const savedContentRef = useRef("");
   const saveInFlight = useRef<Promise<void> | null>(null);
   const saveRequested = useRef(false);
+  const saveStateRef = useRef<SaveState>("idle");
+  const historyRef = useRef<MotionHistory | null>(null);
+  const editorRef = useRef<MotionEditorData | null>(null);
+  const helperBusyRef = useRef<number | null>(null);
+  const directionBusyRef = useRef<Direction | null>(null);
+  const reloadBusyRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -85,17 +101,22 @@ export function MotionDummyEditorRoute({
     setNeighborUrls({});
     setSampledPose({});
     setError(null);
+    setSaveError(null);
+    saveStateRef.current = "idle";
+    setSaveState("idle");
     void client
       .openEditor(sessionId, templateId)
       .then((value) => {
         if (!active) return;
         const content = draftContent(value.draft);
         setEditor(value);
+        editorRef.current = value;
         setHistory(createMotionHistory(value.draft));
         setSavedContent(content);
         savedContentRef.current = content;
         persistedRevision.current = value.draft.revision;
         persistedUpdatedAt.current = value.draft.updated_at;
+        persistedSha256.current = value.draft_sha256;
       })
       .catch((reason) => {
         if (active) setError(message(reason));
@@ -108,19 +129,24 @@ export function MotionDummyEditorRoute({
   const draft = history?.present ?? null;
   const dirty = Boolean(draft && draftContent(draft) !== savedContent);
   latestDraft.current = draft;
+  historyRef.current = history;
+  editorRef.current = editor;
+  saveStateRef.current = saveState;
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   useEffect(() => onPlaybackChange?.(playing), [onPlaybackChange, playing]);
   useEffect(() => () => onPlaybackChange?.(false), [onPlaybackChange]);
+  const mutationInFlight =
+    saveInFlight.current !== null || helperBusy !== null || directionBusy !== null || reloadBusy;
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty && !mutationInFlight) return;
     const beforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", beforeUnload);
     return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [dirty]);
+  }, [dirty, mutationInFlight]);
 
   const previewDraft = useMemo(
     () =>
@@ -183,8 +209,11 @@ export function MotionDummyEditorRoute({
 
   const commitDraft = useCallback((next: MotionDraft, label: string) => {
     setHistory((current) => (current ? commitMotion(current, next, label) : current));
-    setSaveState("idle");
-    setSaveError(null);
+    if (saveStateRef.current !== "conflict") {
+      saveStateRef.current = "idle";
+      setSaveState("idle");
+      setSaveError(null);
+    }
     setError(null);
   }, []);
 
@@ -198,16 +227,20 @@ export function MotionDummyEditorRoute({
         const current = latestDraft.current;
         if (!current || draftContent(current) === savedContentRef.current) continue;
         const snapshot = structuredClone(current);
+        saveStateRef.current = "saving";
         setSaveState("saving");
         setSaveError(null);
         setError(null);
         try {
           const saved = await client.saveDraft(
             sessionId,
-            saveRequest(snapshot, persistedRevision.current),
+            saveRequest(snapshot, persistedRevision.current, persistedSha256.current),
           );
-          persistedRevision.current = saved.revision;
-          persistedUpdatedAt.current = saved.updated_at;
+          persistedRevision.current = saved.draft.revision;
+          persistedUpdatedAt.current = saved.draft.updated_at;
+          persistedSha256.current = saved.draft_sha256;
+          setEditor(saved);
+          editorRef.current = saved;
           const content = draftContent(snapshot);
           savedContentRef.current = content;
           setSavedContent(content);
@@ -215,21 +248,25 @@ export function MotionDummyEditorRoute({
             currentHistory
               ? replacePresent(currentHistory, {
                   ...currentHistory.present,
-                  revision: saved.revision,
-                  updated_at: saved.updated_at,
-                  released_from_draft_revision: saved.released_from_draft_revision,
+                  revision: saved.draft.revision,
+                  updated_at: saved.draft.updated_at,
+                  released_from_draft_revision: saved.draft.released_from_draft_revision,
                 })
               : currentHistory,
           );
           if (latestDraft.current && draftContent(latestDraft.current) !== content)
             saveRequested.current = true;
-          onStatus?.(`${editor.template_name} saved locally as draft r${saved.revision}`);
+          onStatus?.(`${editor.template_name} saved locally as draft r${saved.draft.revision}`);
         } catch (reason) {
-          setSaveState("failed");
-          setSaveError(message(reason));
+          const failure = classifyNativeError(reason);
+          const failedState = failure.kind === "conflict" ? "conflict" : "failed";
+          saveStateRef.current = failedState;
+          setSaveState(failedState);
+          setSaveError(failure.message);
           throw reason;
         }
       }
+      saveStateRef.current = "idle";
       setSaveState("idle");
     };
     const operation = drain().finally(() => {
@@ -240,7 +277,14 @@ export function MotionDummyEditorRoute({
   }, [client, editor, onStatus, sessionId]);
 
   useEffect(() => {
-    if (!dirty || saveState === "saving" || saveState === "failed" || !editor?.writable) return;
+    if (
+      !dirty ||
+      saveState === "saving" ||
+      saveState === "failed" ||
+      saveState === "conflict" ||
+      !editor?.writable
+    )
+      return;
     const timer = window.setTimeout(() => {
       void requestSave().catch(() => undefined);
     }, 2000);
@@ -249,37 +293,23 @@ export function MotionDummyEditorRoute({
 
   const undoDraft = useCallback(() => {
     setHistory((current) => (current ? undoMotion(current) : current));
-    setSaveState("idle");
+    if (saveStateRef.current !== "conflict") {
+      saveStateRef.current = "idle";
+      setSaveState("idle");
+    }
   }, []);
   const redoDraft = useCallback(() => {
     setHistory((current) => (current ? redoMotion(current) : current));
-    setSaveState("idle");
+    if (saveStateRef.current !== "conflict") {
+      saveStateRef.current = "idle";
+      setSaveState("idle");
+    }
   }, []);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return;
-      const command = event.ctrlKey || event.metaKey;
-      const canEditDirection =
-        editor?.writable === true &&
-        latestDraft.current?.directions.find((item) => item.direction === direction)?.mode ===
-          "explicit";
-      if (command && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        void requestSave().catch(() => undefined);
-      } else if (command && event.key.toLowerCase() === "z") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        if (canEditDirection) {
-          if (event.shiftKey) redoDraft();
-          else undoDraft();
-        }
-      } else if (command && event.key.toLowerCase() === "y") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        if (canEditDirection) redoDraft();
-      } else if (event.key === " ") {
+      if (event.key === " ") {
         event.preventDefault();
         event.stopImmediatePropagation();
         setPlaying((value) => !value);
@@ -299,7 +329,113 @@ export function MotionDummyEditorRoute({
     };
     window.addEventListener("keydown", handleKey, { capture: true });
     return () => window.removeEventListener("keydown", handleKey, { capture: true });
-  }, [direction, editor?.writable, redoDraft, requestSave, undoDraft]);
+  }, []);
+
+  const reloadSavedDraft = useCallback(async (): Promise<void> => {
+    if (
+      saveInFlight.current ||
+      helperBusyRef.current !== null ||
+      directionBusyRef.current !== null ||
+      reloadBusyRef.current ||
+      !window.confirm(
+        "Reload the persisted motion draft and discard the current in-memory edits? Save a recovery copy first if needed.",
+      )
+    ) {
+      return;
+    }
+    reloadBusyRef.current = true;
+    setReloadBusy(true);
+    setError(null);
+    try {
+      const value = await client.openEditor(sessionId, templateId);
+      const content = draftContent(value.draft);
+      setEditor(value);
+      editorRef.current = value;
+      setHistory(createMotionHistory(value.draft));
+      setSavedContent(content);
+      savedContentRef.current = content;
+      persistedRevision.current = value.draft.revision;
+      persistedUpdatedAt.current = value.draft.updated_at;
+      persistedSha256.current = value.draft_sha256;
+      saveStateRef.current = "idle";
+      setSaveState("idle");
+      setSaveError(null);
+      onStatus?.(`${value.template_name} reloaded from the persisted draft`);
+    } catch (reason) {
+      setError(classifyNativeError(reason).message);
+    } finally {
+      reloadBusyRef.current = false;
+      setReloadBusy(false);
+    }
+  }, [client, onStatus, sessionId, templateId]);
+
+  const saveRecoveryCopy = useCallback((): void => {
+    const current = latestDraft.current;
+    if (!current) return;
+    downloadRecoveryCopy(`motion-${templateId}-recovery.json`, {
+      format: "pixel-cutout-sprite-motion-recovery",
+      format_version: 1,
+      template_id: templateId,
+      persisted_revision: persistedRevision.current,
+      persisted_sha256: persistedSha256.current,
+      draft: current,
+    });
+  }, [templateId]);
+
+  const controller = useMemo<EditorController>(
+    () => ({
+      id: `motion:${sessionId}:${templateId}`,
+      label: "motion template",
+      getState: () => {
+        const current = latestDraft.current;
+        const isDirty = Boolean(current && draftContent(current) !== savedContentRef.current);
+        const state = saveStateRef.current;
+        return {
+          saveState:
+            state === "saving" || state === "failed" || state === "conflict"
+              ? state
+              : isDirty
+                ? "dirty"
+                : "saved",
+          status: motionSaveStatus(state, isDirty, saveError),
+          dirty: isDirty,
+          mutationInFlight:
+            saveInFlight.current !== null ||
+            helperBusyRef.current !== null ||
+            directionBusyRef.current !== null ||
+            reloadBusyRef.current,
+          writable: editorRef.current?.writable === true,
+          canUndo: (historyRef.current?.past.length ?? 0) > 0,
+          canRedo: (historyRef.current?.future.length ?? 0) > 0,
+        };
+      },
+      save: requestSave,
+      undo: undoDraft,
+      redo: redoDraft,
+      recoveryCopy: () => {
+        const current = latestDraft.current;
+        return current
+          ? {
+              fileName: `motion-${templateId}-recovery.json`,
+              value: {
+                format: "pixel-cutout-sprite-motion-recovery",
+                format_version: 1,
+                template_id: templateId,
+                persisted_revision: persistedRevision.current,
+                persisted_sha256: persistedSha256.current,
+                draft: current,
+              },
+            }
+          : null;
+      },
+    }),
+    [redoDraft, requestSave, saveError, sessionId, templateId, undoDraft],
+  );
+
+  useEffect(() => {
+    onEditorControllerChange?.(controller);
+    return () => onEditorControllerChange?.(null);
+  }, [controller, onEditorControllerChange]);
 
   if (!editor || !history || !draft || !previewDraft)
     return (
@@ -310,14 +446,7 @@ export function MotionDummyEditorRoute({
       </section>
     );
 
-  const saveStatus =
-    saveState === "saving"
-      ? "Saving…"
-      : saveState === "failed"
-        ? `Unsaved · ${saveError ?? "write failed"}`
-        : dirty
-          ? "Unsaved changes · autosave in 2 s"
-          : "Saved locally";
+  const saveStatus = motionSaveStatus(saveState, dirty, saveError);
   const activeSlots = directionalSlots[direction] ?? [];
   const activeDefinition = draft.directions.find((item) => item.direction === direction);
   const directionIsEditable = activeDefinition?.mode === "explicit";
@@ -332,6 +461,24 @@ export function MotionDummyEditorRoute({
       {error && (
         <p className="workspace-error" role="alert">
           {error}
+        </p>
+      )}
+      {saveError && (
+        <p className="workspace-error" role="alert">
+          {saveError} Current in-memory edits are retained.{" "}
+          <span>
+            <button type="button" onClick={() => void requestSave().catch(() => undefined)}>
+              {saveState === "conflict" ? "Retry write" : "Retry save"}
+            </button>{" "}
+            <button type="button" onClick={saveRecoveryCopy}>
+              Save recovery copy
+            </button>{" "}
+            {saveState === "conflict" && (
+              <button type="button" disabled={reloadBusy} onClick={() => void reloadSavedDraft()}>
+                Reload saved draft
+              </button>
+            )}
+          </span>
         </p>
       )}
       {clippingCount > 0 && (
@@ -382,7 +529,7 @@ export function MotionDummyEditorRoute({
         onSelectionChange={setSelectedSlots}
         onUndo={undoDraft}
         pose={sampledPose}
-        readOnly={!editor.writable || !directionIsEditable}
+        readOnly={!editor.writable || !directionIsEditable || reloadBusy}
         renderedFrameUrl={previewUrl}
         saveStatusText={saveStatus}
         slots={directionalSlots.s ?? []}
@@ -394,7 +541,7 @@ export function MotionDummyEditorRoute({
         canUndo={history.past.length > 0}
         direction={direction}
         frame={frame}
-        helperReadOnly={!editor.writable || helperBusy !== null}
+        helperReadOnly={!editor.writable || helperBusy !== null || reloadBusy}
         motion={draft}
         onionSkin={onionSkin}
         onAddPoseKey={() =>
@@ -414,6 +561,7 @@ export function MotionDummyEditorRoute({
         onAutoKeyChange={setAutoKey}
         onBakeHelper={(helperIndex) => {
           const snapshot = structuredClone(draft);
+          helperBusyRef.current = helperIndex;
           setHelperBusy(helperIndex);
           setError(null);
           void client
@@ -429,7 +577,10 @@ export function MotionDummyEditorRoute({
               commitDraft(next, "Convert motion helper to normal keys");
             })
             .catch((reason) => setError(message(reason)))
-            .finally(() => setHelperBusy(null));
+            .finally(() => {
+              helperBusyRef.current = null;
+              setHelperBusy(null);
+            });
         }}
         onFrameChange={setFrame}
         onMotionChange={commitDraft}
@@ -441,7 +592,7 @@ export function MotionDummyEditorRoute({
         }}
         onUndo={undoDraft}
         playing={playing}
-        readOnly={!editor.writable || !directionIsEditable}
+        readOnly={!editor.writable || !directionIsEditable || reloadBusy}
       />
       <DirectionEditor
         busyDirection={directionBusy}
@@ -452,6 +603,7 @@ export function MotionDummyEditorRoute({
         }
         onDetach={(value) => {
           const snapshot = structuredClone(draft);
+          directionBusyRef.current = value;
           setDirectionBusy(value);
           setError(null);
           void client
@@ -467,9 +619,12 @@ export function MotionDummyEditorRoute({
               commitDraft(next, `Detach ${value.toUpperCase()} as explicit`);
             })
             .catch((reason) => setError(message(reason)))
-            .finally(() => setDirectionBusy(null));
+            .finally(() => {
+              directionBusyRef.current = null;
+              setDirectionBusy(null);
+            });
         }}
-        readOnly={!editor.writable}
+        readOnly={!editor.writable || reloadBusy}
       />
     </div>
   );
@@ -527,10 +682,11 @@ function neighborFrames(
   };
 }
 
-function saveRequest(draft: MotionDraft, expectedRevision: number) {
+function saveRequest(draft: MotionDraft, expectedRevision: number, expectedSha256: string) {
   return {
     template_id: draft.template_id,
     expected_revision: expectedRevision,
+    expected_sha256: expectedSha256,
     frame_size_px: draft.frame_size_px,
     ground_origin_px: draft.ground_origin_px,
     frame_count: draft.frame_count,
@@ -549,6 +705,14 @@ function isEditableTarget(target: EventTarget | null): boolean {
       ["input", "textarea", "select"].includes(target.tagName.toLowerCase()))
   );
 }
+
+function motionSaveStatus(state: SaveState, dirty: boolean, error: string | null): string {
+  if (state === "saving") return "Saving…";
+  if (state === "conflict") return `Save conflict · ${error ?? "saved draft changed"}`;
+  if (state === "failed") return `Unsaved · ${error ?? "write failed"}`;
+  return dirty ? "Unsaved changes · autosave in 2 s" : "Saved locally";
+}
+
 function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }

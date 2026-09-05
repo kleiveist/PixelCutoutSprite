@@ -5,7 +5,7 @@ use crate::domain::{
     Character, CharacterStatus, DocumentKind, DomainDocument, ObjectId, OutfitDraft,
     OutfitDraftStatus, ReviewState, UtcTimestamp, SCHEMA_VERSION,
 };
-use crate::storage::{object_folder, JsonStore, VaultRoot, VersionStamp};
+use crate::storage::{object_folder, JsonStore, TransactionPurpose, VaultRoot, VersionStamp};
 
 use super::appearance_service::{
     appearance_from_draft, now, AppearanceServiceError, SaveNpcRequest, SavedNpc,
@@ -32,7 +32,8 @@ struct SaveLayout {
     staging_root: PathBuf,
     backup_root: PathBuf,
     binding_folder: PathBuf,
-    journal_path: PathBuf,
+    project_path: PathBuf,
+    transaction_id: ObjectId,
 }
 
 pub(super) fn save_as_npc(
@@ -40,9 +41,17 @@ pub(super) fn save_as_npc(
     area_path: &Path,
     draft_id: ObjectId,
     expected_revision: u32,
+    expected_sha256: Option<&str>,
     request: SaveNpcRequest,
 ) -> Result<SavedNpc, AppearanceServiceError> {
-    let input = validate_save(vault, area_path, draft_id, expected_revision, &request)?;
+    let input = validate_save(
+        vault,
+        area_path,
+        draft_id,
+        expected_revision,
+        expected_sha256,
+        &request,
+    )?;
     let documents = build_documents(&input, request)?;
     let layout = SaveLayout::new(area_path, &documents)?;
     let assigned = assigned_draft(
@@ -66,6 +75,7 @@ fn validate_save(
     area_path: &Path,
     draft_id: ObjectId,
     expected_revision: u32,
+    expected_sha256: Option<&str>,
     request: &SaveNpcRequest,
 ) -> Result<ValidatedSave, AppearanceServiceError> {
     validate_portable_display_name("npc.name", &request.name)?;
@@ -79,6 +89,11 @@ fn validate_save(
             AppearanceServiceError::InvalidState("outfit draft path is missing".to_owned())
         })?;
     let loaded = JsonStore::default().load(&vault.resolve(&draft_path)?)?;
+    if expected_sha256.is_some_and(|expected| expected != loaded.stamp.sha256) {
+        return Err(AppearanceServiceError::Storage(
+            crate::storage::StorageError::WriteConflict,
+        ));
+    }
     let DomainDocument::OutfitDraft(draft) = loaded.value else {
         return Err(AppearanceServiceError::InvalidState(
             "outfit path contains the wrong document kind".to_owned(),
@@ -205,7 +220,7 @@ impl SaveLayout {
         })?;
         let transaction_root = project_path
             .join(".project/transactions")
-            .join(format!("outfit-save--{transaction_id}"));
+            .join(format!("{transaction_id}.stage"));
         Ok(Self {
             final_dir,
             staging_root: transaction_root,
@@ -213,9 +228,8 @@ impl SaveLayout {
                 .join(".project/backups")
                 .join(format!("outfit-save--{transaction_id}")),
             binding_folder,
-            journal_path: project_path
-                .join(".project/transactions")
-                .join(format!("outfit-save--{transaction_id}.json")),
+            project_path: project_path.to_path_buf(),
+            transaction_id,
         })
     }
 }
@@ -265,7 +279,13 @@ fn publish_npc(
             DomainDocument::OutfitDraft(assigned.clone()),
         )?,
     ];
-    publish(vault, &layout.journal_path, &plans)?;
+    publish(
+        vault,
+        &layout.project_path,
+        TransactionPurpose::General,
+        layout.transaction_id,
+        &plans,
+    )?;
     Ok(())
 }
 

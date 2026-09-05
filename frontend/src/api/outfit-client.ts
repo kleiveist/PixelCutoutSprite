@@ -77,6 +77,7 @@ export interface OutfitLaunchContext {
 
 export interface OutfitEditorContext {
   draft: OutfitDraft;
+  draft_sha256: string;
   template: MotionTemplate;
   motion: MotionRevision;
   profile: ProfileRevision;
@@ -140,6 +141,7 @@ export interface OutfitClient {
     draftId: string,
     expectedRevision: number,
     edits: OutfitDraftEdits,
+    expectedSha256: string,
   ): Promise<OutfitEditorContext>;
   autoAssign(
     sessionId: string,
@@ -147,6 +149,7 @@ export interface OutfitClient {
     draftId: string,
     expectedRevision: number,
     assets: SlotRef[],
+    expectedSha256: string,
   ): Promise<OutfitEditorContext>;
   preview(
     sessionId: string,
@@ -162,12 +165,14 @@ export interface OutfitClient {
     draftId: string,
     expectedRevision: number,
     request: SaveNpcRequest,
+    expectedSha256: string,
   ): Promise<SavedNpc>;
   applyToNpc(
     sessionId: string,
     areaId: string,
     draftId: string,
     expectedRevision: number,
+    expectedSha256: string,
   ): Promise<SavedNpc>;
 }
 
@@ -190,22 +195,24 @@ export const outfitClient: OutfitClient = {
   resume(sessionId, areaId, draftId) {
     return invoke<OutfitEditorContext>("resume_outfit_draft", { sessionId, areaId, draftId });
   },
-  autosave(sessionId, areaId, draftId, expectedRevision, edits) {
+  autosave(sessionId, areaId, draftId, expectedRevision, edits, expectedSha256) {
     return invoke<OutfitEditorContext>("autosave_outfit_draft", {
       sessionId,
       areaId,
       draftId,
       expectedRevision,
       edits,
+      expectedSha256,
     });
   },
-  autoAssign(sessionId, areaId, draftId, expectedRevision, assets) {
+  autoAssign(sessionId, areaId, draftId, expectedRevision, assets, expectedSha256) {
     return invoke<OutfitEditorContext>("auto_assign_outfit", {
       sessionId,
       areaId,
       draftId,
       expectedRevision,
       assets,
+      expectedSha256,
     });
   },
   preview(sessionId, areaId, draftId, direction, frameIndex, edits) {
@@ -218,21 +225,23 @@ export const outfitClient: OutfitClient = {
       edits,
     });
   },
-  saveAsNpc(sessionId, areaId, draftId, expectedRevision, request) {
+  saveAsNpc(sessionId, areaId, draftId, expectedRevision, request, expectedSha256) {
     return invoke<SavedNpc>("save_outfit_as_npc", {
       sessionId,
       areaId,
       draftId,
       expectedRevision,
       request,
+      expectedSha256,
     });
   },
-  applyToNpc(sessionId, areaId, draftId, expectedRevision) {
+  applyToNpc(sessionId, areaId, draftId, expectedRevision, expectedSha256) {
     return invoke<SavedNpc>("apply_outfit_to_npc", {
       sessionId,
       areaId,
       draftId,
       expectedRevision,
+      expectedSha256,
     });
   },
 };

@@ -71,7 +71,7 @@ export function PlaceholderView({
           Create reusable motion, dress readable characters, and export deterministic sprite
           packages—all from a local desktop vault.
         </p>
-        <VaultWelcome client={vaultClient} onOpened={onVaultOpened} />
+        <VaultWelcome client={vaultClient} currentVault={vault} onOpened={onVaultOpened} />
       </div>
       <div className="pixel-stage" aria-label="Decorative pixel character preview">
         <div className="stage-grid" />

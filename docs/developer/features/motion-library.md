@@ -32,6 +32,8 @@ does not enter animation or NPC views without area context. P08 replaces the cle
 editor interim, P13 replaces outfitting, and P15 replaces the NPC interim.
 
 `MotionService` performs filesystem discovery by IDs, validates safe area-owned paths, rejects
-read-only mutations and CAS conflicts, and rolls back its local two-file draft/template update if
-the second write fails. P18 still audits crash recovery between process-level write steps; no
-cross-file atomicity claim is made here.
+read-only mutations and external SHA-256 conflicts, and publishes draft/template saves and new
+release revisions with project-owned sealed journals. Injected process-level interruption tests
+reopen the Vault and prove both resume and rollback. Removal moves an unreferenced template into
+project trash through the same recovery service. These guarantees are ordered and recoverable; no
+cross-file atomicity claim is made.

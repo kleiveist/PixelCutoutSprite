@@ -314,9 +314,12 @@ pub fn save_motion_draft(
     session_id: String,
     request: SaveMotionDraftRequest,
     service: State<'_, Mutex<VaultService>>,
-) -> Result<MotionDraft, String> {
+) -> Result<MotionEditorData, String> {
     let mut service = lock(&service)?;
-    MotionService::save_draft(&mut service, parse_id("session_id", &session_id)?, request)
+    let session_id = parse_id("session_id", &session_id)?;
+    let template_id = request.template_id;
+    MotionService::save_draft(&mut service, session_id, request)
+        .and_then(|_| MotionService::editor_data(&service, session_id, template_id))
         .map_err(|error| error.to_string())
 }
 

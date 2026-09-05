@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P17 abgeschlossen; P18 ist der nächste Schritt
+**Implementierung:** P00–P18 abgeschlossen; P19 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -159,6 +159,17 @@ Der generische Pointer bleibt bis zur abschließenden Paketvalidierung unveränd
 importiert Loop- und Once-Ressourcen sowie die optionale Szene im isolierten frischen Projekt aus
 Unicode-/Leerzeichenpfaden und nach cachefreier Verzeichnisverschiebung.
 
+P18 macht die reale Bearbeitungskette nach einem Prozessabbruch wiederaufnehmbar. Sealed Journale
+binden Plan, projektbezogene Eigentümerschaft, erwartete Quellbytes und veröffentlichte Ergebnisse;
+Resume und Rollback gleichen den tatsächlichen Dateistand idempotent ab. Projekt-/NPC-Rename,
+Workspace-Label-Entfernung, Bereichs-/Motion-/Outfit-/Binding-Schreibvorgänge, der konfigurierte
+Asset-Import, Freigaben, Trash-Aktionen und der letzte Exportpointer verwenden diese Grenze. Eine
+echte OS-Dateisperre schützt den Writer auch vor einem zweiten Prozess, während verwaiste Metadaten
+nur mit erneuter Inspektion und exaktem Bestätigungstoken übernommen werden. Motion- und
+Outfit-Editor serialisieren Autosaves, bewahren Fehlerstände und Recovery-Kopien und blockieren
+Navigation während ungesicherter oder laufender Mutationen. Schema-v0-Fixtures migrieren mit
+projektlokalem Backup; Zukunftsschemata und fremde, nicht verankerte Bäume bleiben unangetastet.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -189,7 +200,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P15](../prompts/pixelcutoutsprite/15.md) | NPC-Dashboard, Mehrfachanimationen und Revisionen | Abgeschlossen |
 | [P16](../prompts/pixelcutoutsprite/16.md) | Generischer PNG-/JSON-Export | Abgeschlossen |
 | [P17](../prompts/pixelcutoutsprite/17.md) | Portables Godot-Paket und echter Importtest | Abgeschlossen |
-| [P18](../prompts/pixelcutoutsprite/18.md) | Recovery, Autosave und Datenintegrität härten | Nicht begonnen |
+| [P18](../prompts/pixelcutoutsprite/18.md) | Recovery, Autosave und Datenintegrität härten | Abgeschlossen |
 | [P19](../prompts/pixelcutoutsprite/19.md) | Desktop-Usability und Leistung prüfen | Nicht begonnen |
 | [P20](../prompts/pixelcutoutsprite/20.md) | Native Builds, Tooling und Codespaces | Nicht begonnen |
 | [P21](../prompts/pixelcutoutsprite/21.md) | Anleitung und nachvollziehbare Beispiel-Vault | Nicht begonnen |
@@ -219,6 +230,9 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P15: NPC-Dashboard/-Detail, Mehrfachbindungen, Freigaben, explizite Revisionsübernahme, lokale Overrides sowie Duplizieren/Umbenennen erstellt und gegatet.
 - [x] P16: gemeinsamen Multi-Action-PNG-/JSON-Export, Atlanten, optionale Einzelbilder, Profile, Fingerprint, validierte Veröffentlichung und native Jobs erstellt und gegatet.
 - [x] P17: portable Godot-`SpriteFrames`, optionale sichere Szene, deterministische Paketwiederverwendung, atomaren Jobabschluss und echten cachefreien Godot-4.7.2-Import erstellt und gegatet.
+- [x] P18: Recovery-UI, idempotente Resume-/Rollback-Journale, OS-Writer-Lock, CAS-Autosaves,
+  Migrationen, Scope-/Eigentumsschutz und echte Unterbrechungstests über Bearbeitung, Import,
+  Freigabe, Trash und Export erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
 - [x] Meilenstein C: Figuren, P12–P15.
@@ -433,6 +447,22 @@ gestarteten Godot-Prozess nicht derselbe Pfadraum. Der Wegwerftest liegt deshalb
 Checkouts, isoliert trotzdem HOME/XDG vollständig und entfernt seine Daten beim Testende. So prüft
 derselbe Harness sowohl einen direkten Binary-Aufruf als auch den tatsächlichen Host-Runner.
 
+**2026-09-05 / P18:** Eine Lockdatei mit Zeitstempel ist keine Writer-Exklusivität. Der dauerhafte
+Sibling-Guard hält deshalb einen echten exklusiven Betriebssystem-Lock; die JSON-Datei ist nur
+diagnostische, tokengebundene Metadaten. Erst ein erfolgreich gelockter Guard beweist, dass eine
+verwaiste oder beschädigte Metadatendatei überhaupt zur Übernahme angeboten werden darf.
+
+**2026-09-05 / P18:** Ein Journalcursor allein beweist nach einem Prozessabbruch nicht, ob der
+vorherige Rename bereits erfolgt ist. Plan- und Ergebnisdigests, Besitzeridentität und eine
+Filesystem-Reconciliation entscheiden deshalb vor jeder Cursorbewegung. So bleiben Resume und
+Rollback auch dann wiederholbar, wenn die Recovery selbst erneut unterbrochen wird.
+
+**2026-09-05 / P18:** Workspace-Label-Entfernung ist fachlich global, verändert aber auch
+Projektmanifeste. Ein globaler Koordinator darf die Reihenfolge festhalten; die tatsächlichen
+Stages und Backups der Projektdateien müssen trotzdem unter dem jeweiligen `.project`-Eigentümer
+liegen. Dadurch bleibt `.pixelforge-studio` global-only, ohne eine halb entfernte Labelreferenz zu
+riskieren.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -457,6 +487,7 @@ derselbe Harness sowohl einen direkten Binary-Aufruf als auch den tatsächlichen
 | ADR-019 | Exportaktualität wird aus einem kanonischen Fingerabdruck der effektiv festgehaltenen Quellen abgeleitet, nicht aus dem jeweils neuesten Katalogstand oder Prüfmetadaten. | Ungenutzte Releases und reine Freigaben dürfen einen visuell unveränderten Build nicht als veraltet markieren. |
 | ADR-020 | Generische Builds werden in einem inhaltsadressierten, verwalteten NPC-/Binding-Ziel veröffentlicht; nur ein validiertes `current.json` bezeichnet den aktuellen Stand. | Verhindert beliebige IPC-Schreibpfade, verwaiste Build-Auswahl und die Beschädigung des letzten guten Exports durch Abbruch oder einen fehlerhaften neuen Build. |
 | ADR-021 | Ein Godot-Job baut zuerst den unveränderlichen generischen Build und das vollständige abgeleitete Paket; erst danach darf derselbe Job `current.json` publizieren. | Ein fehlgeschlagenes oder abgebrochenes Engine-Paket darf keinen nur teilweise erfolgreichen Gesamtzustand als aktuell markieren; sichere inhaltsadressierte Orphans bleiben wiederverwendbar. |
+| ADR-022 | Mehrdatei-Mutationen verwenden einen eigentumsgeprüften, digest-versiegelten Journalplan; Writer-Exklusivität kommt aus einer OS-Dateisperre, nicht aus Alter oder Existenz der JSON-Metadaten. | Verhindert falsche Atomaritätszusagen, stille Übernahme aktiver Vaults und unprüfbare Recovery nach einem Rename-vor-Cursor-Crashfenster. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -546,6 +577,10 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P17 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 167 Tests, 1 explizit separat ausgeführter Godot-Test und alle Compiler-/Formatgates | Der vollständige Rust-Bestand bleibt grün; der normalerweise ignorierte Engine-Test wurde im vorigen Gate mit der exakt zugesicherten Version ausgeführt. |
 | 2026-09-05 / P17 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 126 Tests in 32 Dateien und alle Frontend-Gates | Format-/Szenenwahl, Profilroundtrip, Vollständigkeitsgate, native snake_case-Daten, Godot-Fortschritt, atomarer Abbruchhinweis, verwaltete Ausgabe und Navigation sind abgedeckt; der Build umfasst 109 Module. |
 | 2026-09-05 / P17 | `tools/control.py docs check`, `quality architecture`, `tauri test --cargo --build-dry-run` und stabile Source-Policytests | Linux-Host, Python 3.13.15 | PASS | Navigation für 90 vom bestehenden Index erfasste Dokumentseiten konsistent, TypeScript-AST parst 125 Dateien, Desktopprofil/Cargo/native Dry-Run sind intakt und 16 Repository-Vertragstests bestehen. |
+| 2026-09-05 / P18 | fokussierte Recovery-, Lock-, Migration-, Producer-, Konflikt- und Eigentumstests | Linux-Host, Rust 1.97.1 | PASS | Echte Servicepfade für Projekt-/NPC-Rename, Projekt-/Motion-Trash, Workspace-Label, Bereich/Profil, Motion-Save/Freigabe, konfigurierten Zwei-Asset-Import, Outfit/Binding, Exportprofil und finalen Exportpointer werden zwischen Filesystemschritten unterbrochen, neu geöffnet und per Resume sowie Rollback geprüft; ein echter Kindprozess belegt den zweiten Writer. |
+| 2026-09-05 / P18 | `cargo test --all-targets --locked`, `cargo check`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 212 Tests, 1 vorgesehener Godot-Test ignoriert, alle Compiler-/Formatgates | Sealed Plan-/Ergebnisdigests, idempotente Reconciliation, Scope-/Owner-Tampering, CAS, belegte Ziele, exakte Migrationsbackups, Zukunftsschema, fremde Bäume, Projektanlage-vor-Journal, Trash, Cache-Neuaufbau und verschobener kopierter Vault bleiben gemeinsam grün. |
+| 2026-09-05 / P18 | `npm test -- --run`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 150 Tests in 36 Dateien und alle Frontend-Gates | Exklusive Recovery-Ansicht, Opaque-ID-Aktionen, Orphan-Bestätigung, Live-Barriere, Recovery-Kopien, serialisierte Motion-/Outfit-Autosaves, Konflikt-Reload, Undo/Redo, Navigations-/Window-Gates und Freigabe-Blocking sind abgedeckt; der Build umfasst 112 Module. |
+| 2026-09-05 / P18 | `integrate --full-fix`, `integrate --check --json`, `docs check` und `quality architecture --format json` | Linux-Host, Python 3.13.15 | PASS | Das Desktopprofil ist ohne offene Operation integriert, die Navigation für 90 Dokumentseiten ist konsistent und die TypeScript-AST-Prüfung parst 132 Dateien. Das bekannte vollständige `quality`-Toolingproblem mit dem Scan von `.tooling-state` sowie historischen Formatterbefunden bleibt wie geplant Gegenstand von P20; die direkten Produktgates sind grün. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -555,8 +590,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P18 für Recovery, Autosave und Datenintegrität auf der
-realen Bearbeitungs- und Exportkette ausführen.
+**Nächster ausführbarer Schritt:** P19 für Desktop-Usability, repräsentative Last- und
+Speicherprofile sowie nachvollziehbare native Bediennachweise ausführen.
 
 ## Outcomes & Retrospective
 
@@ -615,5 +650,11 @@ Wahrheit zu machen. Relative Atlasressourcen, optionaler sicherer Szenenbaum, ex
 Prüfung und die verzögerte gemeinsame Pointer-Veröffentlichung sind im nativen Desktopjob
 verbunden. Der reale Godot-4.7.2-Harness beweist den Import ohne Vault, alte Caches oder stabile
 Ausgabepfade und wiederholt ihn nach einer Unicode-Verzeichnisverschiebung.
+P18 schließt die zuvor markierten Crashfenster ohne Datenbank- oder Verzeichnisatomaritätsfiktion.
+Die App erkennt offene Journale vor jedem weiteren Write, bietet ausschließlich verifizierbare
+Resume-/Rollback-Aktionen an und hält fehlerhafte Editorstände als explizite Recovery-Kopie. Reale
+Produktionsproducer, ein konkurrierender Kindprozess, Migrations- und Zukunftsschemafixtures,
+projektlokale Sicherungen und ein an einen neuen Pfad kopierter Vault belegen die Grenze. Native
+Windows-/macOS-Dateisystemsemantik bleibt bewusst Bestandteil von P20.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

@@ -8,9 +8,14 @@ use pixel_cutout_sprite_studio_lib::asset_io::{
     PackageEntry, PngImporter, SheetRect, ASSET_PACKAGE_FORMAT,
 };
 use pixel_cutout_sprite_studio_lib::domain::{
-    AssetKind, Direction, DomainDocument, ObjectId, PixelPoint, PixelSize, RevisionRef, SlotId,
+    Area, AssetKind, Direction, DirectionModel, DocumentKind, DomainDocument, ObjectId, ObjectType,
+    PixelPoint, PixelSize, Project, RecordStatus, RevisionRef, SlotId, UtcTimestamp, Vault,
+    SCHEMA_VERSION, VAULT_FORMAT,
 };
-use pixel_cutout_sprite_studio_lib::storage::{JsonStore, ObjectIndex, VaultRoot};
+use pixel_cutout_sprite_studio_lib::storage::{
+    InterruptAfterStep, JsonStore, NoTransactionFault, ObjectIndex, RecoveryChoice, StorageError,
+    TransactionPurpose, TransactionService, TransactionState, VaultRoot,
+};
 use tempfile::TempDir;
 
 fn allowed() -> HashSet<SlotId> {
@@ -68,6 +73,99 @@ fn write_package(root: &Path, package: &AssetPackage) -> std::path::PathBuf {
     path
 }
 
+fn two_entry_package(root: &Path) -> pixel_cutout_sprite_studio_lib::asset_io::InspectedPackage {
+    let first = root.join("hand_l__s__base.png");
+    let second = root.join("head__s__base.png");
+    write_rgba(&first, 4, 4);
+    write_rgba(&second, 4, 4);
+    let mut first_entry = entry("hand_l__s__base.png");
+    first_entry.name = "Left hand glove".to_owned();
+    let mut second_entry = entry("head__s__base.png");
+    second_entry.name = "Iron helmet".to_owned();
+    second_entry.slot_id = Some("head".to_owned());
+    PngImporter::default()
+        .inspect_package(
+            &write_package(root, &package(vec![first_entry, second_entry])),
+            &allowed(),
+        )
+        .unwrap()
+}
+
+fn test_vault(
+    directory: &TempDir,
+    area_path: &Path,
+    area_id: ObjectId,
+    profile_ref: RevisionRef,
+) -> VaultRoot {
+    fs::create_dir_all(directory.path().join(".pixelforge-studio")).unwrap();
+    fs::create_dir_all(directory.path().join("game/.project")).unwrap();
+    fs::create_dir_all(directory.path().join(area_path).join(".area")).unwrap();
+    let root = VaultRoot::open(directory.path()).unwrap();
+    let timestamp = UtcTimestamp::parse("2026-09-05T10:00:00Z").unwrap();
+    JsonStore::default()
+        .create(
+            &root
+                .resolve(Path::new(".pixelforge-studio/vault.json"))
+                .unwrap(),
+            &DomainDocument::Vault(Vault {
+                schema_version: SCHEMA_VERSION,
+                kind: DocumentKind::Vault,
+                id: ObjectId::new(),
+                format: VAULT_FORMAT.to_owned(),
+                created_at: timestamp,
+            }),
+        )
+        .unwrap();
+    let project_id = ObjectId::new();
+    JsonStore::default()
+        .create(
+            &root
+                .resolve(Path::new("game/.project/project.json"))
+                .unwrap(),
+            &DomainDocument::Project(Project {
+                schema_version: SCHEMA_VERSION,
+                kind: DocumentKind::Project,
+                id: project_id,
+                revision: 1,
+                name: "Game".to_owned(),
+                status: RecordStatus::Active,
+                workspace_label_ids: Vec::new(),
+                created_at: timestamp,
+                updated_at: timestamp,
+            }),
+        )
+        .unwrap();
+    let area_name = area_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap()
+        .to_owned();
+    JsonStore::default()
+        .create(
+            &root.resolve(&area_path.join(".area/area.json")).unwrap(),
+            &DomainDocument::Area(Area {
+                schema_version: SCHEMA_VERSION,
+                kind: DocumentKind::Area,
+                id: area_id,
+                revision: 1,
+                project_id,
+                name: area_name,
+                object_type: ObjectType::Humanoid,
+                profile_ref,
+                reference_height_px: 80,
+                direction_model: DirectionModel::EightWay,
+                directions: Direction::ALL.to_vec(),
+                default_frame_size_px: PixelSize(64, 64),
+                default_ground_origin_px: PixelPoint(32, 56),
+                label_ids: Vec::new(),
+                created_at: timestamp,
+                updated_at: timestamp,
+            }),
+        )
+        .unwrap();
+    root
+}
+
 #[test]
 fn a_described_png_package_imports_reproducibly_without_touching_the_external_source() {
     let source = TempDir::new().unwrap();
@@ -84,9 +182,13 @@ fn a_described_png_package_imports_reproducibly_without_touching_the_external_so
     );
 
     let vault = TempDir::new().unwrap();
-    fs::create_dir_all(vault.path().join("game/characters/.area")).unwrap();
-    let root = VaultRoot::open(vault.path()).unwrap();
     let area_id = ObjectId::new();
+    let root = test_vault(
+        &vault,
+        Path::new("game/characters"),
+        area_id,
+        inspected.package.profile_ref,
+    );
     let imported = AssetRepository
         .import_package(
             &root,
@@ -107,7 +209,144 @@ fn a_described_png_package_imports_reproducibly_without_touching_the_external_so
         .resolve(&Path::new("game/characters").join(imported[0].revision.source_file.as_str()))
         .unwrap();
     assert_eq!(fs::read(copied.as_path()).unwrap(), before);
-    assert_eq!(ObjectIndex::rebuild(&root).unwrap().len(), 2);
+    assert_eq!(ObjectIndex::rebuild(&root).unwrap().len(), 5);
+}
+
+#[test]
+fn interrupted_multi_asset_import_resumes_after_reopen() {
+    let source = TempDir::new().unwrap();
+    let inspected = two_entry_package(source.path());
+    let vault = TempDir::new().unwrap();
+    let area_path = Path::new("game/characters");
+    let area_id = ObjectId::new();
+    let root = test_vault(&vault, area_path, area_id, inspected.package.profile_ref);
+    let interrupted = TransactionService::with_fault(InterruptAfterStep { completed_step: 1 });
+
+    let result = AssetRepository.import_package_with_transactions(
+        &root,
+        area_path,
+        area_id,
+        &inspected,
+        &[],
+        &interrupted,
+    );
+    assert!(matches!(
+        result,
+        Err(
+            pixel_cutout_sprite_studio_lib::asset_io::AssetRepositoryError::Storage(
+                StorageError::TransactionInterrupted { step: 1 }
+            )
+        )
+    ));
+    assert_eq!(ObjectIndex::rebuild(&root).unwrap().len(), 5);
+
+    let reopened = VaultRoot::open(vault.path()).unwrap();
+    let candidates = TransactionService::<NoTransactionFault>::scan_open(&reopened).unwrap();
+    assert_eq!(candidates.len(), 1);
+    let candidate = &candidates[0];
+    assert_eq!(candidate.purpose, TransactionPurpose::AssetImport);
+    assert_eq!(candidate.state, TransactionState::Applying);
+    assert_eq!(candidate.completed_steps, 0);
+    assert_eq!(candidate.total_steps, 2);
+    assert!(candidate.can_resume);
+    assert!(candidate.can_rollback);
+    let transaction_id = candidate.transaction_id;
+
+    let recovered = TransactionService::<NoTransactionFault>::default()
+        .recover_candidate(&reopened, transaction_id, RecoveryChoice::Resume)
+        .unwrap();
+    assert_eq!(recovered.state, TransactionState::Committed);
+    assert!(
+        TransactionService::<NoTransactionFault>::scan_open(&reopened)
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(ObjectIndex::rebuild(&reopened).unwrap().len(), 7);
+    assert!(!vault
+        .path()
+        .join("game/.project/transactions")
+        .join(format!("{transaction_id}.stage"))
+        .exists());
+
+    let assets = fs::read_dir(vault.path().join(area_path).join(".area/assets"))
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(assets.len(), 2);
+    for asset in assets {
+        let manifest = asset.path().join("asset.json");
+        let loaded = JsonStore::default()
+            .load(
+                &reopened
+                    .resolve(manifest.strip_prefix(vault.path()).unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+        let DomainDocument::Asset(saved) = loaded.value else {
+            panic!("asset manifest expected after resume");
+        };
+        assert_eq!(saved.area_id, area_id);
+        assert!(asset.path().join("r0001/revision.json").is_file());
+        assert!(asset.path().join("r0001/source.png").is_file());
+    }
+}
+
+#[test]
+fn interrupted_multi_asset_import_rolls_back_after_reopen() {
+    let source = TempDir::new().unwrap();
+    let inspected = two_entry_package(source.path());
+    let vault = TempDir::new().unwrap();
+    let area_path = Path::new("game/characters");
+    let area_id = ObjectId::new();
+    let root = test_vault(&vault, area_path, area_id, inspected.package.profile_ref);
+    let interrupted = TransactionService::with_fault(InterruptAfterStep { completed_step: 1 });
+
+    let result = AssetRepository.import_package_with_transactions(
+        &root,
+        area_path,
+        area_id,
+        &inspected,
+        &[],
+        &interrupted,
+    );
+    assert!(matches!(
+        result,
+        Err(
+            pixel_cutout_sprite_studio_lib::asset_io::AssetRepositoryError::Storage(
+                StorageError::TransactionInterrupted { step: 1 }
+            )
+        )
+    ));
+
+    let reopened = VaultRoot::open(vault.path()).unwrap();
+    let candidates = TransactionService::<NoTransactionFault>::scan_open(&reopened).unwrap();
+    assert_eq!(candidates.len(), 1);
+    let candidate = &candidates[0];
+    assert_eq!(candidate.purpose, TransactionPurpose::AssetImport);
+    assert_eq!(candidate.total_steps, 2);
+    assert!(candidate.can_resume);
+    assert!(candidate.can_rollback);
+    let transaction_id = candidate.transaction_id;
+    let recovered = TransactionService::<NoTransactionFault>::default()
+        .recover_candidate(&reopened, transaction_id, RecoveryChoice::Rollback)
+        .unwrap();
+    assert_eq!(recovered.state, TransactionState::RolledBack);
+    assert!(
+        TransactionService::<NoTransactionFault>::scan_open(&reopened)
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(ObjectIndex::rebuild(&reopened).unwrap().len(), 3);
+    let assets = vault.path().join(area_path).join(".area/assets");
+    assert!(
+        !assets.exists() || fs::read_dir(assets).unwrap().next().is_none(),
+        "rollback must not leave a published asset behind"
+    );
+    assert!(!vault
+        .path()
+        .join("game/.project/transactions")
+        .join(format!("{transaction_id}.stage"))
+        .exists());
 }
 
 #[test]
@@ -123,16 +362,15 @@ fn sheet_rectangles_create_a_derived_crop_and_retain_the_original_sheet() {
         .inspect_package(&package_path, &allowed())
         .unwrap();
     let vault = TempDir::new().unwrap();
-    fs::create_dir_all(vault.path().join("game/area/.area")).unwrap();
-    let root = VaultRoot::open(vault.path()).unwrap();
+    let area_id = ObjectId::new();
+    let root = test_vault(
+        &vault,
+        Path::new("game/area"),
+        area_id,
+        inspected.package.profile_ref,
+    );
     let imported = AssetRepository
-        .import_package(
-            &root,
-            Path::new("game/area"),
-            ObjectId::new(),
-            &inspected,
-            &[],
-        )
+        .import_package(&root, Path::new("game/area"), area_id, &inspected, &[])
         .unwrap();
     assert_eq!(imported[0].revision.image_size_px, PixelSize(2, 2));
     let source_file = root
@@ -154,10 +392,15 @@ fn adding_a_revision_preserves_the_previous_release_and_updates_the_manifest() {
         .unwrap();
     let vault = TempDir::new().unwrap();
     let area_path = Path::new("game/characters");
-    fs::create_dir_all(vault.path().join(area_path).join(".area")).unwrap();
-    let root = VaultRoot::open(vault.path()).unwrap();
+    let area_id = ObjectId::new();
+    let root = test_vault(
+        &vault,
+        area_path,
+        area_id,
+        first_package.package.profile_ref,
+    );
     let first = AssetRepository
-        .import_package(&root, area_path, ObjectId::new(), &first_package, &[])
+        .import_package(&root, area_path, area_id, &first_package, &[])
         .unwrap()
         .remove(0);
     let first_source = root

@@ -15,7 +15,7 @@ use crate::domain::{
     UtcTimestamp,
 };
 use crate::render::{PixelCompositor, RenderedFrame};
-use crate::storage::VaultRoot;
+use crate::storage::{JsonStore, ResolvedPath, StorageError, VaultRoot, VersionStamp};
 
 use super::artifact::{read_png, rgba_digest, validate_build, write_bytes, write_png};
 use super::{
@@ -30,6 +30,12 @@ const RASTERIZER_VERSION: &str = "pixel-compositor-v1";
 pub struct ExportService {
     output_root: VaultRoot,
     generator_version: String,
+}
+
+#[derive(Debug, Clone)]
+enum CurrentPointerBaseline {
+    Missing,
+    Existing(VersionStamp),
 }
 
 impl ExportService {
@@ -104,6 +110,7 @@ impl ExportService {
         C: CancellationToken,
         P: ProgressReporter,
     {
+        let pointer_baseline = self.current_pointer_baseline(output_directory)?;
         let outcome = self.build_without_current(
             output_directory,
             request,
@@ -111,7 +118,13 @@ impl ExportService {
             cancellation,
             progress,
         )?;
-        self.publish_current(output_directory, &outcome, cancellation, progress)?;
+        self.publish_current_from_baseline(
+            output_directory,
+            &outcome,
+            cancellation,
+            progress,
+            pointer_baseline,
+        )?;
         Ok(outcome)
     }
 
@@ -189,17 +202,11 @@ impl ExportService {
     }
 
     /// Publishes `current.json` only after revalidating the referenced managed build.
-    pub fn publish_current<C, P>(
+    pub fn validated_current_pointer(
         &self,
         output_directory: &Path,
         outcome: &ExportOutcome,
-        cancellation: &C,
-        progress: &mut P,
-    ) -> Result<(), ExportError>
-    where
-        C: CancellationToken,
-        P: ProgressReporter,
-    {
+    ) -> Result<CurrentExport, ExportError> {
         let fingerprint = &outcome.manifest.source_fingerprint;
         let build_name = format!("build-{}", fingerprint.as_str());
         if outcome.build.as_str() != build_name {
@@ -218,6 +225,56 @@ impl ExportService {
                 "managed build changed after it was prepared for publication".to_owned(),
             ));
         }
+        let current = CurrentExport {
+            schema_version: 1,
+            format_version: 1,
+            build: outcome.build.clone(),
+            manifest: RelativePath::parse(format!("{build_name}/animation.json"))?,
+            source_fingerprint: fingerprint.clone(),
+            complete: published_manifest.complete,
+        };
+        current.validate()?;
+        Ok(current)
+    }
+
+    /// Publishes `current.json` only after revalidating the referenced managed build.
+    pub fn publish_current<C, P>(
+        &self,
+        output_directory: &Path,
+        outcome: &ExportOutcome,
+        cancellation: &C,
+        progress: &mut P,
+    ) -> Result<(), ExportError>
+    where
+        C: CancellationToken,
+        P: ProgressReporter,
+    {
+        let pointer_baseline = self.current_pointer_baseline(output_directory)?;
+        self.publish_current_from_baseline(
+            output_directory,
+            outcome,
+            cancellation,
+            progress,
+            pointer_baseline,
+        )
+    }
+
+    fn publish_current_from_baseline<C, P>(
+        &self,
+        output_directory: &Path,
+        outcome: &ExportOutcome,
+        cancellation: &C,
+        progress: &mut P,
+        pointer_baseline: CurrentPointerBaseline,
+    ) -> Result<(), ExportError>
+    where
+        C: CancellationToken,
+        P: ProgressReporter,
+    {
+        let current = self.validated_current_pointer(output_directory, outcome)?;
+        self.output_root
+            .ensure_directory(output_directory)
+            .map_err(|error| ExportError::InvalidRequest(error.to_string()))?;
         progress.report(ExportProgress {
             stage: ExportStage::Publishing,
             completed: 0,
@@ -225,17 +282,11 @@ impl ExportService {
             message: "Updating current.json after successful build validation".to_owned(),
         });
         ensure_not_cancelled(cancellation)?;
-        write_current(
-            output.as_path(),
-            &CurrentExport {
-                schema_version: 1,
-                format_version: 1,
-                build: outcome.build.clone(),
-                manifest: RelativePath::parse(format!("{build_name}/animation.json"))?,
-                source_fingerprint: fingerprint.clone(),
-                complete: published_manifest.complete,
-            },
-        )?;
+        let pointer = self
+            .output_root
+            .resolve(&output_directory.join("current.json"))
+            .map_err(|error| ExportError::InvalidRequest(error.to_string()))?;
+        write_current(&pointer, &current, pointer_baseline)?;
         progress.report(ExportProgress {
             stage: ExportStage::Publishing,
             completed: 1,
@@ -243,6 +294,38 @@ impl ExportService {
             message: "Published current.json".to_owned(),
         });
         Ok(())
+    }
+
+    fn current_pointer_baseline(
+        &self,
+        output_directory: &Path,
+    ) -> Result<CurrentPointerBaseline, ExportError> {
+        let relative = output_directory.join("current.json");
+        let pointer = self
+            .output_root
+            .resolve(&relative)
+            .map_err(|error| ExportError::InvalidRequest(error.to_string()))?;
+        match fs::symlink_metadata(pointer.as_path()) {
+            Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => Err(
+                ExportError::InvalidBuild("current.json must be a regular file".to_owned()),
+            ),
+            Ok(_) => {
+                let bytes = fs::read(pointer.as_path()).map_err(|error| {
+                    ExportError::io("read current pointer baseline", pointer.as_path(), error)
+                })?;
+                Ok(CurrentPointerBaseline::Existing(VersionStamp::from_bytes(
+                    &bytes,
+                )))
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                Ok(CurrentPointerBaseline::Missing)
+            }
+            Err(error) => Err(ExportError::io(
+                "inspect current pointer baseline",
+                pointer.as_path(),
+                error,
+            )),
+        }
     }
 
     fn assemble_stage<C, P>(
@@ -1226,59 +1309,35 @@ fn manifest_actions(
         .collect()
 }
 
-fn write_current(output: &Path, current: &CurrentExport) -> Result<(), ExportError> {
+fn write_current(
+    pointer: &ResolvedPath,
+    current: &CurrentExport,
+    baseline: CurrentPointerBaseline,
+) -> Result<(), ExportError> {
     current.validate()?;
     let bytes = serde_json::to_vec_pretty(current)
         .map_err(|error| ExportError::InvalidBuild(error.to_string()))?;
-    let temporary = output.join(format!(".current.{}.tmp", Uuid::new_v4().hyphenated()));
-    let target = output.join("current.json");
-    let backup = output.join(format!(".current.{}.backup", Uuid::new_v4().hyphenated()));
-    let result = (|| {
-        write_bytes(&temporary, &bytes)?;
-        let reread = fs::read(&temporary)
-            .map_err(|error| ExportError::io("verify current pointer", &temporary, error))?;
-        let decoded: CurrentExport = serde_json::from_slice(&reread)
-            .map_err(|error| ExportError::InvalidBuild(error.to_string()))?;
-        decoded.validate()?;
-        let had_current = match fs::symlink_metadata(&target) {
-            Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => {
-                return Err(ExportError::InvalidBuild(
-                    "current.json must be a regular file".to_owned(),
-                ));
-            }
-            Ok(_) => {
-                fs::rename(&target, &backup).map_err(|error| {
-                    ExportError::io("preserve previous current pointer", &target, error)
-                })?;
-                true
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
-            Err(error) => {
-                return Err(ExportError::io("inspect current pointer", &target, error));
-            }
-        };
-        if let Err(error) = fs::rename(&temporary, &target) {
-            if had_current {
-                fs::rename(&backup, &target).map_err(|restore_error| {
-                    ExportError::InvalidBuild(format!(
-                        "could not publish current pointer ({error}) or restore the previous pointer ({restore_error})"
-                    ))
-                })?;
-            }
-            return Err(ExportError::io("replace current pointer", &target, error));
+    let validate = |candidate: &[u8]| {
+        let decoded: CurrentExport = serde_json::from_slice(candidate)
+            .map_err(|error| crate::domain::DomainError::InvalidJson(error.to_string()))?;
+        decoded.validate()
+    };
+    let result = match baseline {
+        CurrentPointerBaseline::Missing => {
+            JsonStore::default().create_bytes(pointer, &bytes, validate)
         }
-        if had_current {
-            let _ = fs::remove_file(&backup);
+        CurrentPointerBaseline::Existing(expected) => {
+            JsonStore::default().compare_and_swap_bytes(pointer, &expected, &bytes, validate)
         }
-        Ok(())
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(&temporary);
-        if backup.exists() && !target.exists() {
-            let _ = fs::rename(&backup, &target);
-        }
+    };
+    result.map(|_| ()).map_err(map_pointer_write_error)
+}
+
+fn map_pointer_write_error(error: StorageError) -> ExportError {
+    match error {
+        StorageError::WriteConflict => ExportError::CurrentPointerConflict,
+        error => ExportError::InvalidBuild(format!("could not publish current.json: {error}")),
     }
-    result
 }
 
 fn sorted_sources(sources: &ExportSources) -> ExportSources {

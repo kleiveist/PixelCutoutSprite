@@ -12,8 +12,9 @@ use crate::domain::{
     RecordStatus, RelativePath, RevisionRef, UtcTimestamp, SCHEMA_VERSION,
 };
 use crate::storage::{
-    object_folder, write_journal, JsonStore, StorageError, TransactionAction, TransactionJournal,
-    TransactionStep, VaultLayout, VaultRoot, VersionStamp, AREA_ADMIN_DIR, PROJECT_ADMIN_DIR,
+    object_folder, JsonStore, StorageError, TransactionAction, TransactionPurpose,
+    TransactionService, TransactionStep, VaultLayout, VaultRoot, VersionStamp, AREA_ADMIN_DIR,
+    PROJECT_ADMIN_DIR,
 };
 
 use super::{VaultOpenMode, VaultService};
@@ -278,13 +279,6 @@ impl AreaService {
             timestamp,
         )?;
         let preview = HumanoidProfileGenerator::preview(request.reference_height_px)?;
-        let profile_path =
-            profile_revision_path(&root, &current.folder, profile.profile_id, profile.revision)?;
-        JsonStore::default().create(
-            &profile_path,
-            &DomainDocument::ProfileRevision(profile.clone()),
-        )?;
-
         current.area.revision = current
             .area
             .revision
@@ -301,14 +295,66 @@ impl AreaService {
         current.area.updated_at = timestamp;
         current.area.validate()?;
         let manifest = VaultLayout::new(root.clone()).area_manifest(&current.folder)?;
-        if let Err(error) = JsonStore::default().compare_and_swap(
-            &manifest,
-            &current.stamp,
-            &DomainDocument::Area(current.area.clone()),
-        ) {
-            let _ = fs::remove_file(profile_path.as_path());
+        let project_folder = current.folder.parent().ok_or_else(|| {
+            StorageError::InvalidVault("area path is not nested inside a project".to_owned())
+        })?;
+        let transaction_id = ObjectId::new();
+        let stage_root = project_folder
+            .join(PROJECT_ADMIN_DIR)
+            .join("transactions")
+            .join(format!("{transaction_id}.stage"));
+        let profile_target =
+            profile_revision_path(&root, &current.folder, profile.profile_id, profile.revision)?;
+        let staged_profile = stage_root.join("profile.json");
+        let staged_area = stage_root.join("area.json");
+        let area_backup = project_folder
+            .join(PROJECT_ADMIN_DIR)
+            .join("backups")
+            .join(format!("area-profile--{transaction_id}"))
+            .join("area.json");
+        let staged = (|| {
+            root.ensure_directory(&stage_root)?;
+            JsonStore::default().create(
+                &root.resolve(&staged_profile)?,
+                &DomainDocument::ProfileRevision(profile.clone()),
+            )?;
+            JsonStore::default().create(
+                &root.resolve(&staged_area)?,
+                &DomainDocument::Area(current.area.clone()),
+            )?;
+            Ok::<_, StorageError>(())
+        })();
+        if let Err(error) = staged {
+            let _ = fs::remove_dir_all(root.resolve(&stage_root)?.as_path());
             return Err(error);
         }
+        let transactions = TransactionService::default();
+        if let Err(error) = transactions.prepare(
+            &root,
+            project_folder,
+            transaction_id,
+            TransactionPurpose::ReleaseRevision,
+            vec![
+                TransactionStep {
+                    action: TransactionAction::Create,
+                    target: portable_relative(profile_target.relative())?,
+                    staged: portable_relative(&staged_profile)?,
+                    backup: None,
+                    expected_sha256: None,
+                },
+                TransactionStep {
+                    action: TransactionAction::Replace,
+                    target: portable_relative(manifest.relative())?,
+                    staged: portable_relative(&staged_area)?,
+                    backup: Some(portable_relative(&area_backup)?),
+                    expected_sha256: Some(current.stamp.sha256.clone()),
+                },
+            ],
+        ) {
+            let _ = fs::remove_dir_all(root.resolve(&stage_root)?.as_path());
+            return Err(error);
+        }
+        transactions.execute(&root, project_folder, transaction_id)?;
         Ok(AreaDetails {
             area: current.area,
             profile,
@@ -322,10 +368,8 @@ fn session_context(
     vaults: &VaultService,
     session_id: ObjectId,
 ) -> Result<(VaultRoot, VaultOpenMode), StorageError> {
-    let (path, _, mode, _) = vaults
-        .session(session_id)
-        .ok_or_else(|| StorageError::InvalidVault("unknown vault session".to_owned()))?;
-    Ok((VaultRoot::open(path)?, mode))
+    let context = vaults.context(session_id)?;
+    Ok((context.root, context.mode))
 }
 
 fn writable_root(vaults: &VaultService, session_id: ObjectId) -> Result<VaultRoot, StorageError> {
@@ -511,8 +555,8 @@ fn create_area_snapshot(
     let transaction_root = project_folder
         .join(PROJECT_ADMIN_DIR)
         .join("transactions")
-        .join(transaction_id.to_string());
-    let staged_area = transaction_root.join("staged").join(area_name);
+        .join(format!("{transaction_id}.stage"));
+    let staged_area = transaction_root.join(area_name);
     let profile_folder = object_folder("humanoid", profile.profile_id)?;
     let staged_profile_dir = staged_area
         .join(AREA_ADMIN_DIR)
@@ -536,19 +580,25 @@ fn create_area_snapshot(
         return Err(error);
     }
 
-    let mut journal = TransactionJournal::new(vec![TransactionStep {
-        action: TransactionAction::Move,
-        target: portable_relative(&target_area)?,
-        staged: portable_relative(&staged_area)?,
-        backup: None,
-        expected_sha256: None,
-    }])?;
-    let journal_path = root.resolve(&transaction_root.join("journal.json"))?;
-    write_journal(&journal_path, &journal)?;
-    fs::rename(root.resolve(&staged_area)?.as_path(), target.as_path())
-        .map_err(|error| StorageError::io("publish staged area", &target_area, error))?;
-    journal.advance()?;
-    write_journal(&journal_path, &journal)
+    let transactions = TransactionService::default();
+    if let Err(error) = transactions.prepare(
+        root,
+        project_folder,
+        transaction_id,
+        TransactionPurpose::General,
+        vec![TransactionStep {
+            action: TransactionAction::Create,
+            target: portable_relative(&target_area)?,
+            staged: portable_relative(&staged_area)?,
+            backup: None,
+            expected_sha256: None,
+        }],
+    ) {
+        let _ = fs::remove_dir_all(root.resolve(&transaction_root)?.as_path());
+        return Err(error);
+    }
+    transactions.execute(root, project_folder, transaction_id)?;
+    Ok(())
 }
 
 fn load_profile(

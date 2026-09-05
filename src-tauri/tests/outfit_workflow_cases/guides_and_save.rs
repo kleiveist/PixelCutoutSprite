@@ -224,19 +224,14 @@ fn saving_creates_stable_character_appearance_and_first_binding_without_copying_
     let transaction_file = fs::read_dir(&transaction_dir)
         .unwrap()
         .filter_map(Result::ok)
-        .find_map(|entry| {
+        .find(|entry| {
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            (entry.file_type().ok()?.is_file()
+            entry.file_type().is_ok_and(|kind| kind.is_file())
                 && name.starts_with("outfit-save--")
-                && name.ends_with(".json"))
-            .then(|| entry.path())
-        })
-        .expect("outfit save transaction journal");
-    let journal: TransactionJournal =
-        serde_json::from_slice(&fs::read(transaction_file).unwrap()).unwrap();
-    assert_eq!(journal.state, TransactionState::Committed);
-    assert_eq!(journal.cursor, journal.steps.len());
+                && name.ends_with(".json")
+        });
+    assert!(transaction_file.is_none());
 
     let launch = AppearanceService
         .launch_context(&fixture.root, Path::new(AREA_PATH), fixture.template_ref)
@@ -331,10 +326,6 @@ fn saving_creates_stable_character_appearance_and_first_binding_without_copying_
                 .file_name()
                 .to_str()
                 .is_some_and(|name| name.starts_with("outfit-apply--") && name.ends_with(".json"))
-        })
-        .unwrap();
-    let journal: TransactionJournal =
-        serde_json::from_slice(&fs::read(apply_journal.path()).unwrap()).unwrap();
-    assert_eq!(journal.state, TransactionState::Committed);
-    assert_eq!(journal.cursor, 3);
+        });
+    assert!(apply_journal.is_none());
 }

@@ -74,6 +74,12 @@ Fingerabdruck darf nur einen bereits vollständig validierten, pixelgleichen Bui
 ein bytegleiches Godot-Paket wiederverwenden. Verwaiste Build-/Paketordner und beliebige neuere
 JSON-Dateien werden nicht als aktuelle Ausgabe interpretiert.
 
+P18 pinnt den rohen SHA-256 des beim Jobstart beobachteten `current.json`. Das gilt sowohl für den
+transaktionalen NPC-Desktoppfad als auch für die öffentliche generische Service-API. Verändert ein
+externes Werkzeug den gültigen Pointer während Rendering oder Publishing-Callback, endet der Job
+mit einem Konflikt und erhält die externen Bytes exakt; ein ursprünglich fehlender Pointer wird
+collision-sicher erzeugt.
+
 ## Fortschritt und Abbruch
 
 Der Tauri-Composition-Root hält eine sitzungsgebundene Job-Registry. Pro verwaltetem Ziel ist nur
@@ -92,8 +98,9 @@ Pointer.
   Testausgaben.
 - Ein Manifest-Tick entspricht `1 / fps`; ausgegebene Samples werden nicht heimlich
   zusammengezogen.
-- Die belegten Publikations- und Abbruchtests laufen in P16 auf Linux. Plattformübergreifende
-  Dateisystem- und Paketgates gehören zu P18/P20.
+- Die belegten Publikations- und Abbruchtests laufen auf Linux. P18 unterbricht zusätzlich den
+  produktiven letzten Pointer-Austausch und beweist nach Reopen sowohl Resume als auch Rollback;
+  die nativen Windows-/macOS-Dateisystem- und Paketgates gehören weiterhin zu P20.
 
 Die nativen P16-Tests dekodieren Atlas- und Einzelbildpixel, prüfen Mehrseitenrechtecke,
 Extrusion, Budgets, gemeinsame Geometrie, vollständige Multi-Action-/Acht-Richtungs-NPCs,

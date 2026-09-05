@@ -33,6 +33,7 @@ export interface MotionDraft {
 export interface SaveMotionDraftRequest {
   template_id: UUID;
   expected_revision: number;
+  expected_sha256: string;
   frame_size_px: PixelSize;
   ground_origin_px: PixelPoint;
   frame_count: number;
@@ -72,6 +73,7 @@ export interface MotionDashboardData {
 export interface MotionEditorData {
   template_name: string;
   draft: MotionDraft;
+  draft_sha256: string;
   profile: ProfileRevision;
   writable: boolean;
 }

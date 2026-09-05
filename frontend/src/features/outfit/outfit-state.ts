@@ -64,8 +64,8 @@ export function outfitHistoryReducer(
         present: cloneEdits(action.edits),
         future: [],
         editSequence: state.editSequence + 1,
-        saveState: "dirty",
-        saveError: null,
+        saveState: state.saveState === "conflict" ? "conflict" : "dirty",
+        saveError: state.saveState === "conflict" ? state.saveError : null,
       };
     case "command_applied":
       return {
@@ -92,8 +92,8 @@ export function outfitHistoryReducer(
         present: cloneEdits(previous),
         future: [cloneEdits(state.present), ...state.future],
         editSequence: state.editSequence + 1,
-        saveState: "dirty",
-        saveError: null,
+        saveState: state.saveState === "conflict" ? "conflict" : "dirty",
+        saveError: state.saveState === "conflict" ? state.saveError : null,
       };
     }
     case "redo": {
@@ -105,8 +105,8 @@ export function outfitHistoryReducer(
         present: cloneEdits(next),
         future: state.future.slice(1),
         editSequence: state.editSequence + 1,
-        saveState: "dirty",
-        saveError: null,
+        saveState: state.saveState === "conflict" ? "conflict" : "dirty",
+        saveError: state.saveState === "conflict" ? state.saveError : null,
       };
     }
     case "save_started":

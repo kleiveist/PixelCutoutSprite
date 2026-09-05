@@ -4,15 +4,18 @@ use std::path::{Path, PathBuf};
 use pixel_cutout_sprite_studio_lib::animation::{AnimationSampler, PresetKind};
 use pixel_cutout_sprite_studio_lib::application::{
     AreaDetails, AreaService, CreateAreaRequest, CreateMotionRequest, MotionCardStatus,
-    MotionOpenTarget, MotionService, ProjectCard, ProjectService, ReviseAreaProfileRequest,
-    SaveMotionDraftRequest, VaultService,
+    MotionEditorData, MotionOpenTarget, MotionService, ProjectCard, ProjectService,
+    ReviseAreaProfileRequest, SaveMotionDraftRequest, VaultOpenMode, VaultService,
 };
 use pixel_cutout_sprite_studio_lib::domain::{
     ActionKey, AnimationBinding, Character, CharacterStatus, Direction, DirectionMode,
     DocumentKind, DomainDocument, Interpolation, Keyframe, LoopMode, MotionTrack, ObjectId,
     ObjectType, ReviewState, TrackProperty, TrackValue, UtcTimestamp, SCHEMA_VERSION,
 };
-use pixel_cutout_sprite_studio_lib::storage::{object_folder, JsonStore, VaultRoot};
+use pixel_cutout_sprite_studio_lib::storage::{
+    object_folder, InterruptAfterStep, JsonStore, NoTransactionFault, RecoveryChoice, StorageError,
+    TransactionPurpose, TransactionService, TransactionState, VaultRoot,
+};
 use tempfile::TempDir;
 
 struct Fixture {
@@ -118,6 +121,24 @@ impl Fixture {
     }
 
     fn install_binding(&self, character: &Character, template_id: ObjectId) -> AnimationBinding {
+        let (binding, binding_path) = self.binding_fixture(character, template_id);
+        let root = VaultRoot::open(self.temp.path()).unwrap();
+        root.ensure_directory(binding_path.parent().unwrap())
+            .unwrap();
+        JsonStore::default()
+            .create(
+                &root.resolve(&binding_path).unwrap(),
+                &DomainDocument::AnimationBinding(binding.clone()),
+            )
+            .unwrap();
+        binding
+    }
+
+    fn binding_fixture(
+        &self,
+        character: &Character,
+        template_id: ObjectId,
+    ) -> (AnimationBinding, PathBuf) {
         let timestamp = UtcTimestamp::parse("2026-09-05T11:05:00Z").unwrap();
         let binding = AnimationBinding {
             schema_version: SCHEMA_VERSION,
@@ -140,16 +161,33 @@ impl Fixture {
             .area_folder()
             .join(object_folder(&character.name, character.id).unwrap());
         let binding_folder = character_folder.join(object_folder("walk", binding.id).unwrap());
-        let root = VaultRoot::open(self.temp.path()).unwrap();
-        root.ensure_directory(&binding_folder).unwrap();
-        JsonStore::default()
-            .create(
-                &root.resolve(&binding_folder.join("binding.json")).unwrap(),
-                &DomainDocument::AnimationBinding(binding.clone()),
-            )
-            .unwrap();
-        binding
+        (binding, binding_folder.join("binding.json"))
     }
+}
+
+fn save_request(editor: &MotionEditorData, fps: u16) -> SaveMotionDraftRequest {
+    SaveMotionDraftRequest {
+        template_id: editor.draft.template_id,
+        expected_revision: editor.draft.revision,
+        expected_sha256: editor.draft_sha256.clone(),
+        frame_size_px: editor.draft.frame_size_px,
+        ground_origin_px: editor.draft.ground_origin_px,
+        frame_count: editor.draft.frame_count,
+        fps,
+        loop_mode: editor.draft.loop_mode,
+        directions: editor.draft.directions.clone(),
+        tracks: editor.draft.tracks.clone(),
+        semantics: editor.draft.semantics.clone(),
+    }
+}
+
+fn motion_paths(fixture: &Fixture, name: &str, id: ObjectId) -> (PathBuf, PathBuf) {
+    let folder = fixture.temp.path().join(fixture.template_folder(name, id));
+    (folder.join("draft.json"), folder.join("template.json"))
+}
+
+fn read_json(path: &Path) -> serde_json::Value {
+    serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
 }
 
 #[test]
@@ -211,14 +249,16 @@ fn create_publish_edit_and_republish_keep_every_release_immutable() {
         } if compatible_character_ids.is_empty()
     ));
 
-    let draft =
-        MotionService::load_draft(&fixture.service, fixture.session_id, created.id).unwrap();
+    let editor =
+        MotionService::editor_data(&fixture.service, fixture.session_id, created.id).unwrap();
+    let draft = editor.draft;
     let edited = MotionService::save_draft(
         &mut fixture.service,
         fixture.session_id,
         SaveMotionDraftRequest {
             template_id: created.id,
             expected_revision: draft.revision,
+            expected_sha256: editor.draft_sha256,
             frame_size_px: draft.frame_size_px,
             ground_origin_px: draft.ground_origin_px,
             frame_count: draft.frame_count,
@@ -336,6 +376,139 @@ fn multiple_compatible_npcs_are_returned_as_choices_and_never_selected_arbitrari
 }
 
 #[test]
+fn motion_remove_rechecks_a_binding_that_appears_after_journal_prepare() {
+    let mut fixture = Fixture::new();
+    let request = fixture.request("Late binding", "walk");
+    let created = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
+    let character = fixture.install_character("Late user");
+    let (binding, binding_path) = fixture.binding_fixture(&character, created.id);
+    let absolute_binding = fixture.temp.path().join(&binding_path);
+    let binding_bytes = serde_json::to_vec_pretty(&binding).unwrap();
+    let transactions = TransactionService::default();
+
+    let result = MotionService::remove_with_transactions(
+        &mut fixture.service,
+        fixture.session_id,
+        created.id,
+        created.revision,
+        &transactions,
+        (
+            || Ok(()),
+            || {
+                fs::create_dir_all(absolute_binding.parent().unwrap()).unwrap();
+                fs::write(&absolute_binding, &binding_bytes).unwrap();
+                Ok(())
+            },
+        ),
+    );
+
+    assert!(
+        matches!(result, Err(StorageError::InvalidVault(message)) if message.contains("became referenced"))
+    );
+    assert!(absolute_binding.is_file());
+    assert!(fixture
+        .temp
+        .path()
+        .join(fixture.template_folder(&created.name, created.id))
+        .is_dir());
+    let root = VaultRoot::open(fixture.temp.path()).unwrap();
+    assert!(TransactionService::<NoTransactionFault>::scan_open(&root)
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn motion_remove_rejects_an_external_source_tree_change_before_prepare() {
+    let mut fixture = Fixture::new();
+    let request = fixture.request("Externally edited", "external_edit");
+    let created = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
+    let template_folder = fixture
+        .temp
+        .path()
+        .join(fixture.template_folder(&created.name, created.id));
+    let external = template_folder.join("external-note.txt");
+    let transactions = TransactionService::default();
+
+    let result = MotionService::remove_with_transactions(
+        &mut fixture.service,
+        fixture.session_id,
+        created.id,
+        created.revision,
+        &transactions,
+        (
+            || {
+                fs::write(&external, b"arrived after the remove view").unwrap();
+                Ok(())
+            },
+            || Ok(()),
+        ),
+    );
+
+    assert!(matches!(result, Err(StorageError::WriteConflict)));
+    assert!(template_folder.is_dir());
+    assert_eq!(
+        fs::read(&external).unwrap(),
+        b"arrived after the remove view"
+    );
+    let root = VaultRoot::open(fixture.temp.path()).unwrap();
+    assert!(TransactionService::<NoTransactionFault>::scan_open(&root)
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn interrupted_motion_remove_resumes_or_rolls_back_after_reopen() {
+    for choice in [RecoveryChoice::Resume, RecoveryChoice::Rollback] {
+        let mut fixture = Fixture::new();
+        let request = fixture.request("Recover remove", "recover_remove");
+        let created =
+            MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
+        let original_folder = fixture.template_folder(&created.name, created.id);
+        let interrupted = TransactionService::with_fault(InterruptAfterStep { completed_step: 1 });
+
+        assert!(matches!(
+            MotionService::remove_with_transactions(
+                &mut fixture.service,
+                fixture.session_id,
+                created.id,
+                created.revision,
+                &interrupted,
+                (|| Ok(()), || Ok(())),
+            ),
+            Err(StorageError::TransactionInterrupted { step: 1 })
+        ));
+        assert!(!fixture.temp.path().join(&original_folder).exists());
+        fixture.service.close(fixture.session_id).unwrap();
+
+        let mut reopened = VaultService::default();
+        let opened = reopened.open(fixture.temp.path()).unwrap();
+        assert_eq!(opened.mode, VaultOpenMode::ReadOnly);
+        assert!(opened.recovery_writable);
+        assert_eq!(opened.recovery.len(), 1);
+        assert_eq!(opened.recovery[0].purpose, TransactionPurpose::TrashMove);
+        assert!(opened.recovery[0].can_resume);
+        assert!(opened.recovery[0].can_rollback);
+        let recovered = reopened
+            .recover_transaction(opened.session_id, opened.recovery[0].transaction_id, choice)
+            .unwrap();
+        assert!(recovered.recovery.is_empty());
+        assert_eq!(recovered.mode, VaultOpenMode::ReadWrite);
+
+        let dashboard =
+            MotionService::dashboard(&reopened, opened.session_id, fixture.area.area.id).unwrap();
+        if choice == RecoveryChoice::Resume {
+            assert!(dashboard.motions.is_empty());
+            assert!(!fixture.temp.path().join(&original_folder).exists());
+        } else {
+            assert_eq!(dashboard.motions.len(), 1);
+            assert_eq!(dashboard.motions[0].id, created.id);
+            assert!(fixture.temp.path().join(&original_folder).is_dir());
+        }
+        reopened.close(opened.session_id).unwrap();
+    }
+}
+
+#[test]
 fn draft_file_is_area_owned_and_not_confused_with_an_immutable_release() {
     let mut fixture = Fixture::new();
     let request = fixture.request("Idle", "idle");
@@ -368,8 +541,9 @@ fn editor_reopens_saved_pose_with_its_exact_pinned_profile() {
     let old_profile = fixture.area.area.profile_ref;
     let request = fixture.request("Wave", "wave");
     let created = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
-    let draft =
-        MotionService::load_draft(&fixture.service, fixture.session_id, created.id).unwrap();
+    let editor =
+        MotionService::editor_data(&fixture.service, fixture.session_id, created.id).unwrap();
+    let draft = editor.draft;
     let track = MotionTrack {
         direction: Direction::S,
         slot_id: pixel_cutout_sprite_studio_lib::domain::SlotId::parse("hand_l").unwrap(),
@@ -386,6 +560,7 @@ fn editor_reopens_saved_pose_with_its_exact_pinned_profile() {
         SaveMotionDraftRequest {
             template_id: created.id,
             expected_revision: draft.revision,
+            expected_sha256: editor.draft_sha256,
             frame_size_px: draft.frame_size_px,
             ground_origin_px: draft.ground_origin_px,
             frame_count: draft.frame_count,
@@ -429,14 +604,16 @@ fn saving_rejects_tracks_outside_the_pinned_profile_without_mutating_the_draft()
     let mut fixture = Fixture::new();
     let request = fixture.request("Invalid slot", "invalid_slot");
     let created = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
-    let draft =
-        MotionService::load_draft(&fixture.service, fixture.session_id, created.id).unwrap();
+    let editor =
+        MotionService::editor_data(&fixture.service, fixture.session_id, created.id).unwrap();
+    let draft = editor.draft;
     let result = MotionService::save_draft(
         &mut fixture.service,
         fixture.session_id,
         SaveMotionDraftRequest {
             template_id: created.id,
             expected_revision: draft.revision,
+            expected_sha256: editor.draft_sha256,
             frame_size_px: draft.frame_size_px,
             ground_origin_px: draft.ground_origin_px,
             frame_count: draft.frame_count,
@@ -467,8 +644,9 @@ fn five_source_defaults_and_release_gate_reject_direction_gaps_or_invalid_mirror
     let mut fixture = Fixture::new();
     let request = fixture.request("Eight way", "eight_way");
     let created = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
-    let draft =
-        MotionService::load_draft(&fixture.service, fixture.session_id, created.id).unwrap();
+    let editor =
+        MotionService::editor_data(&fixture.service, fixture.session_id, created.id).unwrap();
+    let draft = editor.draft;
     assert_eq!(
         draft
             .directions
@@ -499,6 +677,7 @@ fn five_source_defaults_and_release_gate_reject_direction_gaps_or_invalid_mirror
         SaveMotionDraftRequest {
             template_id: created.id,
             expected_revision: draft.revision,
+            expected_sha256: editor.draft_sha256,
             frame_size_px: draft.frame_size_px,
             ground_origin_px: draft.ground_origin_px,
             frame_count: draft.frame_count,
@@ -527,12 +706,16 @@ fn five_source_defaults_and_release_gate_reject_direction_gaps_or_invalid_mirror
         .unwrap();
     west.mode = DirectionMode::Mirrored;
     west.source = Some(Direction::Ne);
+    let saved_sha256 = MotionService::editor_data(&fixture.service, fixture.session_id, created.id)
+        .unwrap()
+        .draft_sha256;
     let invalid_result = MotionService::save_draft(
         &mut fixture.service,
         fixture.session_id,
         SaveMotionDraftRequest {
             template_id: created.id,
             expected_revision: saved.revision,
+            expected_sha256: saved_sha256,
             frame_size_px: saved.frame_size_px,
             ground_origin_px: saved.ground_origin_px,
             frame_count: saved.frame_count,
@@ -551,4 +734,351 @@ fn five_source_defaults_and_release_gate_reject_direction_gaps_or_invalid_mirror
         MotionService::load_draft(&fixture.service, fixture.session_id, created.id).unwrap(),
         saved
     );
+}
+
+#[test]
+fn same_revision_external_draft_edit_is_rejected_by_the_editor_baseline_hash() {
+    let mut fixture = Fixture::new();
+    let request = fixture.request("Concurrent edit", "concurrent_edit");
+    let created = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
+    let editor =
+        MotionService::editor_data(&fixture.service, fixture.session_id, created.id).unwrap();
+    let (draft_path, template_path) = motion_paths(&fixture, &created.name, created.id);
+    let template_before = fs::read(&template_path).unwrap();
+    let mut externally_edited = read_json(&draft_path);
+    externally_edited["fps"] = serde_json::Value::from(18);
+    let external_bytes = serde_json::to_vec_pretty(&externally_edited).unwrap();
+    fs::write(&draft_path, &external_bytes).unwrap();
+
+    let error = MotionService::save_draft(
+        &mut fixture.service,
+        fixture.session_id,
+        save_request(&editor, 24),
+    )
+    .unwrap_err();
+    assert!(matches!(error, StorageError::WriteConflict));
+    assert_eq!(fs::read(&draft_path).unwrap(), external_bytes);
+    assert_eq!(fs::read(&template_path).unwrap(), template_before);
+    let current =
+        MotionService::editor_data(&fixture.service, fixture.session_id, created.id).unwrap();
+    assert_eq!(current.draft.revision, editor.draft.revision);
+    assert_eq!(current.draft.fps, 18);
+    assert_ne!(current.draft_sha256, editor.draft_sha256);
+    let root = VaultRoot::open(fixture.temp.path()).unwrap();
+    assert!(TransactionService::<NoTransactionFault>::scan_open(&root)
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn interrupted_two_file_draft_save_resumes_after_reopen() {
+    let mut fixture = Fixture::new();
+    let mut create = fixture.request("Recover save", "recover_save");
+    create.preset_kind = Some(PresetKind::Walk);
+    let created = MotionService::create(&mut fixture.service, fixture.session_id, create).unwrap();
+    let editor =
+        MotionService::editor_data(&fixture.service, fixture.session_id, created.id).unwrap();
+    let original_semantics = editor.draft.semantics.clone();
+    let (draft_path, template_path) = motion_paths(&fixture, &created.name, created.id);
+    let template_before = fs::read(&template_path).unwrap();
+
+    let faulting = TransactionService::with_fault(InterruptAfterStep { completed_step: 1 });
+    let interrupted = MotionService::save_draft_with_transactions(
+        &mut fixture.service,
+        fixture.session_id,
+        save_request(&editor, 24),
+        &faulting,
+    );
+    assert!(matches!(
+        interrupted,
+        Err(StorageError::TransactionInterrupted { step: 1 })
+    ));
+    let partial_draft = read_json(&draft_path);
+    assert_eq!(partial_draft["revision"].as_u64(), Some(2));
+    assert_eq!(partial_draft["fps"].as_u64(), Some(24));
+    assert_eq!(fs::read(&template_path).unwrap(), template_before);
+
+    fixture.service.close(fixture.session_id).unwrap();
+    let mut reopened = VaultService::default();
+    let opened = reopened.open(fixture.temp.path()).unwrap();
+    assert_eq!(opened.mode, VaultOpenMode::ReadOnly);
+    assert!(opened.recovery_writable);
+    assert_eq!(opened.recovery.len(), 1);
+    let candidate = &opened.recovery[0];
+    assert_eq!(candidate.purpose, TransactionPurpose::General);
+    assert_eq!(candidate.state, TransactionState::Applying);
+    assert_eq!(candidate.completed_steps, 0);
+    assert_eq!(candidate.total_steps, 2);
+    assert!(candidate.can_resume);
+    assert!(candidate.can_rollback);
+    let transaction_id = candidate.transaction_id;
+
+    let recovered = reopened
+        .recover_transaction(opened.session_id, transaction_id, RecoveryChoice::Resume)
+        .unwrap();
+    assert_eq!(recovered.mode, VaultOpenMode::ReadWrite);
+    assert!(!recovered.recovery_writable);
+    assert!(recovered.recovery.is_empty());
+    let saved = MotionService::editor_data(&reopened, opened.session_id, created.id).unwrap();
+    assert_eq!(saved.draft.revision, editor.draft.revision + 1);
+    assert_eq!(saved.draft.fps, 24);
+    assert_eq!(saved.draft.semantics, original_semantics);
+    let root = VaultRoot::open(fixture.temp.path()).unwrap();
+    let loaded_template = JsonStore::default()
+        .load(
+            &root
+                .resolve(
+                    &fixture
+                        .template_folder(&created.name, created.id)
+                        .join("template.json"),
+                )
+                .unwrap(),
+        )
+        .unwrap();
+    let DomainDocument::MotionTemplate(template) = loaded_template.value else {
+        panic!("motion template expected after recovery");
+    };
+    assert_eq!(template.revision, created.revision + 1);
+    assert_eq!(template.draft_revision, saved.draft.revision);
+    assert_eq!(template.updated_at, saved.draft.updated_at);
+    assert!(TransactionService::<NoTransactionFault>::scan_open(&root)
+        .unwrap()
+        .is_empty());
+    let project_folder = fixture.area_folder().parent().unwrap().to_path_buf();
+    assert!(!fixture
+        .temp
+        .path()
+        .join(&project_folder)
+        .join(format!(".project/transactions/{transaction_id}.stage"))
+        .exists());
+    assert!(!fixture
+        .temp
+        .path()
+        .join(project_folder)
+        .join(format!(".project/backups/motion-save--{transaction_id}"))
+        .exists());
+}
+
+#[test]
+fn interrupted_two_file_draft_save_rolls_back_after_reopen() {
+    let mut fixture = Fixture::new();
+    let request = fixture.request("Rollback save", "rollback_save");
+    let created = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
+    let editor =
+        MotionService::editor_data(&fixture.service, fixture.session_id, created.id).unwrap();
+    let (draft_path, template_path) = motion_paths(&fixture, &created.name, created.id);
+    let draft_before = fs::read(&draft_path).unwrap();
+    let template_before = fs::read(&template_path).unwrap();
+
+    let faulting = TransactionService::with_fault(InterruptAfterStep { completed_step: 1 });
+    let interrupted = MotionService::save_draft_with_transactions(
+        &mut fixture.service,
+        fixture.session_id,
+        save_request(&editor, 30),
+        &faulting,
+    );
+    assert!(matches!(
+        interrupted,
+        Err(StorageError::TransactionInterrupted { step: 1 })
+    ));
+    assert_ne!(fs::read(&draft_path).unwrap(), draft_before);
+    assert_eq!(fs::read(&template_path).unwrap(), template_before);
+
+    fixture.service.close(fixture.session_id).unwrap();
+    let mut reopened = VaultService::default();
+    let opened = reopened.open(fixture.temp.path()).unwrap();
+    assert_eq!(opened.mode, VaultOpenMode::ReadOnly);
+    assert!(opened.recovery_writable);
+    assert_eq!(opened.recovery.len(), 1);
+    let candidate = &opened.recovery[0];
+    assert_eq!(candidate.purpose, TransactionPurpose::General);
+    assert_eq!(candidate.total_steps, 2);
+    assert!(candidate.can_resume);
+    assert!(candidate.can_rollback);
+    let transaction_id = candidate.transaction_id;
+
+    let recovered = reopened
+        .recover_transaction(opened.session_id, transaction_id, RecoveryChoice::Rollback)
+        .unwrap();
+    assert_eq!(recovered.mode, VaultOpenMode::ReadWrite);
+    assert!(!recovered.recovery_writable);
+    assert!(recovered.recovery.is_empty());
+    assert_eq!(fs::read(&draft_path).unwrap(), draft_before);
+    assert_eq!(fs::read(&template_path).unwrap(), template_before);
+    let restored = MotionService::editor_data(&reopened, opened.session_id, created.id).unwrap();
+    assert_eq!(restored.draft, editor.draft);
+    assert_eq!(restored.draft_sha256, editor.draft_sha256);
+    let dashboard =
+        MotionService::dashboard(&reopened, opened.session_id, fixture.area.area.id).unwrap();
+    assert_eq!(dashboard.motions[0].revision, created.revision);
+    assert_eq!(dashboard.motions[0].fps, editor.draft.fps);
+    let root = VaultRoot::open(fixture.temp.path()).unwrap();
+    assert!(TransactionService::<NoTransactionFault>::scan_open(&root)
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn interrupted_motion_publish_resumes_after_reopen() {
+    let mut fixture = Fixture::new();
+    let mut request = fixture.request("Recover publish", "recover_publish");
+    request.preset_kind = Some(PresetKind::Walk);
+    let created = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
+    let editor_before =
+        MotionService::editor_data(&fixture.service, fixture.session_id, created.id).unwrap();
+    let (draft_path, template_path) = motion_paths(&fixture, &created.name, created.id);
+    let release_path = draft_path.parent().unwrap().join("revisions/r0001.json");
+    let draft_before = fs::read(&draft_path).unwrap();
+    let template_before = fs::read(&template_path).unwrap();
+
+    let faulting = TransactionService::with_fault(InterruptAfterStep { completed_step: 1 });
+    let interrupted = MotionService::publish_with_transactions(
+        &mut fixture.service,
+        fixture.session_id,
+        created.id,
+        &faulting,
+    );
+    assert!(matches!(
+        interrupted,
+        Err(StorageError::TransactionInterrupted { step: 1 })
+    ));
+    assert_eq!(read_json(&release_path)["revision"].as_u64(), Some(1));
+    assert_eq!(fs::read(&draft_path).unwrap(), draft_before);
+    assert_eq!(fs::read(&template_path).unwrap(), template_before);
+
+    fixture.service.close(fixture.session_id).unwrap();
+    let mut reopened = VaultService::default();
+    let opened = reopened.open(fixture.temp.path()).unwrap();
+    assert_eq!(opened.mode, VaultOpenMode::ReadOnly);
+    assert!(opened.recovery_writable);
+    assert_eq!(opened.recovery.len(), 1);
+    let candidate = &opened.recovery[0];
+    assert_eq!(candidate.purpose, TransactionPurpose::ReleaseRevision);
+    assert_eq!(candidate.state, TransactionState::Applying);
+    assert_eq!(candidate.completed_steps, 0);
+    assert_eq!(candidate.total_steps, 3);
+    assert!(candidate.can_resume);
+    assert!(candidate.can_rollback);
+    let transaction_id = candidate.transaction_id;
+
+    let recovered = reopened
+        .recover_transaction(opened.session_id, transaction_id, RecoveryChoice::Resume)
+        .unwrap();
+    assert_eq!(recovered.mode, VaultOpenMode::ReadWrite);
+    assert!(!recovered.recovery_writable);
+    assert!(recovered.recovery.is_empty());
+    let editor_after =
+        MotionService::editor_data(&reopened, opened.session_id, created.id).unwrap();
+    assert_eq!(editor_after.draft.revision, editor_before.draft.revision);
+    assert_eq!(
+        editor_after.draft.released_from_draft_revision,
+        Some(editor_after.draft.revision)
+    );
+    let dashboard =
+        MotionService::dashboard(&reopened, opened.session_id, fixture.area.area.id).unwrap();
+    assert_eq!(dashboard.motions[0].status, MotionCardStatus::Released);
+    assert_eq!(dashboard.motions[0].released_revisions, vec![1]);
+    assert_eq!(dashboard.motions[0].latest_release, Some(1));
+    let release = read_json(&release_path);
+    let template = read_json(&template_path);
+    assert_eq!(release["revision"].as_u64(), Some(1));
+    assert_eq!(release["published_at"], template["updated_at"]);
+    assert_eq!(template["draft_base_release"].as_u64(), Some(1));
+    assert_eq!(template["draft_revision"].as_u64(), Some(1));
+    let root = VaultRoot::open(fixture.temp.path()).unwrap();
+    assert!(TransactionService::<NoTransactionFault>::scan_open(&root)
+        .unwrap()
+        .is_empty());
+    let project_folder = fixture.area_folder().parent().unwrap().to_path_buf();
+    assert!(!fixture
+        .temp
+        .path()
+        .join(&project_folder)
+        .join(format!(".project/transactions/{transaction_id}.stage"))
+        .exists());
+    assert!(!fixture
+        .temp
+        .path()
+        .join(project_folder)
+        .join(format!(".project/backups/motion-release--{transaction_id}"))
+        .exists());
+}
+
+#[test]
+fn interrupted_motion_publish_rolls_back_after_reopen() {
+    let mut fixture = Fixture::new();
+    let request = fixture.request("Rollback publish", "rollback_publish");
+    let created = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
+    let editor_before =
+        MotionService::editor_data(&fixture.service, fixture.session_id, created.id).unwrap();
+    let (draft_path, template_path) = motion_paths(&fixture, &created.name, created.id);
+    let release_path = draft_path.parent().unwrap().join("revisions/r0001.json");
+    let draft_before = fs::read(&draft_path).unwrap();
+    let template_before = fs::read(&template_path).unwrap();
+
+    let faulting = TransactionService::with_fault(InterruptAfterStep { completed_step: 1 });
+    let interrupted = MotionService::publish_with_transactions(
+        &mut fixture.service,
+        fixture.session_id,
+        created.id,
+        &faulting,
+    );
+    assert!(matches!(
+        interrupted,
+        Err(StorageError::TransactionInterrupted { step: 1 })
+    ));
+    assert!(release_path.is_file());
+    assert_eq!(fs::read(&draft_path).unwrap(), draft_before);
+    assert_eq!(fs::read(&template_path).unwrap(), template_before);
+
+    fixture.service.close(fixture.session_id).unwrap();
+    let mut reopened = VaultService::default();
+    let opened = reopened.open(fixture.temp.path()).unwrap();
+    assert_eq!(opened.mode, VaultOpenMode::ReadOnly);
+    assert!(opened.recovery_writable);
+    assert_eq!(opened.recovery.len(), 1);
+    let candidate = &opened.recovery[0];
+    assert_eq!(candidate.purpose, TransactionPurpose::ReleaseRevision);
+    assert_eq!(candidate.state, TransactionState::Applying);
+    assert_eq!(candidate.completed_steps, 0);
+    assert_eq!(candidate.total_steps, 3);
+    assert!(candidate.can_resume);
+    assert!(candidate.can_rollback);
+    let transaction_id = candidate.transaction_id;
+
+    let recovered = reopened
+        .recover_transaction(opened.session_id, transaction_id, RecoveryChoice::Rollback)
+        .unwrap();
+    assert_eq!(recovered.mode, VaultOpenMode::ReadWrite);
+    assert!(!recovered.recovery_writable);
+    assert!(recovered.recovery.is_empty());
+    assert!(!release_path.exists());
+    assert_eq!(fs::read(&draft_path).unwrap(), draft_before);
+    assert_eq!(fs::read(&template_path).unwrap(), template_before);
+    let editor_after =
+        MotionService::editor_data(&reopened, opened.session_id, created.id).unwrap();
+    assert_eq!(editor_after.draft, editor_before.draft);
+    assert_eq!(editor_after.draft_sha256, editor_before.draft_sha256);
+    let dashboard =
+        MotionService::dashboard(&reopened, opened.session_id, fixture.area.area.id).unwrap();
+    assert_eq!(dashboard.motions[0].status, MotionCardStatus::New);
+    assert!(dashboard.motions[0].released_revisions.is_empty());
+    assert_eq!(dashboard.motions[0].latest_release, None);
+    let root = VaultRoot::open(fixture.temp.path()).unwrap();
+    assert!(TransactionService::<NoTransactionFault>::scan_open(&root)
+        .unwrap()
+        .is_empty());
+    let project_folder = fixture.area_folder().parent().unwrap().to_path_buf();
+    assert!(!fixture
+        .temp
+        .path()
+        .join(&project_folder)
+        .join(format!(".project/transactions/{transaction_id}.stage"))
+        .exists());
+    assert!(!fixture
+        .temp
+        .path()
+        .join(project_folder)
+        .join(format!(".project/backups/motion-release--{transaction_id}"))
+        .exists());
 }

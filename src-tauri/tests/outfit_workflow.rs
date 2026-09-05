@@ -12,7 +12,7 @@ use pixel_cutout_sprite_studio_lib::asset_io::{
 };
 use pixel_cutout_sprite_studio_lib::domain::*;
 use pixel_cutout_sprite_studio_lib::storage::{
-    object_folder, JsonStore, TransactionAction, TransactionJournal, TransactionState, VaultRoot,
+    object_folder, JsonStore, TransactionAction, VaultRoot,
 };
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
@@ -49,6 +49,21 @@ impl OutfitFixture {
         };
         let timestamp = timestamp();
         let hand = SlotId::parse("hand_l").unwrap();
+        write_document(
+            &root,
+            Path::new("game/.project/project.json").to_path_buf(),
+            DomainDocument::Project(Project {
+                schema_version: SCHEMA_VERSION,
+                kind: DocumentKind::Project,
+                id: project_id,
+                revision: 1,
+                name: "Game".to_owned(),
+                status: RecordStatus::Active,
+                workspace_label_ids: Vec::new(),
+                created_at: timestamp,
+                updated_at: timestamp,
+            }),
+        );
         seed_workflow(
             &root,
             area_document(area_id, project_id, profile_ref, timestamp),

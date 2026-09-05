@@ -29,7 +29,10 @@ export function InventoryWorkspace({
 
   const inspectPaths = useCallback(
     async (paths: string[]) => {
-      if (paths.length === 0) return;
+      if (paths.length === 0 || inventory?.writable !== true) {
+        if (paths.length > 0) onStatus?.("Read-only vault · asset imports are disabled");
+        return;
+      }
       setBusy(true);
       setError(null);
       try {
@@ -43,7 +46,7 @@ export function InventoryWorkspace({
         setBusy(false);
       }
     },
-    [areaId, client, onStatus, sessionId],
+    [areaId, client, inventory?.writable, onStatus, sessionId],
   );
 
   useEffect(() => {
@@ -66,6 +69,7 @@ export function InventoryWorkspace({
   }, [areaId, client, sessionId]);
 
   useEffect(() => {
+    if (inventory?.writable !== true) return;
     let disposed = false;
     let unlisten: (() => void) | undefined;
     void client
@@ -79,11 +83,12 @@ export function InventoryWorkspace({
       disposed = true;
       unlisten?.();
     };
-  }, [client, inspectPaths]);
+  }, [client, inspectPaths, inventory?.writable]);
 
   const items = useMemo(() => mapInventory(inventory), [inventory]);
 
   async function chooseSources(): Promise<void> {
+    if (inventory?.writable !== true) return;
     try {
       await inspectPaths(await client.chooseSources());
     } catch (reason) {
@@ -92,7 +97,7 @@ export function InventoryWorkspace({
   }
 
   async function confirmImport(decisions: ImportDecision[]): Promise<void> {
-    if (!inspection) return;
+    if (!inspection || inventory?.writable !== true) return;
     setBusy(true);
     setError(null);
     try {
@@ -113,6 +118,7 @@ export function InventoryWorkspace({
   }
 
   async function archive(item: InventoryItem): Promise<void> {
+    if (inventory?.writable !== true) return;
     setBusy(true);
     setError(null);
     try {
@@ -152,12 +158,13 @@ export function InventoryWorkspace({
           writable={inventory.writable}
         />
       )}
-      {inspection && (
+      {inspection && inventory?.writable === true && (
         <ImportReviewDialog
           busy={busy}
           inspection={inspection}
           onCancel={() => setInspection(null)}
           onConfirm={(decisions) => void confirmImport(decisions)}
+          writable={inventory.writable}
         />
       )}
     </>

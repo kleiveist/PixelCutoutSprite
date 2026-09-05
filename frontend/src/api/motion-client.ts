@@ -52,7 +52,7 @@ export interface MotionClient {
     templateId: string,
     reducedMotion: boolean,
   ): Promise<MotionCardPreviewData>;
-  saveDraft(sessionId: string, request: SaveMotionDraftRequest): Promise<MotionDraft>;
+  saveDraft(sessionId: string, request: SaveMotionDraftRequest): Promise<MotionEditorData>;
   publish(sessionId: string, templateId: string): Promise<MotionRevision>;
   setArchived(
     sessionId: string,
@@ -125,7 +125,7 @@ export const motionClient: MotionClient = {
     });
   },
   saveDraft(sessionId, request) {
-    return invoke<MotionDraft>("save_motion_draft", { sessionId, request });
+    return invoke<MotionEditorData>("save_motion_draft", { sessionId, request });
   },
   publish(sessionId, templateId) {
     return invoke<MotionRevision>("publish_motion", { sessionId, templateId });

@@ -1,12 +1,16 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::domain::{
     ensure_no_portable_name_collisions, portable_name_key, validate_portable_display_name,
-    DocumentKind, DomainDocument, LabelScope, ObjectId, Project, RecordStatus, SCHEMA_VERSION,
+    DocumentKind, DomainDocument, LabelScope, ObjectId, Project, RecordStatus, RelativePath,
+    SCHEMA_VERSION,
 };
-use crate::storage::{JsonStore, StorageError, VaultLayout, VersionStamp};
+use crate::storage::{
+    hash_managed_path, JsonStore, ResolvedPath, StorageError, TransactionAction, TransactionFault,
+    TransactionPurpose, TransactionService, TransactionStep, VaultLayout, VersionStamp,
+};
 
 use super::workspace_documents::{
     filter_project_cards, load_json, now, save_json, LabelCatalog, LabelSummary, ProjectCard,
@@ -62,18 +66,36 @@ impl ProjectService {
         session_id: ObjectId,
         query: ProjectQuery,
     ) -> Result<ProjectViewState, StorageError> {
+        Self::save_view_with_prewrite(vaults, session_id, query, |_| Ok(()))
+    }
+
+    /// Test seam for simulating an external edit after loading the view and before its CAS write.
+    #[doc(hidden)]
+    pub fn save_view_with_prewrite<F>(
+        vaults: &VaultService,
+        session_id: ObjectId,
+        query: ProjectQuery,
+        before_write: F,
+    ) -> Result<ProjectViewState, StorageError>
+    where
+        F: FnOnce(&ResolvedPath) -> Result<(), StorageError>,
+    {
         let context = require_writable(vaults, session_id)?;
         let layout = VaultLayout::new(context.root);
         let labels = load_workspace_labels(&layout)?;
         validate_query_labels(&query, &labels)?;
-        let current = load_project_view(&layout)?;
+        let (current, expected_stamp) = load_project_view_versioned(&layout)?;
         let value = ProjectViewState {
-            revision: current.revision + 1,
+            revision: current.revision.checked_add(1).ok_or_else(|| {
+                StorageError::InvalidVault("project view revision overflow".to_owned())
+            })?,
             query,
             updated_at: now()?,
             ..current
         };
-        save_json(&layout.global_ui()?, &value, ProjectViewState::validate)?;
+        let path = layout.global_ui()?;
+        before_write(&path)?;
+        save_project_view_cas(&path, &value, expected_stamp.as_ref())?;
         Ok(value)
     }
 
@@ -82,6 +104,25 @@ impl ProjectService {
         session_id: ObjectId,
         name: String,
         workspace_label_ids: Vec<ObjectId>,
+    ) -> Result<ProjectCard, StorageError> {
+        Self::create_with_transactions(
+            vaults,
+            session_id,
+            name,
+            workspace_label_ids,
+            &TransactionService::default(),
+        )
+    }
+
+    /// Test seam for exercising the real project-creation producer across a process interruption.
+    /// Production callers use [`ProjectService::create`], which supplies the no-fault service.
+    #[doc(hidden)]
+    pub fn create_with_transactions<F: TransactionFault>(
+        vaults: &mut VaultService,
+        session_id: ObjectId,
+        name: String,
+        workspace_label_ids: Vec<ObjectId>,
+        transactions: &TransactionService<F>,
     ) -> Result<ProjectCard, StorageError> {
         let context = require_writable(vaults, session_id)?;
         validate_portable_display_name("project.name", &name)?;
@@ -106,37 +147,65 @@ impl ProjectService {
         project.validate()?;
         let project_dir = layout.project_dir(&project.name, project.id)?;
         let folder = project_dir.relative().to_path_buf();
-        fs::create_dir(project_dir.as_path()).map_err(|error| {
-            StorageError::io("create project directory", project_dir.relative(), error)
+        if project_dir.as_path().exists() {
+            return Err(StorageError::WriteConflict);
+        }
+        let transaction_id = ObjectId::new();
+        let staged_folder = PathBuf::from(format!(".creating-project--{transaction_id}"));
+        let staged_project = context.root.resolve(&staged_folder)?;
+        fs::create_dir(staged_project.as_path()).map_err(|error| {
+            StorageError::io(
+                "create staged project directory",
+                staged_project.relative(),
+                error,
+            )
         })?;
+        let staged_layout = VaultLayout::new(context.root.clone());
         let creation = (|| {
             context
                 .root
-                .ensure_directory(layout.project_admin(&folder)?.relative())?;
+                .ensure_directory(staged_layout.project_admin(&staged_folder)?.relative())?;
             for directory in [
-                layout.project_cache(&folder)?,
-                layout.project_transactions(&folder)?,
-                layout.project_backups(&folder)?,
-                layout.project_trash(&folder)?,
+                staged_layout.project_cache(&staged_folder)?,
+                staged_layout.project_transactions(&staged_folder)?,
+                staged_layout.project_backups(&staged_folder)?,
+                staged_layout.project_trash(&staged_folder)?,
             ] {
                 context.root.ensure_directory(directory.relative())?;
             }
             JsonStore::default().create(
-                &layout.project_manifest(&folder)?,
+                &staged_layout.project_manifest(&staged_folder)?,
                 &DomainDocument::Project(project.clone()),
             )?;
             let project_labels = LabelCatalog::empty(LabelScope::Project, Some(project.id))?;
             save_json(
-                &layout.project_labels(&folder)?,
+                &staged_layout.project_labels(&staged_folder)?,
                 &project_labels,
                 LabelCatalog::validate,
             )?;
             Ok::<(), StorageError>(())
         })();
         if let Err(error) = creation {
-            let _ = fs::remove_dir_all(project_dir.as_path());
+            let _ = fs::remove_dir_all(staged_project.as_path());
             return Err(error);
         }
+        if let Err(error) = transactions.prepare(
+            &context.root,
+            &staged_folder,
+            transaction_id,
+            TransactionPurpose::ProjectCreate,
+            vec![TransactionStep {
+                action: TransactionAction::Move,
+                target: relative_path(&folder)?,
+                staged: relative_path(&staged_folder)?,
+                backup: None,
+                expected_sha256: None,
+            }],
+        ) {
+            let _ = fs::remove_dir_all(staged_project.as_path());
+            return Err(error);
+        }
+        transactions.execute(&context.root, &staged_folder, transaction_id)?;
         vaults.refresh_index(session_id)?;
         project_card(&project, &labels)
     }
@@ -148,6 +217,27 @@ impl ProjectService {
         expected_revision: u32,
         name: String,
     ) -> Result<ProjectCard, StorageError> {
+        Self::rename_with_transactions(
+            vaults,
+            session_id,
+            project_id,
+            expected_revision,
+            name,
+            &TransactionService::default(),
+        )
+    }
+
+    /// Test seam for interrupting the real project-rename producer after either durable step.
+    /// Production callers use [`ProjectService::rename`], which supplies the no-fault service.
+    #[doc(hidden)]
+    pub fn rename_with_transactions<F: TransactionFault>(
+        vaults: &mut VaultService,
+        session_id: ObjectId,
+        project_id: ObjectId,
+        expected_revision: u32,
+        name: String,
+        transactions: &TransactionService<F>,
+    ) -> Result<ProjectCard, StorageError> {
         let context = require_writable(vaults, session_id)?;
         validate_portable_display_name("project.name", &name)?;
         let projects = scan_projects(&context)?;
@@ -156,7 +246,7 @@ impl ProjectService {
         require_revision(&current.project, expected_revision)?;
         current.project.name = name;
         touch(&mut current.project)?;
-        save_project(&context, &current)?;
+        rename_project_transactionally(&context, &current, transactions)?;
         vaults.refresh_index(session_id)?;
         let labels = load_workspace_labels(&VaultLayout::new(context.root))?;
         project_card(&current.project, &labels)
@@ -209,6 +299,22 @@ impl ProjectService {
         session_id: ObjectId,
         project_id: ObjectId,
     ) -> Result<ProjectCard, StorageError> {
+        Self::duplicate_with_transactions(
+            vaults,
+            session_id,
+            project_id,
+            &TransactionService::default(),
+        )
+    }
+
+    /// Test seam matching project creation so duplication exercises the same durable publish path.
+    #[doc(hidden)]
+    pub fn duplicate_with_transactions<F: TransactionFault>(
+        vaults: &mut VaultService,
+        session_id: ObjectId,
+        project_id: ObjectId,
+        transactions: &TransactionService<F>,
+    ) -> Result<ProjectCard, StorageError> {
         let context = require_writable(vaults, session_id)?;
         let projects = scan_projects(&context)?;
         let source = projects
@@ -217,7 +323,7 @@ impl ProjectService {
             .ok_or_else(|| StorageError::InvalidVault("project does not exist".to_owned()))?;
         let name = duplicate_name(&source.project.name, &projects);
         let labels = source.project.workspace_label_ids.clone();
-        Self::create(vaults, session_id, name, labels)
+        Self::create_with_transactions(vaults, session_id, name, labels, transactions)
     }
 
     pub fn remove(
@@ -226,32 +332,155 @@ impl ProjectService {
         project_id: ObjectId,
         expected_revision: u32,
     ) -> Result<(), StorageError> {
+        Self::remove_with_transactions(
+            vaults,
+            session_id,
+            project_id,
+            expected_revision,
+            &TransactionService::default(),
+            || Ok(()),
+        )
+    }
+
+    /// Test seam for observing the real trash producer at its last referential check and for
+    /// interrupting the durable move. Production callers use [`Self::remove`].
+    #[doc(hidden)]
+    pub fn remove_with_transactions<F, P>(
+        vaults: &mut VaultService,
+        session_id: ObjectId,
+        project_id: ObjectId,
+        expected_revision: u32,
+        transactions: &TransactionService<F>,
+        before_prepare: P,
+    ) -> Result<(), StorageError>
+    where
+        F: TransactionFault,
+        P: FnOnce() -> Result<(), StorageError>,
+    {
         let context = require_writable(vaults, session_id)?;
         let current = take_project(scan_projects(&context)?, project_id)?;
+        let source = context.root.resolve(&current.folder)?;
+        let expected_tree_sha256 = hash_managed_path(source.as_path())?;
+        let manifest = context
+            .root
+            .resolve(&current.folder.join(".project/project.json"))?;
+        let observed = JsonStore::default().load(&manifest)?;
+        if observed.stamp != current.stamp {
+            return Err(StorageError::WriteConflict);
+        }
         require_revision(&current.project, expected_revision)?;
         let layout = VaultLayout::new(context.root.clone());
         let trash = layout.removed_projects()?;
         context.root.ensure_directory(trash.relative())?;
-        let source = context.root.resolve(&current.folder)?;
         let folder_name = current
             .folder
             .file_name()
             .and_then(|value| value.to_str())
             .ok_or_else(|| StorageError::InvalidVault("project folder is not UTF-8".to_owned()))?;
-        let target_relative = trash.relative().join(format!(
-            "{folder_name}--removed-{}",
-            ObjectId::new()
-                .to_string()
-                .chars()
-                .take(8)
-                .collect::<String>()
-        ));
-        let target = context.root.resolve(&target_relative)?;
-        fs::rename(source.as_path(), target.as_path()).map_err(|error| {
-            StorageError::io("move project to controlled trash", source.relative(), error)
-        })?;
+        let target_relative = trash.relative().join(folder_name);
+        if context.root.resolve(&target_relative)?.as_path().exists() {
+            return Err(StorageError::WriteConflict);
+        }
+        let transaction_id = ObjectId::new();
+        before_prepare()?;
+        transactions.prepare(
+            &context.root,
+            &current.folder,
+            transaction_id,
+            TransactionPurpose::TrashMove,
+            vec![TransactionStep {
+                action: TransactionAction::Move,
+                target: relative_path(&target_relative)?,
+                staged: relative_path(&current.folder)?,
+                backup: None,
+                expected_sha256: Some(expected_tree_sha256),
+            }],
+        )?;
+        transactions.execute(&context.root, &current.folder, transaction_id)?;
         vaults.refresh_index(session_id)
     }
+}
+
+/// Updates the display name and the readable project-folder segment as one recoverable
+/// project-owned transaction. The project UUID remains the source of identity; names never are.
+fn rename_project_transactionally<F: TransactionFault>(
+    context: &VaultSessionContext,
+    current: &ProjectLocation,
+    transactions: &TransactionService<F>,
+) -> Result<(), StorageError> {
+    let layout = VaultLayout::new(context.root.clone());
+    let transaction_id = ObjectId::new();
+    let stage_root = current
+        .folder
+        .join(".project/transactions")
+        .join(format!("{transaction_id}.stage"));
+    let staged_manifest = stage_root.join("project.json");
+    let backup = current
+        .folder
+        .join(".project/backups/renames")
+        .join(transaction_id.to_string())
+        .join("project.json");
+    let target_manifest = current.folder.join(".project/project.json");
+    let renamed_folder = layout.project_dir(&current.project.name, current.project.id)?;
+    let renamed_folder = renamed_folder.relative().to_path_buf();
+
+    if renamed_folder != current.folder && context.root.resolve(&renamed_folder)?.as_path().exists()
+    {
+        return Err(StorageError::WriteConflict);
+    }
+
+    context.root.ensure_directory(&stage_root)?;
+    let staged = context.root.resolve(&staged_manifest)?;
+    if let Err(error) =
+        JsonStore::default().create(&staged, &DomainDocument::Project(current.project.clone()))
+    {
+        let _ = remove_stage(&context.root, &stage_root);
+        return Err(error);
+    }
+
+    let mut steps = vec![TransactionStep {
+        action: TransactionAction::Replace,
+        target: relative_path(&target_manifest)?,
+        staged: relative_path(&staged_manifest)?,
+        backup: Some(relative_path(&backup)?),
+        expected_sha256: Some(current.stamp.sha256.clone()),
+    }];
+    if renamed_folder != current.folder {
+        steps.push(TransactionStep {
+            action: TransactionAction::Move,
+            target: relative_path(&renamed_folder)?,
+            staged: relative_path(&current.folder)?,
+            backup: None,
+            expected_sha256: None,
+        });
+    }
+
+    if let Err(error) = transactions.prepare(
+        &context.root,
+        &current.folder,
+        transaction_id,
+        TransactionPurpose::ProjectRename,
+        steps,
+    ) {
+        let _ = remove_stage(&context.root, &stage_root);
+        return Err(error);
+    }
+    transactions.execute(&context.root, &current.folder, transaction_id)?;
+    Ok(())
+}
+
+fn relative_path(path: &Path) -> Result<RelativePath, StorageError> {
+    RelativePath::parse(path.to_string_lossy().replace('\\', "/")).map_err(Into::into)
+}
+
+fn remove_stage(root: &crate::storage::VaultRoot, relative: &Path) -> Result<(), StorageError> {
+    let path = root.resolve(relative)?;
+    if path.as_path().exists() {
+        fs::remove_dir_all(path.as_path()).map_err(|error| {
+            StorageError::io("remove failed project rename stage", path.relative(), error)
+        })?;
+    }
+    Ok(())
 }
 
 pub(crate) fn require_writable(
@@ -356,22 +585,51 @@ pub(crate) fn load_project_view(layout: &VaultLayout) -> Result<ProjectViewState
     }
 }
 
-pub(crate) fn remove_workspace_label_references(
-    context: &VaultSessionContext,
-    label_id: ObjectId,
-) -> Result<(), StorageError> {
-    for mut location in scan_projects(context)? {
-        let old_len = location.project.workspace_label_ids.len();
-        location
-            .project
-            .workspace_label_ids
-            .retain(|candidate| *candidate != label_id);
-        if location.project.workspace_label_ids.len() != old_len {
-            touch(&mut location.project)?;
-            save_project(context, &location)?;
+fn load_project_view_versioned(
+    layout: &VaultLayout,
+) -> Result<(ProjectViewState, Option<VersionStamp>), StorageError> {
+    let path = layout.global_ui()?;
+    match fs::read(path.as_path()) {
+        Ok(bytes) => {
+            let view: ProjectViewState = serde_json::from_slice(&bytes)
+                .map_err(|error| StorageError::InvalidVault(error.to_string()))?;
+            view.validate()?;
+            Ok((view, Some(VersionStamp::from_bytes(&bytes))))
         }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            Ok((ProjectViewState::initial()?, None))
+        }
+        Err(error) => Err(StorageError::io(
+            "read project view for write",
+            path.relative(),
+            error,
+        )),
     }
-    Ok(())
+}
+
+fn save_project_view_cas(
+    path: &ResolvedPath,
+    view: &ProjectViewState,
+    expected: Option<&VersionStamp>,
+) -> Result<(), StorageError> {
+    view.validate()?;
+    let bytes = serde_json::to_vec_pretty(view)
+        .map_err(|error| StorageError::InvalidVault(error.to_string()))?;
+    let validate = |candidate: &[u8]| {
+        let decoded: ProjectViewState = serde_json::from_slice(candidate)
+            .map_err(|error| crate::domain::DomainError::InvalidJson(error.to_string()))?;
+        decoded
+            .validate()
+            .map_err(|error| crate::domain::DomainError::invalid("project_view", error.to_string()))
+    };
+    match expected {
+        Some(stamp) => JsonStore::default()
+            .compare_and_swap_bytes(path, stamp, &bytes, validate)
+            .map(|_| ()),
+        None => JsonStore::default()
+            .create_bytes(path, &bytes, validate)
+            .map(|_| ()),
+    }
 }
 
 fn project_cards(

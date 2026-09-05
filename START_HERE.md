@@ -32,7 +32,7 @@ Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository 
 
 ## Aktueller Arbeitsauftrag
 
-P00 bis P17 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
+P00 bis P18 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
 Projekt-Dashboard über ein exakt skaliertes humanoides Gebiet in die Animationsbibliothek.
 Vorlagen, mutable `draft.json`-Arbeitsstände und unveränderliche Freigaben liegen als gewöhnliche
 Dateien in ihrem Bereich. Karten besitzen Dropdown-Filter und explizite Wege zum Dummy sowie zum
@@ -77,7 +77,15 @@ inhaltsadressiertes Godot-Paket mit relativen PNG-Verweisen, `SpriteFrames` und 
 auch das Godot-Paket validiert ist. Ein cachefreier Headless-Test mit Godot 4.7.2 lädt Loop- und
 Once-Animationen, Atlasrechtecke sowie die optionale Szene aus Verzeichnissen mit Leerzeichen und
 Unicode, entfernt die ursprüngliche Vault-Ausgabe und wiederholt die Prüfung nach dem Verschieben
-des Pakets. Der nächste Schritt ist P18 für Recovery-, Autosave- und Datenintegritätshärtung.
+des Pakets. P18 schützt diese gesamte Bearbeitungskette mit digest-versiegelten, eigentumsgeprüften
+Journals und einer exklusiven Recovery-Oberfläche. Projekt-/NPC-Rename, konfigurierte Assetimporte,
+Motion-/Outfit-/Binding-Schreibvorgänge, Freigaben, Trash und der letzte Exportpointer lassen sich
+nach einem injizierten Prozessabbruch und Reopen fortsetzen oder zurückrollen. Ein echter
+Betriebssystem-Lock verhindert den zweiten Writer; verwaiste Metadaten benötigen erneute Inspektion
+und ein exaktes Bestätigungstoken. Motion- und Outfit-Editor bewahren fehlgeschlagene Autosaves,
+blockieren unsichere Navigation und bieten eine Recovery-Kopie. Projektlokale Migrationsbackups,
+Zukunftsschemaschutz und ein verschobener kopierter Vault sind durch temporäre Fixtures belegt.
+Der nächste Schritt ist P19 für Desktop-Usability und repräsentative Leistungsnachweise.
 
 ## Leitentscheidungen
 

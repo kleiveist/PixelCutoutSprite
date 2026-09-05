@@ -4,7 +4,10 @@ use std::path::{Path, PathBuf};
 
 use crate::domain::{parse_document, DocumentKind, DomainDocument, ObjectId, RevisionRef};
 
-use super::{StorageError, VaultRoot};
+use super::{
+    is_derived_managed_path, is_managed_namespace_path, managed_json_kind, ManagedJsonKind,
+    StorageError, VaultRoot,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ObjectKey {
@@ -38,9 +41,19 @@ impl ObjectIndex {
                 .to_path_buf();
             let bytes = fs::read(&path)
                 .map_err(|error| StorageError::io("read indexed JSON", &relative, error))?;
-            if let Ok(document) = parse_document(&bytes) {
-                index.insert(document_key(&document), document_kind(&document), relative)?;
+            let expected = match managed_json_kind(root.path(), &relative) {
+                Some(ManagedJsonKind::Domain(expected)) => expected,
+                _ => continue,
+            };
+            let document = parse_document(&bytes)?;
+            let actual = document_kind(&document);
+            if actual != expected {
+                return Err(StorageError::InvalidVault(format!(
+                    "managed JSON `{}` has kind {actual:?}, expected {expected:?}",
+                    relative.to_string_lossy()
+                )));
             }
+            index.insert(document_key(&document), actual, relative)?;
         }
         Ok(index)
     }
@@ -93,47 +106,48 @@ fn collect_json_files(
             "vault nesting exceeds the supported index depth".to_owned(),
         ));
     }
-    for entry in fs::read_dir(directory)
+    let mut entries = fs::read_dir(directory)
         .map_err(|error| StorageError::io("scan vault index", directory, error))?
-    {
-        let entry =
-            entry.map_err(|error| StorageError::io("scan vault entry", directory, error))?;
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| StorageError::io("scan vault entry", directory, error))?;
+    entries.sort_by_key(fs::DirEntry::file_name);
+    for entry in entries {
         let file_type = entry
             .file_type()
             .map_err(|error| StorageError::io("inspect vault entry", &entry.path(), error))?;
+        let path = entry.path();
+        let relative = path
+            .strip_prefix(root)
+            .map_err(|_| StorageError::UnsafePath {
+                path: "index".to_owned(),
+                reason: "indexed path escaped the vault".to_owned(),
+            })?;
         if file_type.is_symlink() {
+            if managed_json_kind(root, relative).is_some()
+                || is_managed_namespace_path(root, relative)
+            {
+                return Err(StorageError::UnsafePath {
+                    path: relative.to_string_lossy().into_owned(),
+                    reason: "managed index data cannot be a symbolic link".to_owned(),
+                });
+            }
             continue;
         }
-        let path = entry.path();
         if file_type.is_dir() {
-            if is_rebuildable_or_deleted(root, &path) {
+            if is_derived_managed_path(relative) {
                 continue;
             }
             collect_json_files(root, &path, depth + 1, output)?;
-        } else if file_type.is_file() && path.extension().is_some_and(|value| value == "json") {
+        } else if file_type.is_file()
+            && matches!(
+                managed_json_kind(root, relative),
+                Some(ManagedJsonKind::Domain(_))
+            )
+        {
             output.push(path);
         }
     }
     Ok(())
-}
-
-fn is_rebuildable_or_deleted(root: &Path, path: &Path) -> bool {
-    path.strip_prefix(root).is_ok_and(|relative| {
-        relative.components().any(|part| {
-            matches!(
-                part.as_os_str().to_str(),
-                Some(
-                    "cache"
-                        | "exports"
-                        | "_exports"
-                        | ".trash"
-                        | "trash"
-                        | "backups"
-                        | "transactions"
-                )
-            )
-        })
-    })
 }
 
 fn document_key(document: &DomainDocument) -> ObjectKey {

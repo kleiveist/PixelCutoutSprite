@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { areaClient, type AreaClient } from "../api/area-client";
 import { assetClient, type AssetClient } from "../api/asset-client";
@@ -7,7 +7,12 @@ import { motionClient, type MotionClient } from "../api/motion-client";
 import { npcClient, type NpcClient } from "../api/npc-client";
 import { outfitClient, type OutfitClient } from "../api/outfit-client";
 import { projectClient, type ProjectClient } from "../api/project-client";
-import { vaultClient, type OpenVault, type VaultClient } from "../api/vault-client";
+import {
+  vaultClient,
+  type OpenVault,
+  type RecoveryStatus,
+  type VaultClient,
+} from "../api/vault-client";
 import { AppHeader } from "../components/AppHeader";
 import { Breadcrumbs } from "../components/Breadcrumbs";
 import { DialogLayer } from "../components/DialogLayer";
@@ -25,6 +30,15 @@ import { InventoryWorkspace } from "../features/inventory/InventoryWorkspace";
 import { NpcWorkspace } from "../features/npcs";
 import { OutfitEditor } from "../features/outfit";
 import { ProjectDashboard } from "../features/projects/ProjectDashboard";
+import { RecoveryPanel } from "../features/vault/RecoveryPanel";
+import {
+  classifyNativeError,
+  guardEditorNavigation,
+  observeRejectedClientCalls,
+  type EditorController,
+  type EditorControllerChange,
+  type EditorRecoveryCopy,
+} from "../features/editing";
 import { navigationItems, routeBreadcrumbs, routeDetails, type WorkspaceRoute } from "./navigation";
 import type { KeyboardAction } from "./shortcuts";
 import { useKeyboardActions } from "./useKeyboardActions";
@@ -61,43 +75,171 @@ export function App({
   const [selectedTemplateRef, setSelectedTemplateRef] = useState<RevisionRef | null>(null);
   const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null);
   const [selectedBindingId, setSelectedBindingId] = useState<string | null>(null);
-  const [editorDirty, setEditorDirty] = useState(false);
+  const [npcEditorDirty, setNpcEditorDirty] = useState(false);
+  const [npcMutationInFlight, setNpcMutationInFlight] = useState(false);
+  const [releaseRunning, setReleaseRunning] = useState(false);
   const [exportRunning, setExportRunning] = useState(false);
+  const [editorRecoveryCopy, setEditorRecoveryCopy] = useState<EditorRecoveryCopy | null>(null);
   const mainContent = useRef<HTMLElement>(null);
   const initialRoute = useRef(true);
+  const editorController = useRef<EditorController | null>(null);
+  const npcRecoveryCopy = useRef<EditorRecoveryCopy | null>(null);
+  const vaultRef = useRef<OpenVault | null>(null);
+  const recoveryRefreshInFlight = useRef<Promise<void> | null>(null);
+  vaultRef.current = vault;
 
-  const handleKeyboardAction = useCallback(
-    (action: KeyboardAction) => {
-      if (
-        (route === "dummy-editor" || (route === "outfit" && selectedTemplateRef !== null)) &&
-        ["save", "undo", "redo", "toggle-playback"].includes(action)
-      ) {
+  const handleNativeRejection = useCallback(
+    (reason: unknown): void => {
+      const failure = classifyNativeError(reason);
+      const opened = vaultRef.current;
+      if (failure.kind !== "recovery_required" || !opened || recoveryRefreshInFlight.current) {
         return;
       }
-      switch (action) {
-        case "help":
-          setHelpOpen(true);
-          break;
-        case "dismiss":
-          setHelpOpen(false);
-          break;
-        case "toggle-playback":
-          setPlaying((current) => !current);
-          setStatus("Preview playback toggled");
-          break;
-        case "save":
-          setStatus("Nothing to save yet · choose a vault first");
-          break;
-        case "undo":
-          setStatus("Nothing to undo");
-          break;
-        case "redo":
-          setStatus("Nothing to redo");
-          break;
-      }
+      const session = opened.session_id;
+      const operation = vaultApi
+        .listRecovery(session)
+        .then((recoveryStatus) => {
+          if (vaultRef.current?.session_id !== session) return;
+          if (recoveryStatus.recovery.length === 0) {
+            setStatus(failure.message);
+            return;
+          }
+          setEditorRecoveryCopy(
+            editorController.current?.recoveryCopy?.() ?? npcRecoveryCopy.current,
+          );
+          setVault((current) =>
+            current?.session_id === session
+              ? {
+                  ...current,
+                  recovery: recoveryStatus.recovery,
+                  recovery_writable: recoveryStatus.recovery_writable,
+                  mode: recoveryStatus.mode,
+                  indexed_objects: recoveryStatus.indexed_objects,
+                }
+              : current,
+          );
+          setStatus(
+            `${recoveryStatus.recovery.length} interrupted operation(s) need explicit recovery`,
+          );
+        })
+        .catch((refreshReason: unknown) => {
+          setStatus(
+            `Vault recovery state could not be loaded · ${classifyNativeError(refreshReason).message}`,
+          );
+        })
+        .finally(() => {
+          if (recoveryRefreshInFlight.current === operation) {
+            recoveryRefreshInFlight.current = null;
+          }
+        });
+      recoveryRefreshInFlight.current = operation;
     },
-    [route, selectedTemplateRef],
+    [vaultApi],
   );
+
+  const observedAreasApi = useMemo(
+    () => observeRejectedClientCalls(areasApi, handleNativeRejection),
+    [areasApi, handleNativeRejection],
+  );
+  const observedAssetsApi = useMemo(
+    () => observeRejectedClientCalls(assetsApi, handleNativeRejection),
+    [assetsApi, handleNativeRejection],
+  );
+  const observedExportsApi = useMemo(
+    () => observeRejectedClientCalls(exportsApi, handleNativeRejection),
+    [exportsApi, handleNativeRejection],
+  );
+  const observedMotionsApi = useMemo(
+    () => observeRejectedClientCalls(motionsApi, handleNativeRejection),
+    [handleNativeRejection, motionsApi],
+  );
+  const observedNpcsApi = useMemo(
+    () => observeRejectedClientCalls(npcsApi, handleNativeRejection),
+    [handleNativeRejection, npcsApi],
+  );
+  const observedOutfitsApi = useMemo(
+    () => observeRejectedClientCalls(outfitsApi, handleNativeRejection),
+    [handleNativeRejection, outfitsApi],
+  );
+  const observedProjectsApi = useMemo(
+    () => observeRejectedClientCalls(projectsApi, handleNativeRejection),
+    [handleNativeRejection, projectsApi],
+  );
+
+  const registerEditorController = useCallback<EditorControllerChange>((controller) => {
+    editorController.current = controller;
+  }, []);
+  const registerNpcRecoveryCopy = useCallback((copy: EditorRecoveryCopy | null) => {
+    npcRecoveryCopy.current = copy;
+  }, []);
+
+  const handleKeyboardAction = useCallback((action: KeyboardAction) => {
+    const controller = editorController.current;
+    if (controller && action === "toggle-playback") {
+      return;
+    }
+    if (controller && (action === "save" || action === "undo" || action === "redo")) {
+      const editorState = controller.getState();
+      if (!editorState.writable) {
+        setStatus(`${controller.label} is read-only`);
+        return;
+      }
+      if (action === "save") {
+        if (editorState.mutationInFlight) {
+          setStatus(`Wait for ${controller.label} to finish ${editorState.status.toLowerCase()}`);
+          return;
+        }
+        setStatus(`Saving ${controller.label}…`);
+        void controller
+          .save()
+          .then(() => setStatus(controller.getState().status))
+          .catch((reason) => {
+            const failure = classifyNativeError(reason);
+            setStatus(
+              failure.kind === "conflict"
+                ? `Save conflict in ${controller.label} · use the recovery actions in the editor`
+                : `${controller.label} was not saved · ${failure.message}`,
+            );
+          });
+        return;
+      }
+      if (editorState.mutationInFlight) {
+        setStatus(`Wait for ${controller.label} to finish ${editorState.status.toLowerCase()}`);
+        return;
+      }
+      if (action === "undo" && editorState.canUndo) {
+        controller.undo();
+        setStatus(`Undid the latest ${controller.label} change`);
+      } else if (action === "redo" && editorState.canRedo) {
+        controller.redo();
+        setStatus(`Redid the latest ${controller.label} change`);
+      } else {
+        setStatus(`Nothing to ${action} in ${controller.label}`);
+      }
+      return;
+    }
+    switch (action) {
+      case "help":
+        setHelpOpen(true);
+        break;
+      case "dismiss":
+        setHelpOpen(false);
+        break;
+      case "toggle-playback":
+        setPlaying((current) => !current);
+        setStatus("Preview playback toggled");
+        break;
+      case "save":
+        setStatus("Nothing to save yet · choose a vault first");
+        break;
+      case "undo":
+        setStatus("Nothing to undo");
+        break;
+      case "redo":
+        setStatus("Nothing to redo");
+        break;
+    }
+  }, []);
 
   useKeyboardActions(handleKeyboardAction);
   const details = routeDetails(route);
@@ -110,36 +252,85 @@ export function App({
     mainContent.current?.focus();
   }, [route]);
 
+  const sessionId = vault?.session_id ?? null;
+  const heartbeatSessionId =
+    vault && (vault.mode === "read_write" || vault.recovery_writable) ? vault.session_id : null;
   useEffect(
     () => () => {
-      if (vault) void vaultApi.close(vault.session_id).catch(() => undefined);
+      if (sessionId) void vaultApi.close(sessionId).catch(() => undefined);
     },
-    [vault, vaultApi],
+    [sessionId, vaultApi],
   );
 
+  useEffect(() => {
+    if (!heartbeatSessionId || typeof vaultApi.heartbeat !== "function") return;
+    let active = true;
+    const heartbeat = (): void => {
+      void vaultApi.heartbeat(heartbeatSessionId).catch((reason) => {
+        if (active) setStatus(`Vault heartbeat failed · ${classifyNativeError(reason).message}`);
+      });
+    };
+    heartbeat();
+    const timer = window.setInterval(heartbeat, 10_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [heartbeatSessionId, vaultApi]);
+
+  useEffect(() => {
+    if (!npcMutationInFlight && !releaseRunning && !exportRunning) return;
+    const beforeUnload = (event: BeforeUnloadEvent): void => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [exportRunning, npcMutationInFlight, releaseRunning]);
+
   function navigate(nextRoute: WorkspaceRoute): void {
+    if (nextRoute !== route && (vault?.recovery?.length ?? 0) > 0) {
+      setStatus("Workspace navigation is blocked until vault recovery is complete");
+      return;
+    }
     if (nextRoute !== route && exportRunning) {
       setStatus("Navigation blocked · cancel the active export and wait for it to finish");
       return;
     }
-    const leavingEditor =
-      nextRoute !== route &&
-      (route === "dummy-editor" ||
-        route === "characters" ||
-        (route === "outfit" && selectedTemplateRef !== null));
-    if (leavingEditor && editorDirty) {
-      const editorName =
-        route === "dummy-editor"
-          ? "motion template"
-          : route === "characters"
-            ? "NPC binding"
-            : "outfit draft";
+    if (nextRoute !== route && releaseRunning) {
+      setStatus("Navigation blocked · wait for the immutable motion release to finish");
+      return;
+    }
+    if (nextRoute !== route && route === "characters" && npcMutationInFlight) {
+      setStatus("Navigation blocked · wait for the current NPC operation to finish");
+      return;
+    }
+    const activeController = editorController.current;
+    const leavingControlledEditor = nextRoute !== route && activeController !== null;
+    if (leavingControlledEditor && activeController) {
+      const decision = guardEditorNavigation(activeController, (message) =>
+        window.confirm(message),
+      );
+      if (!decision.allowed && decision.reason === "mutation_in_flight") {
+        setStatus(
+          `Navigation blocked · wait for ${activeController.label} to finish ${decision.state.status.toLowerCase()}`,
+        );
+        return;
+      }
+      if (!decision.allowed) {
+        setStatus(`Navigation cancelled · save the ${activeController.label} first`);
+        return;
+      }
+    }
+    const leavingNpcEditor = nextRoute !== route && route === "characters";
+    if (leavingNpcEditor && npcEditorDirty) {
+      const editorName = "NPC binding";
       if (!window.confirm(`Discard the unsaved ${editorName} changes?`)) {
         setStatus(`Navigation cancelled · save the ${editorName} first`);
         return;
       }
     }
-    if (leavingEditor) setEditorDirty(false);
+    if (leavingNpcEditor) setNpcEditorDirty(false);
     if (nextRoute === "projects" && !vault) {
       setRoute("welcome");
       setStatus("Choose or reopen a vault before browsing projects");
@@ -163,12 +354,80 @@ export function App({
   }
 
   function openVault(opened: OpenVault): void {
-    setVault(opened);
+    const normalized: OpenVault = {
+      ...opened,
+      recovery: opened.recovery ?? [],
+      recovery_writable: opened.recovery_writable ?? opened.mode === "read_write",
+      lock_recovery: opened.lock_recovery ?? null,
+    };
+    setVault(normalized);
+    setSelectedProject(null);
+    setSelectedArea(null);
+    setSelectedTemplateId(null);
+    setSelectedTemplateRef(null);
+    setSelectedNpcId(null);
+    setSelectedBindingId(null);
+    setNpcEditorDirty(false);
+    setNpcMutationInFlight(false);
+    setReleaseRunning(false);
+    setEditorRecoveryCopy(null);
+    npcRecoveryCopy.current = null;
+    editorController.current = null;
     setRoute("projects");
     setStatus(
-      opened.notice ??
-        `${opened.mode === "read_write" ? "Writable" : "Read-only"} vault · ${opened.indexed_objects} indexed object${opened.indexed_objects === 1 ? "" : "s"}`,
+      normalized.notice ??
+        `${normalized.mode === "read_write" ? "Writable" : "Read-only"} vault · ${normalized.indexed_objects} indexed object${normalized.indexed_objects === 1 ? "" : "s"}`,
     );
+  }
+
+  function updateRecovery(recoveryStatus: RecoveryStatus): void {
+    setVault((current) =>
+      current
+        ? {
+            ...current,
+            recovery: recoveryStatus.recovery,
+            recovery_writable: recoveryStatus.recovery_writable,
+            mode: recoveryStatus.mode,
+            indexed_objects: recoveryStatus.indexed_objects,
+          }
+        : current,
+    );
+    if (recoveryStatus.recovery.length > 0) {
+      setStatus(`${recoveryStatus.recovery.length} interrupted operation(s) still need recovery`);
+      return;
+    }
+    setSelectedProject(null);
+    setSelectedArea(null);
+    setSelectedTemplateId(null);
+    setSelectedTemplateRef(null);
+    setSelectedNpcId(null);
+    setSelectedBindingId(null);
+    setNpcEditorDirty(false);
+    setNpcMutationInFlight(false);
+    setReleaseRunning(false);
+    setEditorRecoveryCopy(null);
+    npcRecoveryCopy.current = null;
+    editorController.current = null;
+    setRoute("projects");
+    setStatus("Vault recovery complete · project index refreshed");
+  }
+
+  function closeCurrentVault(): void {
+    setVault(null);
+    setSelectedProject(null);
+    setSelectedArea(null);
+    setSelectedTemplateId(null);
+    setSelectedTemplateRef(null);
+    setSelectedNpcId(null);
+    setSelectedBindingId(null);
+    setNpcEditorDirty(false);
+    setNpcMutationInFlight(false);
+    setReleaseRunning(false);
+    setEditorRecoveryCopy(null);
+    npcRecoveryCopy.current = null;
+    editorController.current = null;
+    setRoute("welcome");
+    setStatus("Vault closed");
   }
 
   function openProject(project: ProjectCard): void {
@@ -246,9 +505,18 @@ export function App({
       <div className="content-frame">
         <Breadcrumbs items={breadcrumbs} />
         <main ref={mainContent} className="main-content" tabIndex={-1}>
-          {route === "projects" && vault ? (
+          {vault && (vault.recovery?.length ?? 0) > 0 ? (
+            <RecoveryPanel
+              client={vaultApi}
+              editorRecoveryCopy={editorRecoveryCopy}
+              vault={vault}
+              onCloseVault={closeCurrentVault}
+              onRecovered={updateRecovery}
+            />
+          ) : route === "projects" && vault ? (
             <ProjectDashboard
-              client={projectsApi}
+              key={vault.session_id}
+              client={observedProjectsApi}
               sessionId={vault.session_id}
               onOpen={openProject}
               onStatus={setStatus}
@@ -257,18 +525,20 @@ export function App({
             <AnimationDashboard
               areaId={selectedArea.id}
               characterId={selectedNpcId}
-              client={motionsApi}
+              client={observedMotionsApi}
               defaultFrameSize={selectedArea.default_frame_size_px}
               defaultGroundOrigin={selectedArea.default_ground_origin_px}
               onOpen={openMotionTarget}
               onOpenNpcs={() => navigate("characters")}
+              onPublishingChange={setReleaseRunning}
               onStatus={setStatus}
               sessionId={vault.session_id}
             />
           ) : route === "dummy-editor" && vault && selectedTemplateId ? (
             <MotionDummyEditorRoute
               key={selectedTemplateId}
-              onDirtyChange={setEditorDirty}
+              client={observedMotionsApi}
+              onEditorControllerChange={registerEditorController}
               onPlaybackChange={setPlaying}
               onStatus={setStatus}
               sessionId={vault.session_id}
@@ -277,9 +547,9 @@ export function App({
           ) : route === "outfit" && vault && selectedArea && selectedTemplateRef ? (
             <OutfitEditor
               areaId={selectedArea.id}
-              assetsClient={assetsApi}
-              client={outfitsApi}
-              onDirtyChange={setEditorDirty}
+              assetsClient={observedAssetsApi}
+              client={observedOutfitsApi}
+              onEditorControllerChange={registerEditorController}
               onOpenDummy={(templateRef) => {
                 setSelectedTemplateId(templateRef.id);
                 setSelectedTemplateRef(null);
@@ -296,7 +566,7 @@ export function App({
           ) : route === "outfit" && vault && selectedArea ? (
             <InventoryWorkspace
               areaId={selectedArea.id}
-              client={assetsApi}
+              client={observedAssetsApi}
               onStatus={setStatus}
               sessionId={vault.session_id}
             />
@@ -304,10 +574,12 @@ export function App({
             <NpcWorkspace
               key={selectedArea.id}
               areaId={selectedArea.id}
-              client={npcsApi}
+              client={observedNpcsApi}
               initialBindingId={selectedBindingId ?? undefined}
               initialNpcId={selectedNpcId ?? undefined}
-              onDirtyChange={setEditorDirty}
+              onDirtyChange={setNpcEditorDirty}
+              onMutationInFlightChange={setNpcMutationInFlight}
+              onRecoveryCopyChange={registerNpcRecoveryCopy}
               onSectionChange={(section, context) => {
                 setSelectedNpcId(context.npcId);
                 setSelectedBindingId(context.bindingId);
@@ -326,10 +598,10 @@ export function App({
             <ExportWorkspace
               key={selectedArea.id}
               areaId={selectedArea.id}
-              client={exportsApi}
+              client={observedExportsApi}
               initialBindingId={selectedBindingId ?? undefined}
               initialNpcId={selectedNpcId ?? undefined}
-              npcsClient={npcsApi}
+              npcsClient={observedNpcsApi}
               onRunningChange={setExportRunning}
               onSelectionChange={(selection) => {
                 setSelectedNpcId(selection.npcId);
@@ -342,7 +614,7 @@ export function App({
           ) : (
             <PlaceholderView
               details={details}
-              areaClient={areasApi}
+              areaClient={observedAreasApi}
               onOpenAreaAnimations={openAreaAnimations}
               onOpenAreaInventory={openAreaInventory}
               onVaultOpened={openVault}

@@ -213,6 +213,59 @@ describe("AnimationDashboard", () => {
     await waitFor(() => expect(client.publish).toHaveBeenCalledWith("session", draft.id));
   });
 
+  it("blocks navigation and other motion changes while a release is publishing", async () => {
+    let finishPublish: ((value: Awaited<ReturnType<MotionClient["publish"]>>) => void) | undefined;
+    const client = mockClient();
+    vi.mocked(client.publish).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishPublish = resolve;
+        }),
+    );
+    const onOpen = vi.fn();
+    const onOpenNpcs = vi.fn();
+    render(
+      <AnimationDashboard
+        sessionId="session"
+        areaId={released.area_id}
+        defaultFrameSize={[128, 128]}
+        defaultGroundOrigin={[64, 108]}
+        client={client}
+        onOpen={onOpen}
+        onOpenNpcs={onOpenNpcs}
+      />,
+    );
+    await screen.findByText("Jump");
+    const actions = screen.getByRole("group", { name: "Actions for Jump" });
+    fireEvent.click(within(actions).getByRole("button", { name: "Release dummy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Release immutable revision" }));
+
+    await waitFor(() => expect(client.publish).toHaveBeenCalledWith("session", draft.id));
+    expect(screen.getByRole("button", { name: "NPCs" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "New animation" })).toBeDisabled();
+    expect(within(actions).getByRole("button", { name: "Edit Jump dummy" })).toBeDisabled();
+    expect(within(actions).getByRole("button", { name: "Duplicate" })).toBeDisabled();
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(onOpenNpcs).not.toHaveBeenCalled();
+
+    finishPublish?.({
+      schema_version: 1,
+      kind: "motion_revision",
+      template_id: released.id,
+      revision: 1,
+      profile_ref: released.profile_ref,
+      frame_size_px: [128, 128],
+      ground_origin_px: [64, 108],
+      frame_count: 12,
+      fps: 12,
+      loop_mode: "loop",
+      directions: [],
+      tracks: [],
+      published_at: "2026-09-05T12:00:00Z",
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: "NPCs" })).toBeEnabled());
+  });
+
   it("blocks guided release when a stored direction is missing", async () => {
     const client = mockClient();
     vi.mocked(client.dashboard).mockResolvedValue({

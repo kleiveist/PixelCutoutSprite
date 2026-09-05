@@ -209,8 +209,7 @@ export function DummyEditorPage({
       className="dummy-editor"
       aria-label={`Reusable motion template ${templateName}`}
       onKeyDown={(event) => {
-        if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement)
-          return;
+        if (isEditableTarget(event.target)) return;
         if (!(event.ctrlKey || event.metaKey)) return;
         if (event.key.toLowerCase() === "z") {
           event.preventDefault();
@@ -239,6 +238,7 @@ export function DummyEditorPage({
         <label>
           Direction
           <select
+            disabled={readOnly}
             value={direction}
             onChange={(event) => {
               setPreviewPose(null);
@@ -611,3 +611,10 @@ export function DummyEditorPage({
 }
 
 const directions: Direction[] = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    Boolean(target.closest("input, textarea, select, [contenteditable='true']"))
+  );
+}

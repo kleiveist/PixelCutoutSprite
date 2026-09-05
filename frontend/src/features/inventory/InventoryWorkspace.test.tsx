@@ -90,11 +90,28 @@ describe("InventoryWorkspace", () => {
       <InventoryWorkspace areaId={emptyInventory.area_id} client={client} sessionId="session" />,
     );
     await screen.findByRole("heading", { name: "PNG inventory" });
+    await waitFor(() => expect(client.listenForDrops).toHaveBeenCalledTimes(1));
     await act(async () => onDrop?.(["/tmp/hand_l__s__base.png"]));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(client.inspect).toHaveBeenCalledWith("session", emptyInventory.area_id, [
       "/tmp/hand_l__s__base.png",
     ]);
+  });
+
+  it("does not subscribe to native drops or expose imports for a read-only inventory", async () => {
+    const client = fakeClient({
+      inventory: vi.fn(async () => ({ ...emptyInventory, writable: false })),
+    });
+    render(
+      <InventoryWorkspace areaId={emptyInventory.area_id} client={client} sessionId="session" />,
+    );
+
+    expect(await screen.findByText(/file drops are disabled/i)).toBeInTheDocument();
+    expect(client.listenForDrops).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Import PNG or package" })).toBeDisabled();
+    expect(client.chooseSources).not.toHaveBeenCalled();
+    expect(client.inspect).not.toHaveBeenCalled();
+    expect(client.import).not.toHaveBeenCalled();
   });
 });
 

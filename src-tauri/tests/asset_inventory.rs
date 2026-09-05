@@ -3,15 +3,20 @@ use std::path::Path;
 
 use image::{Rgba, RgbaImage};
 use pixel_cutout_sprite_studio_lib::application::{
-    AreaDetails, AreaService, AssetService, ConfirmAssetImportRequest, CreateAreaRequest,
-    ProjectService, VaultService,
+    AreaDetails, AreaService, AssetService, AssetServiceError, ConfirmAssetImportRequest,
+    CreateAreaRequest, ProjectService, VaultOpenMode, VaultService,
 };
-use pixel_cutout_sprite_studio_lib::asset_io::{ImportDecision, SizeHandling};
+use pixel_cutout_sprite_studio_lib::asset_io::{
+    AssetRepositoryError, ImportDecision, SizeHandling,
+};
 use pixel_cutout_sprite_studio_lib::domain::{
     DocumentKind, DomainDocument, ObjectId, ObjectType, OutfitDraft, OutfitDraftStatus,
     RevisionRef, SlotId, SlotRef, UtcTimestamp, SCHEMA_VERSION,
 };
-use pixel_cutout_sprite_studio_lib::storage::{object_folder, JsonStore, VaultRoot};
+use pixel_cutout_sprite_studio_lib::storage::{
+    object_folder, InterruptAfterStep, JsonStore, RecoveryChoice, StorageError, TransactionPurpose,
+    TransactionService, VaultRoot,
+};
 use tempfile::TempDir;
 
 struct Fixture {
@@ -296,4 +301,111 @@ fn transparent_padding_aligns_the_source_and_profile_pivots_without_scaling() {
     assert_eq!(inventory.items[0].image_size_px, head.size_px);
     assert_eq!(inventory.items[0].pivot_px, head.pivot_px);
     assert_eq!(fs::read(png).unwrap(), original);
+}
+
+#[test]
+fn configured_desktop_import_resumes_or_rolls_back_after_reopen() {
+    for choice in [RecoveryChoice::Resume, RecoveryChoice::Rollback] {
+        let mut fixture = Fixture::new();
+        let external = TempDir::new().unwrap();
+        let hand_png = external.path().join("hand_l__s__base.png");
+        let head_png = external.path().join("head__s__base.png");
+        write_loose_png(&hand_png);
+        write_loose_png(&head_png);
+        let hand_original = fs::read(&hand_png).unwrap();
+        let head_original = fs::read(&head_png).unwrap();
+
+        let inspection = AssetService::inspect_sources(
+            &fixture.vaults,
+            fixture.session_id,
+            fixture.area.area.id,
+            vec![
+                hand_png.to_string_lossy().into_owned(),
+                head_png.to_string_lossy().into_owned(),
+            ],
+        )
+        .unwrap();
+        assert_eq!(inspection.entries.len(), 2);
+        let decisions = inspection
+            .entries
+            .iter()
+            .map(|entry| {
+                let slot_id = entry.suggested_slot_id.clone().unwrap();
+                ImportDecision {
+                    entry_index: entry.entry_index,
+                    direction: entry.suggested_direction.unwrap(),
+                    size_handling: if slot_id.as_str() == "hand_l" {
+                        SizeHandling::RescaleNearest
+                    } else {
+                        assert_eq!(slot_id.as_str(), "head");
+                        SizeHandling::PadTransparent
+                    },
+                    slot_id,
+                }
+            })
+            .collect();
+        let interrupted = TransactionService::with_fault(InterruptAfterStep { completed_step: 1 });
+        let error = AssetService::import_with_transactions(
+            &mut fixture.vaults,
+            fixture.session_id,
+            ConfirmAssetImportRequest {
+                area_id: fixture.area.area.id,
+                source: inspection.source,
+                decisions,
+            },
+            &interrupted,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            error,
+            AssetServiceError::Repository(AssetRepositoryError::Storage(
+                StorageError::TransactionInterrupted { step: 1 }
+            ))
+        ));
+        assert_eq!(fs::read(&hand_png).unwrap(), hand_original);
+        assert_eq!(fs::read(&head_png).unwrap(), head_original);
+
+        fixture.vaults.close(fixture.session_id).unwrap();
+        let mut reopened_vaults = VaultService::default();
+        let opened = reopened_vaults.open(fixture.temp.path()).unwrap();
+        assert_eq!(opened.mode, VaultOpenMode::ReadOnly);
+        assert!(opened.recovery_writable);
+        assert_eq!(opened.recovery.len(), 1);
+        assert_eq!(opened.recovery[0].purpose, TransactionPurpose::AssetImport);
+        assert_eq!(opened.recovery[0].total_steps, 2);
+        assert!(opened.recovery[0].can_resume);
+        assert!(opened.recovery[0].can_rollback);
+        let transaction_id = opened.recovery[0].transaction_id;
+
+        let recovered = reopened_vaults
+            .recover_transaction(opened.session_id, transaction_id, choice)
+            .unwrap();
+        assert!(recovered.recovery.is_empty());
+        assert_eq!(recovered.mode, VaultOpenMode::ReadWrite);
+        let inventory =
+            AssetService::inventory(&reopened_vaults, opened.session_id, fixture.area.area.id)
+                .unwrap();
+        match choice {
+            RecoveryChoice::Resume => {
+                assert_eq!(inventory.items.len(), 2);
+                for item in &inventory.items {
+                    let slot = fixture
+                        .area
+                        .profile
+                        .slots
+                        .iter()
+                        .find(|slot| slot.id == item.slot_id)
+                        .unwrap();
+                    assert_eq!(item.image_size_px, slot.size_px);
+                    if item.slot_id.as_str() == "head" {
+                        assert_eq!(item.pivot_px, slot.pivot_px);
+                    }
+                }
+            }
+            RecoveryChoice::Rollback => assert!(inventory.items.is_empty()),
+        }
+        assert_eq!(fs::read(&hand_png).unwrap(), hand_original);
+        assert_eq!(fs::read(&head_png).unwrap(), head_original);
+        reopened_vaults.close(opened.session_id).unwrap();
+    }
 }

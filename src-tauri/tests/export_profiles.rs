@@ -8,9 +8,12 @@ use pixel_cutout_sprite_studio_lib::application::{
 use pixel_cutout_sprite_studio_lib::domain::{
     Area, AtlasSize, ClippingPolicy, Direction, DirectionModel, DocumentKind, DomainDocument,
     ExportJumpMode, ExportProfileSnapshot, ExportRootMotionMode, ObjectId, ObjectType, PixelPoint,
-    PixelSize, RevisionRef, UtcTimestamp, SCHEMA_VERSION,
+    PixelSize, Project, RecordStatus, RevisionRef, UtcTimestamp, SCHEMA_VERSION,
 };
-use pixel_cutout_sprite_studio_lib::storage::{JsonStore, VaultRoot};
+use pixel_cutout_sprite_studio_lib::storage::{
+    InterruptAfterStep, JsonStore, NoTransactionFault, RecoveryChoice, StorageError,
+    TransactionPurpose, TransactionService, TransactionState, VaultRoot,
+};
 use tempfile::TempDir;
 
 const AREA_PATH: &str = "game/npcs";
@@ -179,18 +182,120 @@ fn legacy_stored_profile_defaults_migrate_only_when_it_is_loaded_and_saved() {
     assert_eq!(persisted["include_godot_scene"], false);
 }
 
+#[test]
+fn interrupted_export_profile_delete_can_resume_or_roll_back_after_reopen() {
+    for choice in [RecoveryChoice::Resume, RecoveryChoice::Rollback] {
+        let (directory, root, area_id) = fixture();
+        let service = ExportProfileService;
+        let created = service
+            .save(
+                &root,
+                Path::new(AREA_PATH),
+                area_id,
+                save_request(None, None, "Recoverable"),
+            )
+            .unwrap();
+        let source = root
+            .resolve(
+                &Path::new(AREA_PATH)
+                    .join(".area/export-profiles")
+                    .join(format!("{}.json", created.id)),
+            )
+            .unwrap();
+        let transactions = TransactionService::with_fault(InterruptAfterStep { completed_step: 1 });
+        let interrupted = service.delete_with_transactions(
+            &root,
+            Path::new(AREA_PATH),
+            area_id,
+            DeleteNpcExportProfileRequest {
+                profile_id: created.id,
+                expected_revision: created.revision,
+            },
+            &transactions,
+        );
+        assert!(matches!(
+            interrupted,
+            Err(ExportProfileServiceError::Storage(
+                StorageError::TransactionInterrupted { step: 1 }
+            ))
+        ));
+        assert!(!source.as_path().exists());
+
+        drop(root);
+        let reopened = VaultRoot::open(directory.path()).unwrap();
+        let candidates = TransactionService::<NoTransactionFault>::scan_open(&reopened).unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].purpose, TransactionPurpose::TrashMove);
+        assert_eq!(candidates[0].project.as_str(), "game");
+        assert!(candidates[0]
+            .journal
+            .as_str()
+            .starts_with("game/.project/transactions/"));
+        assert!(!directory.path().join(".pixelforge-studio").exists());
+        let recovered = TransactionService::<NoTransactionFault>::default()
+            .recover_candidate(&reopened, candidates[0].transaction_id, choice)
+            .unwrap();
+        assert_eq!(
+            recovered.state,
+            match choice {
+                RecoveryChoice::Resume => TransactionState::Committed,
+                RecoveryChoice::Rollback => TransactionState::RolledBack,
+            }
+        );
+        assert!(
+            TransactionService::<NoTransactionFault>::scan_open(&reopened)
+                .unwrap()
+                .is_empty()
+        );
+        let remaining = service
+            .list(&reopened, Path::new(AREA_PATH), area_id)
+            .unwrap();
+        match choice {
+            RecoveryChoice::Resume => {
+                assert!(remaining.is_empty());
+                let trash = reopened.resolve(Path::new("game/.project/trash")).unwrap();
+                let entries = fs::read_dir(trash.as_path()).unwrap().collect::<Vec<_>>();
+                assert_eq!(entries.len(), 1);
+                assert!(entries[0]
+                    .as_ref()
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(&format!("export-profile--{}--removed-", created.id)));
+            }
+            RecoveryChoice::Rollback => {
+                assert_eq!(remaining, vec![created]);
+                assert!(source.as_path().exists());
+            }
+        }
+    }
+}
+
 fn fixture() -> (TempDir, VaultRoot, ObjectId) {
     let directory = TempDir::new().unwrap();
+    fs::create_dir_all(directory.path().join("game/.project")).unwrap();
     fs::create_dir_all(directory.path().join(AREA_PATH).join(".area")).unwrap();
     let root = VaultRoot::open(directory.path()).unwrap();
     let area_id = ObjectId::new();
+    let project_id = ObjectId::new();
     let timestamp = UtcTimestamp::parse("2026-09-05T10:00:00Z").unwrap();
+    let project = Project {
+        schema_version: SCHEMA_VERSION,
+        kind: DocumentKind::Project,
+        id: project_id,
+        revision: 1,
+        name: "Game".to_owned(),
+        status: RecordStatus::Active,
+        workspace_label_ids: Vec::new(),
+        created_at: timestamp,
+        updated_at: timestamp,
+    };
     let area = Area {
         schema_version: SCHEMA_VERSION,
         kind: DocumentKind::Area,
         id: area_id,
         revision: 1,
-        project_id: ObjectId::new(),
+        project_id,
         name: "NPCs".to_owned(),
         object_type: ObjectType::Humanoid,
         profile_ref: RevisionRef {
@@ -206,6 +311,14 @@ fn fixture() -> (TempDir, VaultRoot, ObjectId) {
         created_at: timestamp,
         updated_at: timestamp,
     };
+    JsonStore::default()
+        .write(
+            &root
+                .resolve(Path::new("game/.project/project.json"))
+                .unwrap(),
+            &DomainDocument::Project(project),
+        )
+        .unwrap();
     JsonStore::default()
         .write(
             &root

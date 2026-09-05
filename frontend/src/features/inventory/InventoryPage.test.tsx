@@ -74,4 +74,29 @@ describe("InventoryPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Archive asset" }));
     expect(onArchive).toHaveBeenCalledWith(items[0]);
   });
+
+  it("fully disables importing, dropping, and archiving in read-only mode", () => {
+    const onChoosePackage = vi.fn();
+    const onDropFiles = vi.fn();
+    const onArchive = vi.fn();
+    render(
+      <InventoryPage
+        items={items}
+        onChoosePackage={onChoosePackage}
+        onDropFiles={onDropFiles}
+        onArchive={onArchive}
+        writable={false}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Import PNG or package" })).toBeDisabled();
+    expect(screen.getByText(/file drops are disabled/i)).toHaveAttribute("aria-disabled", "true");
+    fireEvent.drop(screen.getByText(/file drops are disabled/i), {
+      dataTransfer: { files: [new File(["png"], "sprite.png", { type: "image/png" })] },
+    });
+    expect(onDropFiles).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("button", { name: "Archive…" })[0]).toBeDisabled();
+    expect(onChoosePackage).not.toHaveBeenCalled();
+    expect(onArchive).not.toHaveBeenCalled();
+  });
 });

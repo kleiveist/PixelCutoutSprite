@@ -211,6 +211,8 @@ pub enum ExportError {
     },
     #[error("export was cancelled; the previous current build was preserved")]
     Cancelled,
+    #[error("current.json changed while the export was being published")]
+    CurrentPointerConflict,
     #[error("animation sampling failed: {0}")]
     Sampling(#[from] SampleError),
     #[error("pixel composition failed: {0}")]

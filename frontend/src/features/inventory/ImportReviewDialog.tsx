@@ -17,11 +17,13 @@ export function ImportReviewDialog({
   inspection,
   onCancel,
   onConfirm,
+  writable = true,
 }: {
   busy: boolean;
   inspection: AssetImportInspection;
   onCancel: () => void;
   onConfirm: (decisions: ImportDecision[]) => void;
+  writable?: boolean;
 }) {
   const [decisions, setDecisions] = useState<DraftDecision[]>(() =>
     inspection.entries.map((entry) => ({
@@ -56,6 +58,7 @@ export function ImportReviewDialog({
         File-name matches are suggestions only. Every unassigned image needs an explicit slot and
         direction before its original is copied into this area.
       </p>
+      {!writable && <p role="status">Read-only vault · this import cannot be changed or copied.</p>}
       <div className="inventory-import-list">
         {inspection.entries.map((entry) => {
           const decision = decisions.find((item) => item.entry_index === entry.entry_index)!;
@@ -86,7 +89,7 @@ export function ImportReviewDialog({
                 <label>
                   Slot for {entry.name}
                   <select
-                    disabled={busy || packageAssigned}
+                    disabled={busy || !writable || packageAssigned}
                     value={decision.slot_id}
                     onChange={(event) => update(entry.entry_index, { slot_id: event.target.value })}
                   >
@@ -101,7 +104,7 @@ export function ImportReviewDialog({
                 <label>
                   Direction for {entry.name}
                   <select
-                    disabled={busy || packageAssigned}
+                    disabled={busy || !writable || packageAssigned}
                     value={decision.direction}
                     onChange={(event) =>
                       update(entry.entry_index, { direction: event.target.value as Direction })
@@ -118,7 +121,7 @@ export function ImportReviewDialog({
                 <label>
                   Size handling for {entry.name}
                   <select
-                    disabled={busy}
+                    disabled={busy || !writable}
                     value={decision.size_handling}
                     onChange={(event) =>
                       update(entry.entry_index, {
@@ -142,7 +145,7 @@ export function ImportReviewDialog({
         {!complete && <span role="status">Assign every entry before importing.</span>}
         <button
           className="primary-button"
-          disabled={busy || !complete}
+          disabled={busy || !writable || !complete}
           type="button"
           onClick={() =>
             onConfirm(

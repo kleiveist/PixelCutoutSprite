@@ -226,6 +226,7 @@ describe("NPC workspace", () => {
   it("reports unsaved local corrections and guards switching NPCs", async () => {
     const client = mockClient();
     const onDirtyChange = vi.fn();
+    const onRecoveryCopyChange = vi.fn();
     const onStatus = vi.fn();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     render(
@@ -234,6 +235,7 @@ describe("NPC workspace", () => {
         areaId={areaId}
         client={client}
         onDirtyChange={onDirtyChange}
+        onRecoveryCopyChange={onRecoveryCopyChange}
         onStatus={onStatus}
       />,
     );
@@ -241,6 +243,16 @@ describe("NPC workspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add correction" }));
     await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(true));
+    await waitFor(() =>
+      expect(onRecoveryCopyChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          fileName: `npc-${areaId}-binding-corrections-recovery.json`,
+          value: expect.objectContaining({
+            format: "pixel-cutout-sprite-npc-binding-recovery",
+          }),
+        }),
+      ),
+    );
     fireEvent.click(screen.getByRole("button", { name: /Jon/ }));
 
     expect(confirm).toHaveBeenCalledWith(
@@ -251,6 +263,7 @@ describe("NPC workspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save local corrections" }));
     await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
+    await waitFor(() => expect(onRecoveryCopyChange).toHaveBeenLastCalledWith(null));
     confirm.mockRestore();
   });
 

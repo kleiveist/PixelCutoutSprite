@@ -63,13 +63,21 @@ pub fn autosave_outfit_draft(
     draft_id: String,
     expected_revision: u32,
     edits: OutfitDraftEdits,
+    expected_sha256: String,
     service: State<'_, Mutex<VaultService>>,
 ) -> Result<OutfitEditorContext, String> {
     let draft_id = parse_id("draft_id", &draft_id)?;
     let (mut service, session_id, root, area_path) =
         locked_area_session(&service, &session_id, &area_id, true)?;
     let result = AppearanceService
-        .autosave_draft(&root, &area_path, draft_id, expected_revision, edits)
+        .autosave_draft_checked(
+            &root,
+            &area_path,
+            draft_id,
+            expected_revision,
+            Some(&expected_sha256),
+            edits,
+        )
         .map_err(|error| error.to_string())?;
     refresh(&mut service, session_id)?;
     Ok(result)
@@ -82,13 +90,21 @@ pub fn auto_assign_outfit(
     draft_id: String,
     expected_revision: u32,
     assets: Vec<crate::domain::SlotRef>,
+    expected_sha256: String,
     service: State<'_, Mutex<VaultService>>,
 ) -> Result<OutfitEditorContext, String> {
     let draft_id = parse_id("draft_id", &draft_id)?;
     let (mut service, session_id, root, area_path) =
         locked_area_session(&service, &session_id, &area_id, true)?;
     let result = AppearanceService
-        .auto_assign(&root, &area_path, draft_id, expected_revision, assets)
+        .auto_assign_checked(
+            &root,
+            &area_path,
+            draft_id,
+            expected_revision,
+            Some(&expected_sha256),
+            assets,
+        )
         .map_err(|error| error.to_string())?;
     refresh(&mut service, session_id)?;
     Ok(result)
@@ -119,13 +135,21 @@ pub fn save_outfit_as_npc(
     draft_id: String,
     expected_revision: u32,
     request: SaveNpcRequest,
+    expected_sha256: String,
     service: State<'_, Mutex<VaultService>>,
 ) -> Result<SavedNpc, String> {
     let draft_id = parse_id("draft_id", &draft_id)?;
     let (mut service, session_id, root, area_path) =
         locked_area_session(&service, &session_id, &area_id, true)?;
     let result = AppearanceService
-        .save_as_npc(&root, &area_path, draft_id, expected_revision, request)
+        .save_as_npc_checked(
+            &root,
+            &area_path,
+            draft_id,
+            expected_revision,
+            Some(&expected_sha256),
+            request,
+        )
         .map_err(|error| error.to_string())?;
     refresh(&mut service, session_id)?;
     Ok(result)
@@ -137,13 +161,20 @@ pub fn apply_outfit_to_npc(
     area_id: String,
     draft_id: String,
     expected_revision: u32,
+    expected_sha256: String,
     service: State<'_, Mutex<VaultService>>,
 ) -> Result<SavedNpc, String> {
     let draft_id = parse_id("draft_id", &draft_id)?;
     let (mut service, session_id, root, area_path) =
         locked_area_session(&service, &session_id, &area_id, true)?;
     let result = AppearanceService
-        .apply_to_existing_npc(&root, &area_path, draft_id, expected_revision)
+        .apply_to_existing_npc_checked(
+            &root,
+            &area_path,
+            draft_id,
+            expected_revision,
+            Some(&expected_sha256),
+        )
         .map_err(|error| error.to_string())?;
     refresh(&mut service, session_id)?;
     Ok(result)

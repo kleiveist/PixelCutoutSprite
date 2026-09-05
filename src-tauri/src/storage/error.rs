@@ -23,8 +23,18 @@ pub enum StorageError {
     AlreadyLocked { owner: String },
     #[error("vault initialization needs current confirmation token `{token}`")]
     ConfirmationRequired { token: String },
+    #[error("orphaned writer-lock recovery needs current confirmation token `{token}`")]
+    LockRecoveryRequired { token: String },
+    #[error("the writer lock is actively held and cannot be recovered")]
+    ActiveLockProtected,
     #[error("vault cannot be opened: {0}")]
     InvalidVault(String),
+    #[error("transaction was interrupted after filesystem step {step}; recovery is required")]
+    TransactionInterrupted { step: usize },
+    #[error("transaction needs explicit recovery: {0}")]
+    RecoveryRequired(String),
+    #[error("schema version {found} is newer than supported version {supported}; the file was not changed")]
+    FutureSchemaProtected { found: u64, supported: u32 },
     #[error("simulated replacement failure: {0}")]
     ReplacementFailed(String),
 }

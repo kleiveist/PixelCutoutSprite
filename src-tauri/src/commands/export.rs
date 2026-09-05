@@ -88,10 +88,13 @@ pub fn start_npc_export<R: Runtime>(
     service: State<'_, Mutex<VaultService>>,
     jobs: State<'_, ExportJobRegistry>,
 ) -> Result<ExportJobView, String> {
-    let (service_guard, session_id, root, area_path) =
+    let (service_guard, session_id, _root, area_path) =
         locked_area_session(&service, &session_id, &area_id, true)?;
+    let writer_lease = service_guard
+        .write_lease(session_id)
+        .map_err(|error| error.to_string())?;
     let prepared = NpcExportService
-        .prepare(&root, &area_path, request)
+        .prepare(writer_lease.root(), &area_path, request)
         .map_err(|error| error.to_string())?;
     let (job, cancellation) = jobs
         .register(
@@ -111,7 +114,12 @@ pub fn start_npc_export<R: Runtime>(
                     let _ = app.emit(EXPORT_PROGRESS_EVENT, view);
                 }
             };
-            NpcExportService.execute_prepared(&root, prepared, &cancellation, &mut report)
+            NpcExportService.execute_prepared(
+                writer_lease.root(),
+                prepared,
+                &cancellation,
+                &mut report,
+            )
         }));
         let registry = app.state::<ExportJobRegistry>();
         let terminal = match result {

@@ -9,7 +9,8 @@ use pixel_cutout_sprite_studio_lib::domain::{
     SlotId, TrackProperty,
 };
 use pixel_cutout_sprite_studio_lib::exports::{
-    motion_semantic_sha256, CurrentExport, ExportProgress, ExportService, NeverCancel,
+    motion_semantic_sha256, CurrentExport, ExportError, ExportProgress, ExportService, ExportStage,
+    NeverCancel,
 };
 use pixel_cutout_sprite_studio_lib::storage::VaultRoot;
 use tempfile::tempdir;
@@ -184,6 +185,80 @@ fn fingerprint_tracks_semantic_sources_but_rejects_nondeterministic_pixels() {
         Err(pixel_cutout_sprite_studio_lib::exports::ExportError::InvalidBuild(message))
             if message.contains("different pixels")
     ));
+}
+
+#[test]
+fn current_pointer_cas_preserves_an_external_publish_callback_update() {
+    let temporary = tempdir().unwrap();
+    let service = ExportService::new(VaultRoot::open(temporary.path()).unwrap(), "0.1.0");
+    let original_request = request(&[("walk", PixelSize(2, 2), PixelPoint(0, 0))]);
+    service
+        .export(
+            Path::new(OUTPUT_DIRECTORY),
+            &original_request,
+            &mut FixtureSource::default(),
+            &NeverCancel,
+            &mut |_| {},
+        )
+        .unwrap();
+
+    let mut replacement_request = original_request.clone();
+    replacement_request
+        .effective_sources
+        .iter_mut()
+        .find(|source| source.kind == EffectiveSourceKind::Asset)
+        .unwrap()
+        .content_sha256 = pixel_cutout_sprite_studio_lib::domain::Sha256Digest::parse(
+        "abababababababababababababababababababababababababababababababab",
+    )
+    .unwrap();
+    let replacement = service
+        .build_without_current(
+            Path::new(OUTPUT_DIRECTORY),
+            &replacement_request,
+            &mut FixtureSource::default(),
+            &NeverCancel,
+            &mut |_| {},
+        )
+        .unwrap();
+
+    let mut external_request = original_request;
+    external_request
+        .effective_sources
+        .iter_mut()
+        .find(|source| source.kind == EffectiveSourceKind::Asset)
+        .unwrap()
+        .content_sha256 = pixel_cutout_sprite_studio_lib::domain::Sha256Digest::parse(
+        "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    )
+    .unwrap();
+    let external = service
+        .build_without_current(
+            Path::new(OUTPUT_DIRECTORY),
+            &external_request,
+            &mut FixtureSource::default(),
+            &NeverCancel,
+            &mut |_| {},
+        )
+        .unwrap();
+    let external_pointer = service
+        .validated_current_pointer(Path::new(OUTPUT_DIRECTORY), &external)
+        .unwrap();
+    let external_bytes = serde_json::to_vec_pretty(&external_pointer).unwrap();
+    let current_path = temporary.path().join(OUTPUT_DIRECTORY).join("current.json");
+
+    let result = service.publish_current(
+        Path::new(OUTPUT_DIRECTORY),
+        &replacement,
+        &NeverCancel,
+        &mut |progress: ExportProgress| {
+            if progress.stage == ExportStage::Publishing && progress.completed == 0 {
+                fs::write(&current_path, &external_bytes).unwrap();
+            }
+        },
+    );
+    assert!(matches!(result, Err(ExportError::CurrentPointerConflict)));
+    assert_eq!(fs::read(current_path).unwrap(), external_bytes);
 }
 
 #[test]

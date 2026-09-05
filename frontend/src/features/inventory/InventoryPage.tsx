@@ -38,6 +38,7 @@ export function InventoryPage({
 
   function dropped(event: DragEvent<HTMLDivElement>): void {
     event.preventDefault();
+    if (!writable || busy) return;
     onDropFiles([...event.dataTransfer.files]);
   }
 
@@ -108,10 +109,16 @@ export function InventoryPage({
       </div>
       <div
         className="inventory-drop"
-        onDragOver={(event) => event.preventDefault()}
+        aria-disabled={!writable || busy}
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = writable && !busy ? "copy" : "none";
+        }}
         onDrop={dropped}
       >
-        Drop local PNG files or a package JSON here. Sources are copied into this area.
+        {writable
+          ? "Drop local PNG files or a package JSON here. Sources are copied into this area."
+          : "Read-only vault · PNG imports and file drops are disabled."}
       </div>
       {visible.length === 0 ? (
         <p className="inventory-empty">No assets match these filters.</p>

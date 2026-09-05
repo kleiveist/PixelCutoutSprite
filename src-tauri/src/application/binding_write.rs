@@ -1,13 +1,13 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::domain::{
     AnimationBinding, Character, CharacterStatus, DirectionMode, DocumentKind, DomainDocument,
     ObjectId, RelativePath, ReviewState, TemplateStatus, SCHEMA_VERSION,
 };
 use crate::storage::{
-    object_folder, write_journal, JsonStore, TransactionAction, TransactionJournal,
-    TransactionState, TransactionStep, VaultRoot,
+    object_folder, JsonStore, TransactionAction, TransactionPurpose, TransactionService,
+    TransactionStep, VaultRoot,
 };
 
 use super::appearance_service::{now, AppearanceServiceError};
@@ -309,16 +309,17 @@ fn publish_binding(
         .ok_or_else(|| invalid("NPC character path has no parent"))?;
     let folder = object_folder(binding.action_key.as_str(), binding.id)?;
     let final_dir = character_root.join(&folder);
+    if vault.resolve(&final_dir)?.as_path().exists() {
+        return Err(invalid("the generated binding folder already exists"));
+    }
+    let project_path = area_path
+        .parent()
+        .ok_or_else(|| invalid("area path must be nested directly inside a project"))?;
     let transaction_id = ObjectId::new();
-    let staged_dir = character_root.join(format!(
-        ".{}.{}.staged",
-        folder.to_string_lossy(),
-        transaction_id
-    ));
-    let journal_path = transaction_path(area_path, "binding-add", transaction_id)?;
-    let mut journal = TransactionJournal::new(vec![transaction_step(&final_dir, &staged_dir)?])?;
-    ensure_journal_parent(vault, &journal_path)?;
-    write_journal(&vault.resolve(&journal_path)?, &journal)?;
+    let staged_dir = project_path
+        .join(".project/transactions")
+        .join(format!("{transaction_id}.stage"))
+        .join("binding");
     let staged = (|| {
         vault.ensure_directory(&staged_dir)?;
         JsonStore::default().create(
@@ -328,59 +329,38 @@ fn publish_binding(
         Ok::<_, AppearanceServiceError>(())
     })();
     if let Err(error) = staged {
-        remove_new_directory(vault, &staged_dir);
-        rollback_journal(vault, &journal_path, &mut journal);
+        remove_new_directory(
+            vault,
+            &project_path
+                .join(".project/transactions")
+                .join(format!("{transaction_id}.stage")),
+        );
         return Err(error);
     }
-    journal.state = TransactionState::Applying;
-    write_journal(&vault.resolve(&journal_path)?, &journal)?;
-    let final_absolute = vault.resolve(&final_dir)?;
-    if final_absolute.as_path().exists() {
-        remove_new_directory(vault, &staged_dir);
-        rollback_journal(vault, &journal_path, &mut journal);
-        return Err(invalid("the generated binding folder already exists"));
-    }
-    if let Err(error) = fs::rename(
-        vault.resolve(&staged_dir)?.as_path(),
-        final_absolute.as_path(),
+    let transactions = TransactionService::default();
+    if let Err(error) = transactions.prepare(
+        vault,
+        project_path,
+        transaction_id,
+        TransactionPurpose::General,
+        vec![TransactionStep {
+            action: TransactionAction::Create,
+            target: portable(&final_dir)?,
+            staged: portable(&staged_dir)?,
+            backup: None,
+            expected_sha256: None,
+        }],
     ) {
-        remove_new_directory(vault, &staged_dir);
-        journal.state = TransactionState::NeedsRecovery;
-        let _ = write_journal(&vault.resolve(&journal_path)?, &journal);
-        return Err(invalid(format!(
-            "could not publish binding folder: {error}"
-        )));
+        remove_new_directory(
+            vault,
+            &project_path
+                .join(".project/transactions")
+                .join(format!("{transaction_id}.stage")),
+        );
+        return Err(error.into());
     }
-    journal.cursor = journal.steps.len();
-    journal.state = TransactionState::Committed;
-    write_journal(&vault.resolve(&journal_path)?, &journal)?;
+    transactions.execute(vault, project_path, transaction_id)?;
     Ok(())
-}
-
-pub(super) fn transaction_path(
-    area_path: &Path,
-    prefix: &str,
-    transaction_id: ObjectId,
-) -> Result<PathBuf, AppearanceServiceError> {
-    let project_path = area_path
-        .parent()
-        .ok_or_else(|| invalid("area path must be nested directly inside a project"))?;
-    Ok(project_path
-        .join(".project/transactions")
-        .join(format!("{prefix}--{transaction_id}.json")))
-}
-
-pub(super) fn transaction_step(
-    target: &Path,
-    staged: &Path,
-) -> Result<TransactionStep, AppearanceServiceError> {
-    Ok(TransactionStep {
-        action: TransactionAction::Create,
-        target: RelativePath::parse(target.to_string_lossy().replace('\\', "/"))?,
-        staged: RelativePath::parse(staged.to_string_lossy().replace('\\', "/"))?,
-        backup: None,
-        expected_sha256: None,
-    })
 }
 
 pub(super) fn remove_new_directory(vault: &VaultRoot, relative: &Path) {
@@ -389,26 +369,8 @@ pub(super) fn remove_new_directory(vault: &VaultRoot, relative: &Path) {
     }
 }
 
-pub(super) fn ensure_journal_parent(
-    vault: &VaultRoot,
-    journal_path: &Path,
-) -> Result<(), AppearanceServiceError> {
-    let parent = journal_path
-        .parent()
-        .ok_or_else(|| invalid("transaction journal path has no parent"))?;
-    vault.ensure_directory(parent)?;
-    Ok(())
-}
-
-pub(super) fn rollback_journal(
-    vault: &VaultRoot,
-    journal_path: &Path,
-    journal: &mut TransactionJournal,
-) {
-    journal.state = TransactionState::RolledBack;
-    if let Ok(path) = vault.resolve(journal_path) {
-        let _ = write_journal(&path, journal);
-    }
+fn portable(path: &Path) -> Result<RelativePath, AppearanceServiceError> {
+    RelativePath::parse(path.to_string_lossy().replace('\\', "/")).map_err(Into::into)
 }
 
 pub(super) fn require_character(

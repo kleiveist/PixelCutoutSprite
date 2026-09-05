@@ -10,11 +10,12 @@ use crate::domain::{
     validate_portable_display_name, ActionKey, AnimationBinding, Area, Character, Direction,
     DirectionDefinition, DirectionMode, DocumentKind, DomainDocument, DomainError, LoopMode,
     MotionRevision, MotionSemantics, MotionTemplate, MotionTrack, ObjectId, PixelPoint, PixelSize,
-    ProfileRevision, RevisionRef, TemplateStatus, UtcTimestamp, SCHEMA_VERSION,
+    ProfileRevision, RelativePath, RevisionRef, TemplateStatus, UtcTimestamp, SCHEMA_VERSION,
 };
 use crate::storage::{
-    object_folder, JsonStore, ResolvedPath, StorageError, VaultLayout, VaultRoot, VersionStamp,
-    AREA_ADMIN_DIR, PROJECT_ADMIN_DIR,
+    hash_managed_path, object_folder, JsonStore, RecoveryChoice, ResolvedPath, StorageError,
+    TransactionAction, TransactionFault, TransactionPurpose, TransactionService, TransactionStep,
+    VaultLayout, VaultRoot, VersionStamp, AREA_ADMIN_DIR, PROJECT_ADMIN_DIR,
 };
 
 use super::{now, VaultOpenMode, VaultService};
@@ -117,6 +118,7 @@ pub struct CreateMotionRequest {
 pub struct SaveMotionDraftRequest {
     pub template_id: ObjectId,
     pub expected_revision: u32,
+    pub expected_sha256: String,
     pub frame_size_px: PixelSize,
     pub ground_origin_px: PixelPoint,
     pub frame_count: u16,
@@ -169,6 +171,7 @@ pub struct MotionDashboard {
 pub struct MotionEditorData {
     pub template_name: String,
     pub draft: MotionDraft,
+    pub draft_sha256: String,
     pub profile: ProfileRevision,
     pub writable: bool,
 }
@@ -297,6 +300,7 @@ impl MotionService {
         Ok(MotionEditorData {
             template_name: motion.template.name,
             draft: motion.draft,
+            draft_sha256: motion.draft_stamp.sha256,
             profile,
             writable: mode == VaultOpenMode::ReadWrite,
         })
@@ -307,12 +311,29 @@ impl MotionService {
         session_id: ObjectId,
         request: SaveMotionDraftRequest,
     ) -> Result<MotionDraft, StorageError> {
+        let transactions = TransactionService::default();
+        Self::save_draft_with_transactions(vaults, session_id, request, &transactions)
+    }
+
+    /// Testable production seam for verifying interruption and recovery of the two-file save.
+    /// Transaction paths, staged values, and compare-and-swap stamps remain service-derived.
+    #[doc(hidden)]
+    pub fn save_draft_with_transactions<F>(
+        vaults: &mut VaultService,
+        session_id: ObjectId,
+        request: SaveMotionDraftRequest,
+        transactions: &TransactionService<F>,
+    ) -> Result<MotionDraft, StorageError>
+    where
+        F: TransactionFault,
+    {
         let root = writable_root(vaults, session_id)?;
         let (area, mut location) = find_motion(&root, request.template_id)?;
-        if location.draft.revision != request.expected_revision {
+        if location.draft.revision != request.expected_revision
+            || location.draft_stamp.sha256 != request.expected_sha256
+        {
             return Err(StorageError::WriteConflict);
         }
-        let previous_draft = location.draft.clone();
         location.draft.revision = next_revision(location.draft.revision, "draft revision")?;
         location.draft.frame_size_px = request.frame_size_px;
         location.draft.ground_origin_px = request.ground_origin_px;
@@ -332,24 +353,75 @@ impl MotionService {
             .collect::<HashSet<_>>();
         location.draft.sampling_revision().validate(Some(&slots))?;
         validate_direction_contract(&location.draft.sampling_revision(), &profile, false)?;
-        let draft_path = root.resolve(&location.folder.join("draft.json"))?;
-        let next_draft_stamp =
-            compare_and_swap_draft(&draft_path, &location.draft_stamp, &location.draft)?;
-
         location.template.revision =
             next_revision(location.template.revision, "template revision")?;
         location.template.draft_revision = location.draft.revision;
         location.template.updated_at = location.draft.updated_at;
         location.template.validate()?;
-        let template_path = root.resolve(&location.folder.join("template.json"))?;
-        if let Err(error) = JsonStore::default().compare_and_swap(
-            &template_path,
-            &location.template_stamp,
-            &DomainDocument::MotionTemplate(location.template),
-        ) {
-            let _ = compare_and_swap_draft(&draft_path, &next_draft_stamp, &previous_draft);
+
+        let project_folder = project_folder(&area.folder)?;
+        let transaction_id = ObjectId::new();
+        let stage_root = project_folder
+            .join(PROJECT_ADMIN_DIR)
+            .join("transactions")
+            .join(format!("{transaction_id}.stage"));
+        let staged_draft = stage_root.join("draft.json");
+        let staged_template = stage_root.join("template.json");
+        let draft_target = location.folder.join("draft.json");
+        let template_target = location.folder.join("template.json");
+        let backup_root = project_folder
+            .join(PROJECT_ADMIN_DIR)
+            .join("backups")
+            .join(format!("motion-save--{transaction_id}"));
+
+        let staged = (|| {
+            root.ensure_directory(&stage_root)?;
+            write_draft(&root.resolve(&staged_draft)?, &location.draft)?;
+            JsonStore::default().create(
+                &root.resolve(&staged_template)?,
+                &DomainDocument::MotionTemplate(location.template.clone()),
+            )?;
+            Ok::<_, StorageError>(())
+        })();
+        if let Err(error) = staged {
+            let _ = fs::remove_dir_all(root.resolve(&stage_root)?.as_path());
             return Err(error);
         }
+
+        let plan = (|| {
+            Ok::<_, StorageError>(vec![
+                replacement_step(
+                    &draft_target,
+                    &staged_draft,
+                    &backup_root.join("draft.json"),
+                    &location.draft_stamp,
+                )?,
+                replacement_step(
+                    &template_target,
+                    &staged_template,
+                    &backup_root.join("template.json"),
+                    &location.template_stamp,
+                )?,
+            ])
+        })();
+        let steps = match plan {
+            Ok(steps) => steps,
+            Err(error) => {
+                let _ = fs::remove_dir_all(root.resolve(&stage_root)?.as_path());
+                return Err(error);
+            }
+        };
+        if let Err(error) = transactions.prepare(
+            &root,
+            project_folder,
+            transaction_id,
+            TransactionPurpose::General,
+            steps,
+        ) {
+            let _ = fs::remove_dir_all(root.resolve(&stage_root)?.as_path());
+            return Err(error);
+        }
+        transactions.execute(&root, project_folder, transaction_id)?;
         vaults.refresh_index(session_id)?;
         Ok(location.draft)
     }
@@ -359,6 +431,22 @@ impl MotionService {
         session_id: ObjectId,
         template_id: ObjectId,
     ) -> Result<MotionRevision, StorageError> {
+        let transactions = TransactionService::default();
+        Self::publish_with_transactions(vaults, session_id, template_id, &transactions)
+    }
+
+    /// Testable production seam for verifying interruption and recovery of a release publish.
+    /// Transaction paths, staged values, and compare-and-swap stamps remain service-derived.
+    #[doc(hidden)]
+    pub fn publish_with_transactions<F>(
+        vaults: &mut VaultService,
+        session_id: ObjectId,
+        template_id: ObjectId,
+        transactions: &TransactionService<F>,
+    ) -> Result<MotionRevision, StorageError>
+    where
+        F: TransactionFault,
+    {
         let root = writable_root(vaults, session_id)?;
         let (area, mut location) = find_motion(&root, template_id)?;
         let release_number = location
@@ -380,51 +468,81 @@ impl MotionService {
             .collect::<HashSet<_>>();
         release.validate(Some(&slots))?;
         validate_direction_contract(&release, &profile, true)?;
-        let release_path = root.resolve(
-            &location
-                .folder
-                .join("revisions")
-                .join(format!("r{release_number:04}.json")),
-        )?;
-        root.ensure_directory(&location.folder.join("revisions"))?;
-        JsonStore::default().create(
-            &release_path,
-            &DomainDocument::MotionRevision(release.clone()),
-        )?;
-
-        let old_template = location.template.clone();
         location.template.revision =
             next_revision(location.template.revision, "template revision")?;
         location.template.released_revisions.push(release_number);
         location.template.draft_base_release = Some(release_number);
         location.template.updated_at = timestamp;
         location.template.validate()?;
-        let template_path = root.resolve(&location.folder.join("template.json"))?;
-        let template_stamp = match JsonStore::default().compare_and_swap(
-            &template_path,
-            &location.template_stamp,
-            &DomainDocument::MotionTemplate(location.template),
-        ) {
-            Ok(stamp) => stamp,
-            Err(error) => {
-                let _ = fs::remove_file(release_path.as_path());
-                return Err(error);
-            }
-        };
         location.draft.released_from_draft_revision = Some(location.draft.revision);
         location.draft.updated_at = timestamp;
-        let draft_path = root.resolve(&location.folder.join("draft.json"))?;
-        if let Err(error) =
-            compare_and_swap_draft(&draft_path, &location.draft_stamp, &location.draft)
-        {
-            let _ = JsonStore::default().compare_and_swap(
-                &template_path,
-                &template_stamp,
-                &DomainDocument::MotionTemplate(old_template),
-            );
-            let _ = fs::remove_file(release_path.as_path());
+        let project_folder = project_folder(&area.folder)?;
+        let transaction_id = ObjectId::new();
+        let stage_root = project_folder
+            .join(PROJECT_ADMIN_DIR)
+            .join("transactions")
+            .join(format!("{transaction_id}.stage"));
+        let release_target = location
+            .folder
+            .join("revisions")
+            .join(format!("r{release_number:04}.json"));
+        let template_target = location.folder.join("template.json");
+        let draft_target = location.folder.join("draft.json");
+        let staged = (|| {
+            root.ensure_directory(&stage_root)?;
+            JsonStore::default().create(
+                &root.resolve(&stage_root.join("release.json"))?,
+                &DomainDocument::MotionRevision(release.clone()),
+            )?;
+            JsonStore::default().create(
+                &root.resolve(&stage_root.join("template.json"))?,
+                &DomainDocument::MotionTemplate(location.template.clone()),
+            )?;
+            write_draft(
+                &root.resolve(&stage_root.join("draft.json"))?,
+                &location.draft,
+            )?;
+            Ok::<_, StorageError>(())
+        })();
+        if let Err(error) = staged {
+            let _ = fs::remove_dir_all(root.resolve(&stage_root)?.as_path());
             return Err(error);
         }
+        let backup_root = project_folder
+            .join(PROJECT_ADMIN_DIR)
+            .join("backups")
+            .join(format!("motion-release--{transaction_id}"));
+        if let Err(error) = transactions.prepare(
+            &root,
+            project_folder,
+            transaction_id,
+            TransactionPurpose::ReleaseRevision,
+            vec![
+                TransactionStep {
+                    action: TransactionAction::Create,
+                    target: portable_relative(&release_target)?,
+                    staged: portable_relative(&stage_root.join("release.json"))?,
+                    backup: None,
+                    expected_sha256: None,
+                },
+                replacement_step(
+                    &template_target,
+                    &stage_root.join("template.json"),
+                    &backup_root.join("template.json"),
+                    &location.template_stamp,
+                )?,
+                replacement_step(
+                    &draft_target,
+                    &stage_root.join("draft.json"),
+                    &backup_root.join("draft.json"),
+                    &location.draft_stamp,
+                )?,
+            ],
+        ) {
+            let _ = fs::remove_dir_all(root.resolve(&stage_root)?.as_path());
+            return Err(error);
+        }
+        transactions.execute(&root, project_folder, transaction_id)?;
         vaults.refresh_index(session_id)?;
         Ok(release)
     }
@@ -471,8 +589,46 @@ impl MotionService {
         template_id: ObjectId,
         expected_revision: u32,
     ) -> Result<(), StorageError> {
+        Self::remove_with_transactions(
+            vaults,
+            session_id,
+            template_id,
+            expected_revision,
+            &TransactionService::default(),
+            (|| Ok(()), || Ok(())),
+        )
+    }
+
+    /// Test seam for introducing a change before the final binding scan and for interrupting the
+    /// real durable trash move. Production callers use [`Self::remove`].
+    #[doc(hidden)]
+    pub fn remove_with_transactions<F, B, A>(
+        vaults: &mut VaultService,
+        session_id: ObjectId,
+        template_id: ObjectId,
+        expected_revision: u32,
+        transactions: &TransactionService<F>,
+        checks: (B, A),
+    ) -> Result<(), StorageError>
+    where
+        F: TransactionFault,
+        B: FnOnce() -> Result<(), StorageError>,
+        A: FnOnce() -> Result<(), StorageError>,
+    {
+        let (before_prepare, after_prepare) = checks;
         let root = writable_root(vaults, session_id)?;
         let (area, location) = find_motion(&root, template_id)?;
+        let source = root.resolve(&location.folder)?;
+        let expected_tree_sha256 = hash_managed_path(source.as_path())?;
+        let observed_template =
+            JsonStore::default().load(&root.resolve(&location.folder.join("template.json"))?)?;
+        let (_, observed_draft_stamp) =
+            load_draft_document(&root.resolve(&location.folder.join("draft.json"))?)?;
+        if observed_template.stamp != location.template_stamp
+            || observed_draft_stamp != location.draft_stamp
+        {
+            return Err(StorageError::WriteConflict);
+        }
         if location.template.revision != expected_revision {
             return Err(StorageError::WriteConflict);
         }
@@ -484,12 +640,20 @@ impl MotionService {
                 "template is referenced by an NPC binding; archive it instead".to_owned(),
             ));
         }
+        before_prepare()?;
+        if scan_bindings(&root, &area.folder)?
+            .iter()
+            .any(|binding| binding.template_ref.id == template_id)
+        {
+            return Err(StorageError::InvalidVault(
+                "template became referenced by an NPC binding; archive it instead".to_owned(),
+            ));
+        }
         let project = area.folder.parent().ok_or_else(|| {
             StorageError::InvalidVault("area does not have a project parent".to_owned())
         })?;
         let trash = project.join(PROJECT_ADMIN_DIR).join("trash");
         root.ensure_directory(&trash)?;
-        let source = root.resolve(&location.folder)?;
         let folder_name = location
             .folder
             .file_name()
@@ -499,9 +663,32 @@ impl MotionService {
             folder_name.to_string_lossy(),
             ObjectId::new().to_string().chars().take(8).collect::<String>()
         )))?;
-        fs::rename(source.as_path(), target.as_path()).map_err(|error| {
-            StorageError::io("move template to project trash", source.relative(), error)
-        })?;
+        let transaction_id = ObjectId::new();
+        transactions.prepare(
+            &root,
+            project,
+            transaction_id,
+            TransactionPurpose::TrashMove,
+            vec![TransactionStep {
+                action: TransactionAction::Move,
+                target: portable_relative(target.relative())?,
+                staged: portable_relative(source.relative())?,
+                backup: None,
+                expected_sha256: Some(expected_tree_sha256),
+            }],
+        )?;
+        after_prepare()?;
+        if scan_bindings(&root, &area.folder)?
+            .iter()
+            .any(|binding| binding.template_ref.id == template_id)
+        {
+            transactions.recover_candidate(&root, transaction_id, RecoveryChoice::Rollback)?;
+            return Err(StorageError::InvalidVault(
+                "template became referenced while its removal journal was prepared; archive it instead"
+                    .to_owned(),
+            ));
+        }
+        transactions.execute(&root, project, transaction_id)?;
         vaults.refresh_index(session_id)
     }
 
@@ -675,29 +862,62 @@ fn create_motion(
     let base = area.folder.join(AREA_ADMIN_DIR).join(TEMPLATE_DIRECTORY);
     root.ensure_directory(&base)?;
     let folder = base.join(object_folder(&template.name, template.id)?);
-    root.ensure_directory(&folder)?;
-    root.ensure_directory(&folder.join("revisions"))?;
-    let template_path = root.resolve(&folder.join("template.json"))?;
-    let draft_path = root.resolve(&folder.join("draft.json"))?;
-    let result = (|| {
-        let template_stamp = JsonStore::default().create(
-            &template_path,
+    if root.resolve(&folder)?.as_path().exists() {
+        return Err(StorageError::WriteConflict);
+    }
+    let project = project_folder(&area.folder)?;
+    let transaction_id = ObjectId::new();
+    let stage_root = project
+        .join(PROJECT_ADMIN_DIR)
+        .join("transactions")
+        .join(format!("{transaction_id}.stage"));
+    let staged_folder = stage_root.join("template");
+    let staged_result = (|| {
+        root.ensure_directory(&staged_folder.join("revisions"))?;
+        JsonStore::default().create(
+            &root.resolve(&staged_folder.join("template.json"))?,
             &DomainDocument::MotionTemplate(template.clone()),
         )?;
-        let draft_stamp = create_draft(&draft_path, &draft)?;
-        Ok(MotionLocation {
-            folder: folder.clone(),
-            template,
-            template_stamp,
-            draft,
-            draft_stamp,
-        })
+        create_draft(&root.resolve(&staged_folder.join("draft.json"))?, &draft)?;
+        Ok::<_, StorageError>(())
     })();
-    if result.is_err() {
-        let resolved = root.resolve(&folder)?;
-        let _ = fs::remove_dir_all(resolved.as_path());
+    if let Err(error) = staged_result {
+        let _ = fs::remove_dir_all(root.resolve(&stage_root)?.as_path());
+        return Err(error);
     }
-    result
+    let transactions = TransactionService::default();
+    if let Err(error) = transactions.prepare(
+        root,
+        project,
+        transaction_id,
+        TransactionPurpose::General,
+        vec![TransactionStep {
+            action: TransactionAction::Create,
+            target: portable_relative(&folder)?,
+            staged: portable_relative(&staged_folder)?,
+            backup: None,
+            expected_sha256: None,
+        }],
+    ) {
+        let _ = fs::remove_dir_all(root.resolve(&stage_root)?.as_path());
+        return Err(error);
+    }
+    transactions.execute(root, project, transaction_id)?;
+    let template_path = root.resolve(&folder.join("template.json"))?;
+    let loaded_template = JsonStore::default().load(&template_path)?;
+    let DomainDocument::MotionTemplate(template) = loaded_template.value else {
+        return Err(StorageError::InvalidVault(
+            "published motion template has the wrong document kind".to_owned(),
+        ));
+    };
+    let (draft, draft_stamp) = load_draft_document(&root.resolve(&folder.join("draft.json"))?)?;
+    Ok(MotionLocation {
+        folder,
+        template,
+        template_stamp: loaded_template.stamp,
+        draft,
+        draft_stamp,
+    })
 }
 
 fn default_direction_definitions() -> Vec<DirectionDefinition> {
@@ -1052,17 +1272,29 @@ fn create_draft(path: &ResolvedPath, draft: &MotionDraft) -> Result<VersionStamp
     write_draft(path, draft)
 }
 
-fn compare_and_swap_draft(
-    path: &ResolvedPath,
-    expected: &VersionStamp,
-    draft: &MotionDraft,
-) -> Result<VersionStamp, StorageError> {
-    let bytes = fs::read(path.as_path())
-        .map_err(|error| StorageError::io("read motion draft", path.relative(), error))?;
-    if VersionStamp::from_bytes(&bytes) != *expected {
-        return Err(StorageError::WriteConflict);
-    }
-    write_draft(path, draft)
+fn replacement_step(
+    target: &Path,
+    staged: &Path,
+    backup: &Path,
+    stamp: &VersionStamp,
+) -> Result<TransactionStep, StorageError> {
+    Ok(TransactionStep {
+        action: TransactionAction::Replace,
+        target: portable_relative(target)?,
+        staged: portable_relative(staged)?,
+        backup: Some(portable_relative(backup)?),
+        expected_sha256: Some(stamp.sha256.clone()),
+    })
+}
+
+fn project_folder(area_folder: &Path) -> Result<&Path, StorageError> {
+    area_folder.parent().ok_or_else(|| {
+        StorageError::InvalidVault("area path is not nested inside a project".to_owned())
+    })
+}
+
+fn portable_relative(path: &Path) -> Result<RelativePath, StorageError> {
+    RelativePath::parse(path.to_string_lossy().replace('\\', "/")).map_err(StorageError::from)
 }
 
 fn write_draft(path: &ResolvedPath, draft: &MotionDraft) -> Result<VersionStamp, StorageError> {

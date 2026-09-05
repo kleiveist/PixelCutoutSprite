@@ -1,6 +1,7 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::domain::{portable_name_key, validate_portable_display_name, ObjectId};
+use crate::domain::{portable_name_key, validate_portable_display_name, DocumentKind, ObjectId};
 
 use super::{ResolvedPath, StorageError, VaultRoot};
 
@@ -15,6 +16,227 @@ pub enum DataOwnership {
     Area,
     Character,
     DerivedExport,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ManagedSupportJsonKind {
+    LabelCatalog,
+    ProjectView,
+    MotionDraft,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ManagedJsonKind {
+    Domain(DocumentKind),
+    Support(ManagedSupportJsonKind),
+}
+
+/// Classifies only paths owned by the studio's persisted contract. Arbitrary JSON placed beside
+/// projects is user/foreign data: it is neither indexed nor rejected during schema preflight.
+pub fn managed_json_kind(vault_root: &Path, path: &Path) -> Option<ManagedJsonKind> {
+    if path.extension().is_none_or(|extension| extension != "json") {
+        return None;
+    }
+    let parts = path
+        .components()
+        .map(|component| component.as_os_str().to_str())
+        .collect::<Option<Vec<_>>>()?;
+    match parts.as_slice() {
+        [ADMIN_DIR, "vault.json"] => {
+            return Some(ManagedJsonKind::Domain(DocumentKind::Vault));
+        }
+        [ADMIN_DIR, "labels.json"] => {
+            return Some(ManagedJsonKind::Support(
+                ManagedSupportJsonKind::LabelCatalog,
+            ));
+        }
+        [ADMIN_DIR, "ui.json"] => {
+            return Some(ManagedJsonKind::Support(
+                ManagedSupportJsonKind::ProjectView,
+            ));
+        }
+        [project, PROJECT_ADMIN_DIR, "project.json"] if is_source_segment(project) => {
+            return Some(ManagedJsonKind::Domain(DocumentKind::Project));
+        }
+        [project, PROJECT_ADMIN_DIR, "labels.json"]
+            if is_source_segment(project)
+                && is_regular_anchor(
+                    vault_root,
+                    &Path::new(project)
+                        .join(PROJECT_ADMIN_DIR)
+                        .join("project.json"),
+                ) =>
+        {
+            return Some(ManagedJsonKind::Support(
+                ManagedSupportJsonKind::LabelCatalog,
+            ));
+        }
+        _ => {}
+    }
+
+    if let [project, area, AREA_ADMIN_DIR, suffix @ ..] = parts.as_slice() {
+        if !is_source_segment(project)
+            || !is_source_segment(area)
+            || !is_regular_anchor(
+                vault_root,
+                &Path::new(project)
+                    .join(PROJECT_ADMIN_DIR)
+                    .join("project.json"),
+            )
+        {
+            return None;
+        }
+        let classified = match suffix {
+            ["area.json"] => ManagedJsonKind::Domain(DocumentKind::Area),
+            _ if !is_regular_anchor(
+                vault_root,
+                &Path::new(project)
+                    .join(area)
+                    .join(AREA_ADMIN_DIR)
+                    .join("area.json"),
+            ) =>
+            {
+                return None
+            }
+            ["profiles", _, revision] if is_numbered_json(revision) => {
+                ManagedJsonKind::Domain(DocumentKind::ProfileRevision)
+            }
+            ["templates", _, "template.json"] => {
+                ManagedJsonKind::Domain(DocumentKind::MotionTemplate)
+            }
+            ["templates", _, "revisions", revision] if is_numbered_json(revision) => {
+                ManagedJsonKind::Domain(DocumentKind::MotionRevision)
+            }
+            ["templates", _, "draft.json"] => {
+                ManagedJsonKind::Support(ManagedSupportJsonKind::MotionDraft)
+            }
+            ["assets", _, "asset.json"] => ManagedJsonKind::Domain(DocumentKind::Asset),
+            ["assets", _, revision, "revision.json"] if is_numbered_directory(revision) => {
+                ManagedJsonKind::Domain(DocumentKind::AssetRevision)
+            }
+            ["assets", _, "revisions", _, "revision.json"] => {
+                ManagedJsonKind::Domain(DocumentKind::AssetRevision)
+            }
+            ["drafts", draft] if draft.starts_with("outfit--") => {
+                ManagedJsonKind::Domain(DocumentKind::OutfitDraft)
+            }
+            ["export-profiles", _] => ManagedJsonKind::Support(ManagedSupportJsonKind::Other),
+            _ => ManagedJsonKind::Support(ManagedSupportJsonKind::Other),
+        };
+        return Some(classified);
+    }
+
+    if let [project, area, character, suffix @ ..] = parts.as_slice() {
+        let area_manifest = Path::new(project)
+            .join(area)
+            .join(AREA_ADMIN_DIR)
+            .join("area.json");
+        if !is_source_segment(project)
+            || !is_source_segment(area)
+            || !is_source_segment(character)
+            || !is_regular_anchor(vault_root, &area_manifest)
+        {
+            return None;
+        }
+        match suffix {
+            ["character.json"] => {
+                return Some(ManagedJsonKind::Domain(DocumentKind::Character));
+            }
+            ["appearances", _]
+                if is_regular_anchor(
+                    vault_root,
+                    &Path::new(project)
+                        .join(area)
+                        .join(character)
+                        .join("character.json"),
+                ) =>
+            {
+                return Some(ManagedJsonKind::Domain(DocumentKind::Appearance));
+            }
+            [_, "binding.json"]
+                if is_regular_anchor(
+                    vault_root,
+                    &Path::new(project)
+                        .join(area)
+                        .join(character)
+                        .join("character.json"),
+                ) =>
+            {
+                return Some(ManagedJsonKind::Domain(DocumentKind::AnimationBinding));
+            }
+            _ => {}
+        }
+    }
+    if parts.contains(&PROJECT_ADMIN_DIR) || parts.first() == Some(&ADMIN_DIR) {
+        return Some(ManagedJsonKind::Support(ManagedSupportJsonKind::Other));
+    }
+    None
+}
+
+pub fn is_derived_managed_path(path: &Path) -> bool {
+    let parts = path
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .collect::<Vec<_>>();
+    parts
+        .first()
+        .is_some_and(|part| part.starts_with(".creating-project--"))
+        || parts.iter().any(|part| {
+            matches!(
+                *part,
+                "cache" | "exports" | "_exports" | ".trash" | "trash" | "backups" | "transactions"
+            )
+        })
+        || (parts.first() == Some(&ADMIN_DIR) && parts.get(1) == Some(&"runtime"))
+}
+
+pub fn is_managed_namespace_path(vault_root: &Path, path: &Path) -> bool {
+    let parts = path
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .collect::<Vec<_>>();
+    if parts.first() == Some(&ADMIN_DIR) {
+        return true;
+    }
+    match parts.as_slice() {
+        [project, PROJECT_ADMIN_DIR, ..] => is_source_segment(project),
+        [project, area, AREA_ADMIN_DIR, ..] => {
+            is_source_segment(project)
+                && is_source_segment(area)
+                && is_regular_anchor(
+                    vault_root,
+                    &Path::new(project)
+                        .join(PROJECT_ADMIN_DIR)
+                        .join("project.json"),
+                )
+        }
+        _ => false,
+    }
+}
+
+fn is_source_segment(value: &str) -> bool {
+    !value.is_empty() && !value.starts_with('.')
+}
+
+fn is_regular_anchor(vault_root: &Path, relative: &Path) -> bool {
+    fs::symlink_metadata(vault_root.join(relative))
+        .is_ok_and(|metadata| metadata.is_file() && !metadata.file_type().is_symlink())
+}
+
+fn is_numbered_json(file_name: &str) -> bool {
+    file_name
+        .strip_prefix('r')
+        .and_then(|value| value.strip_suffix(".json"))
+        .is_some_and(|digits| {
+            !digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit())
+        })
+}
+
+fn is_numbered_directory(name: &str) -> bool {
+    name.strip_prefix('r').is_some_and(|digits| {
+        !digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit())
+    })
 }
 
 #[derive(Debug, Clone)]

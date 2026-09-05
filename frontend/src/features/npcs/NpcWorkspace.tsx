@@ -8,6 +8,7 @@ import {
   type ReleasedMotionOption,
 } from "../../api/npc-client";
 import type { LocalOverride, RevisionRef } from "../../domain";
+import type { EditorRecoveryCopy } from "../editing";
 import { NpcDashboard } from "./NpcDashboard";
 import { NpcDetail } from "./NpcDetail";
 import { emptyNpcFilter, type NpcFilter } from "./npc-filter";
@@ -32,6 +33,8 @@ interface NpcWorkspaceProps {
   initialBindingId?: string;
   client?: NpcClient;
   onDirtyChange?: (dirty: boolean) => void;
+  onMutationInFlightChange?: (inFlight: boolean) => void;
+  onRecoveryCopyChange?: (copy: EditorRecoveryCopy | null) => void;
   onSelectionChange?: (selection: NpcSelectionContext) => void;
   onSectionChange?: (
     section: "animations" | "npcs" | "export",
@@ -48,6 +51,8 @@ export function NpcWorkspace({
   initialBindingId,
   client = npcClient,
   onDirtyChange,
+  onMutationInFlightChange,
+  onRecoveryCopyChange,
   onSelectionChange,
   onSectionChange,
   onStatus,
@@ -125,13 +130,20 @@ export function NpcWorkspace({
     () => context?.npcs.find((npc) => npc.character.id === selection.npcId) ?? null,
     [context, selection.npcId],
   );
-  const navigationUnsafe = !readOnly && (dirtyBindingIds.size > 0 || busy);
+  const dirty = !readOnly && dirtyBindingIds.size > 0;
+  const navigationUnsafe = dirty || busy;
   useEffect(() => {
-    onDirtyChange?.(navigationUnsafe);
+    onDirtyChange?.(dirty);
     return () => {
-      if (navigationUnsafe) onDirtyChange?.(false);
+      if (dirty) onDirtyChange?.(false);
     };
-  }, [navigationUnsafe, onDirtyChange]);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => {
+    onMutationInFlightChange?.(busy);
+    return () => {
+      if (busy) onMutationInFlightChange?.(false);
+    };
+  }, [busy, onMutationInFlightChange]);
   useEffect(() => {
     if (!navigationUnsafe) return;
     const beforeUnload = (event: BeforeUnloadEvent): void => {
@@ -144,6 +156,35 @@ export function NpcWorkspace({
   useEffect(() => {
     if (context) onSelectionChange?.(selection);
   }, [context, onSelectionChange, selection]);
+  useEffect(() => {
+    const bindings = context?.npcs.flatMap((npc) => npc.bindings) ?? [];
+    const recovery = Object.entries(overrideDrafts).flatMap(([bindingId, localOverrides]) => {
+      const binding = bindings.find((candidate) => candidate.binding.id === bindingId)?.binding;
+      return binding
+        ? [
+            {
+              binding_id: bindingId,
+              expected_revision: binding.revision,
+              local_overrides: localOverrides,
+            },
+          ]
+        : [];
+    });
+    onRecoveryCopyChange?.(
+      recovery.length > 0
+        ? {
+            fileName: `npc-${areaId}-binding-corrections-recovery.json`,
+            value: {
+              format: "pixel-cutout-sprite-npc-binding-recovery",
+              format_version: 1,
+              area_id: areaId,
+              bindings: recovery,
+            },
+          }
+        : null,
+    );
+    return () => onRecoveryCopyChange?.(null);
+  }, [areaId, context, onRecoveryCopyChange, overrideDrafts]);
 
   function selectNpc(id: string): void {
     if (id === selection.npcId) return;

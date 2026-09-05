@@ -25,6 +25,7 @@ interface AnimationDashboardProps {
   onOpen: (target: MotionOpenTarget) => void;
   onOpenNpcs?: () => void;
   onStatus?: (message: string) => void;
+  onPublishingChange?: (publishing: boolean) => void;
 }
 
 export function AnimationDashboard({
@@ -37,6 +38,7 @@ export function AnimationDashboard({
   onOpen,
   onOpenNpcs,
   onStatus,
+  onPublishingChange,
 }: AnimationDashboardProps) {
   const [dashboard, setDashboard] = useState<Awaited<ReturnType<MotionClient["dashboard"]>> | null>(
     null,
@@ -57,6 +59,12 @@ export function AnimationDashboard({
     }
   }, [areaId, client, sessionId]);
   useEffect(() => void load(), [load]);
+  useEffect(() => {
+    onPublishingChange?.(publishing);
+    return () => {
+      if (publishing) onPublishingChange?.(false);
+    };
+  }, [onPublishingChange, publishing]);
   const cards = useMemo(
     () => filterMotionCards(dashboard?.motions ?? [], filters),
     [dashboard?.motions, filters],
@@ -92,7 +100,7 @@ export function AnimationDashboard({
         </div>
         <button
           className="primary-button"
-          disabled={!dashboard?.writable}
+          disabled={!dashboard?.writable || publishing}
           type="button"
           onClick={() => setCreating(true)}
         >
@@ -103,7 +111,7 @@ export function AnimationDashboard({
         <button type="button" aria-current="page">
           Animations
         </button>
-        <button type="button" onClick={onOpenNpcs}>
+        <button type="button" disabled={publishing} onClick={onOpenNpcs}>
           NPCs
         </button>
       </nav>
@@ -132,7 +140,8 @@ export function AnimationDashboard({
           <MotionCardView
             key={motion.id}
             motion={motion}
-            disabled={!dashboard?.writable}
+            disabled={!dashboard?.writable || publishing}
+            busy={publishing}
             onOpen={onOpen}
             preview={
               <LiveMotionCardPreview client={client} sessionId={sessionId} motion={motion} />

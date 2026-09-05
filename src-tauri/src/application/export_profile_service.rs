@@ -6,9 +6,12 @@ use thiserror::Error;
 
 use crate::domain::{
     DomainDocument, DomainError, ExportJumpMode, ExportProfileSnapshot, ExportRootMotionMode,
-    ObjectId, UtcTimestamp,
+    ObjectId, RelativePath, UtcTimestamp,
 };
-use crate::storage::{JsonStore, StorageError, VaultRoot, VersionStamp};
+use crate::storage::{
+    JsonStore, StorageError, TransactionAction, TransactionFault, TransactionPurpose,
+    TransactionService, TransactionStep, VaultRoot, VersionStamp, PROJECT_ADMIN_DIR,
+};
 
 use super::ExportOutputFormat;
 
@@ -271,10 +274,27 @@ impl ExportProfileService {
         area_id: ObjectId,
         request: DeleteNpcExportProfileRequest,
     ) -> Result<(), ExportProfileServiceError> {
+        self.delete_with_transactions(
+            vault,
+            area_path,
+            area_id,
+            request,
+            &TransactionService::default(),
+        )
+    }
+
+    pub fn delete_with_transactions<F: TransactionFault>(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        area_id: ObjectId,
+        request: DeleteNpcExportProfileRequest,
+        transactions: &TransactionService<F>,
+    ) -> Result<(), ExportProfileServiceError> {
         validate_area(vault, area_path, area_id)?;
         let path = vault.resolve(&profile_path(area_path, request.profile_id))?;
-        let current = read_profile(&path, area_id, request.profile_id)?;
-        check_revision(current.revision, request.expected_revision)?;
+        let loaded = read_profile_with_stamp(&path, area_id, request.profile_id)?;
+        check_revision(loaded.document.revision, request.expected_revision)?;
         let metadata = fs::symlink_metadata(path.as_path()).map_err(|error| {
             StorageError::io(
                 "inspect export profile for deletion",
@@ -287,8 +307,38 @@ impl ExportProfileService {
                 "export profile path is not a real file".to_owned(),
             ));
         }
-        fs::remove_file(path.as_path())
-            .map_err(|error| StorageError::io("delete export profile", path.relative(), error))?;
+        let project = area_path.parent().ok_or_else(|| {
+            ExportProfileServiceError::Invalid(
+                "area path must be nested directly inside a project".to_owned(),
+            )
+        })?;
+        let transaction_id = ObjectId::new();
+        let trash = project.join(PROJECT_ADMIN_DIR).join("trash");
+        vault.ensure_directory(&trash)?;
+        let removed_name = format!(
+            "export-profile--{}--removed-{}.json",
+            request.profile_id,
+            transaction_id
+                .to_string()
+                .chars()
+                .take(8)
+                .collect::<String>()
+        );
+        let target = trash.join(removed_name);
+        transactions.prepare(
+            vault,
+            project,
+            transaction_id,
+            TransactionPurpose::TrashMove,
+            vec![TransactionStep {
+                action: TransactionAction::Move,
+                target: portable_relative(&target)?,
+                staged: portable_relative(path.relative())?,
+                backup: None,
+                expected_sha256: Some(loaded.stamp.sha256),
+            }],
+        )?;
+        transactions.execute(vault, project, transaction_id)?;
         Ok(())
     }
 }
@@ -318,6 +368,10 @@ fn profile_directory(area_path: &Path) -> PathBuf {
 
 fn profile_path(area_path: &Path, id: ObjectId) -> PathBuf {
     profile_directory(area_path).join(format!("{id}.json"))
+}
+
+fn portable_relative(path: &Path) -> Result<RelativePath, StorageError> {
+    RelativePath::parse(path.to_string_lossy().replace('\\', "/")).map_err(StorageError::from)
 }
 
 fn profile_id_from_path(path: &Path) -> Result<ObjectId, ExportProfileServiceError> {

@@ -87,4 +87,7 @@ their exact image revision available, so it never creates a hidden broken NPC re
 Committed positive and path-traversal fixtures live under
 `src-tauri/tests/fixtures/import/`. `asset_import`, `asset_inventory`, and the inventory component
 tests cover package/crop validation, loose review, explicit resizing, unchanged originals, native
-drop handling, usage reporting, archive and full close/reopen persistence.
+drop handling, usage reporting, archive and full close/reopen persistence. P18 additionally runs
+the configured desktop import path with both Nearest-rescale and transparent-padding decisions,
+interrupts after the first of two real publications, closes the app, and verifies Resume and
+Rollback without altering either external source file.

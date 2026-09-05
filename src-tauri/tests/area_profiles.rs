@@ -10,8 +10,7 @@ use pixel_cutout_sprite_studio_lib::domain::{
     RecordStatus, UtcTimestamp, SCHEMA_VERSION,
 };
 use pixel_cutout_sprite_studio_lib::storage::{
-    object_folder, JsonStore, StorageError, TransactionJournal, TransactionState, VaultLayout,
-    VaultRoot,
+    object_folder, JsonStore, StorageError, VaultLayout, VaultRoot,
 };
 use tempfile::TempDir;
 
@@ -162,14 +161,7 @@ fn npc_area_at_eighty_pixels_is_created_listed_and_reopened() {
         .path()
         .join(&fixture.project_folder)
         .join(".project/transactions");
-    let journal = fs::read_dir(transactions)
-        .unwrap()
-        .filter_map(Result::ok)
-        .map(|entry| entry.path().join("journal.json"))
-        .find(|path| path.is_file())
-        .unwrap();
-    let journal: TransactionJournal = serde_json::from_slice(&fs::read(journal).unwrap()).unwrap();
-    assert_eq!(journal.state, TransactionState::Committed);
+    assert_eq!(fs::read_dir(transactions).unwrap().count(), 0);
 }
 
 #[test]

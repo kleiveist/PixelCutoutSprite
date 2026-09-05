@@ -15,7 +15,10 @@ use crate::domain::{
     parse_document, Area, Asset, AssetKind, AssetRevision, Direction, DomainDocument, ObjectId,
     PixelPoint, PixelSize, ProfileRevision, RevisionRef, Sha256Digest, SlotId, UtcTimestamp,
 };
-use crate::storage::{JsonStore, StorageError, VaultLayout, VaultRoot, AREA_ADMIN_DIR};
+use crate::storage::{
+    JsonStore, StorageError, TransactionFault, TransactionService, VaultLayout, VaultRoot,
+    AREA_ADMIN_DIR,
+};
 
 use super::project_service::{load_project_labels, require_writable, scan_projects};
 use super::{VaultOpenMode, VaultService, VaultSessionContext};
@@ -171,17 +174,30 @@ impl AssetService {
         session_id: ObjectId,
         request: ConfirmAssetImportRequest,
     ) -> Result<AssetInventory, AssetServiceError> {
+        let transactions = TransactionService::default();
+        Self::import_with_transactions(vaults, session_id, request, &transactions)
+    }
+
+    /// Test seam for interrupting the configured import path used by the desktop command.
+    /// Normal application callers use [`Self::import`].
+    #[doc(hidden)]
+    pub fn import_with_transactions<F: TransactionFault>(
+        vaults: &mut VaultService,
+        session_id: ObjectId,
+        request: ConfirmAssetImportRequest,
+        transactions: &TransactionService<F>,
+    ) -> Result<AssetInventory, AssetServiceError> {
         let session = require_writable(vaults, session_id)?;
         let area = find_area_context(&session, request.area_id)?;
         let inspected = inspect_source(&request.source, &area)?;
         validate_decisions(&inspected, &request.decisions)?;
-        AssetRepository.import_configured_package(
+        AssetRepository.import_configured_package_with_transactions(
             &session.root,
             &area.folder,
             area.area.id,
             &inspected,
-            &request.decisions,
-            &area.profile,
+            (&request.decisions, &area.profile),
+            transactions,
         )?;
         vaults.refresh_index(session_id)?;
         let refreshed = vaults.context(session_id)?;

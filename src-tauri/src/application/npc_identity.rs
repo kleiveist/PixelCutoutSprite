@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::Path;
 
 use crate::domain::{
@@ -6,15 +5,16 @@ use crate::domain::{
     CharacterStatus, DocumentKind, DomainDocument, ObjectId, RelativePath, ReviewState,
 };
 use crate::storage::{
-    object_folder, write_journal, JsonStore, TransactionAction, TransactionJournal,
-    TransactionState, TransactionStep, VaultRoot,
+    object_folder, JsonStore, TransactionAction, TransactionFault, TransactionPurpose,
+    TransactionService, TransactionStep, VaultRoot,
 };
 
 use super::appearance_service::{now, AppearanceServiceError};
-use super::binding_service::{DuplicateNpcRequest, DuplicatedNpc, RenameNpcRequest, RenamedNpc};
+use super::binding_service::{
+    BindingService, DuplicateNpcRequest, DuplicatedNpc, RenameNpcRequest, RenamedNpc,
+};
 use super::binding_write::{
-    check_revision, ensure_journal_parent, invalid, next_revision, remove_new_directory,
-    require_character, rollback_journal, transaction_path, transaction_step,
+    check_revision, invalid, next_revision, remove_new_directory, require_character,
 };
 use super::npc_dashboard::{require_appearance, require_motion, validate_compatibility};
 use super::outfit_snapshot::AreaSnapshot;
@@ -81,6 +81,30 @@ pub(super) fn rename_npc(
     area_path: &Path,
     request: RenameNpcRequest,
 ) -> Result<RenamedNpc, AppearanceServiceError> {
+    rename_npc_using_transactions(vault, area_path, request, &TransactionService::default())
+}
+
+impl BindingService {
+    /// Test seam for interrupting the real NPC-rename producer after a filesystem step.
+    /// Normal application callers use [`BindingService::rename_npc`].
+    #[doc(hidden)]
+    pub fn rename_npc_with_transactions<F: TransactionFault>(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        request: RenameNpcRequest,
+        transactions: &TransactionService<F>,
+    ) -> Result<RenamedNpc, AppearanceServiceError> {
+        rename_npc_using_transactions(vault, area_path, request, transactions)
+    }
+}
+
+fn rename_npc_using_transactions<F: TransactionFault>(
+    vault: &VaultRoot,
+    area_path: &Path,
+    request: RenameNpcRequest,
+    transactions: &TransactionService<F>,
+) -> Result<RenamedNpc, AppearanceServiceError> {
     validate_portable_display_name("npc.name", &request.name)?;
     let snapshot = AreaSnapshot::load(vault, area_path)?;
     let current = require_character(&snapshot, request.character_id)?;
@@ -102,57 +126,71 @@ pub(super) fn rename_npc(
         ));
     }
     let new_dir = area_path.join(object_folder(&request.name, current.id)?);
-    if new_dir == old_dir {
-        let character = rename_character_document(
-            vault,
-            character_path,
-            current.id,
-            request.expected_revision,
-            request.name,
-        )?;
-        return Ok(RenamedNpc {
-            character,
-            character_folder: new_dir.to_string_lossy().replace('\\', "/"),
-        });
-    }
-    if vault.resolve(&new_dir)?.as_path().exists() {
+    if new_dir != old_dir && vault.resolve(&new_dir)?.as_path().exists() {
         return Err(invalid("the renamed NPC folder already exists"));
     }
-    let transaction_id = ObjectId::new();
-    let journal_path = transaction_path(area_path, "npc-rename", transaction_id)?;
-    let mut journal = TransactionJournal::new(vec![move_step(&new_dir, old_dir)?])?;
-    ensure_journal_parent(vault, &journal_path)?;
-    write_journal(&vault.resolve(&journal_path)?, &journal)?;
-    journal.state = TransactionState::Applying;
-    write_journal(&vault.resolve(&journal_path)?, &journal)?;
-    let old_absolute = vault.resolve(old_dir)?;
-    let new_absolute = vault.resolve(&new_dir)?;
-    if let Err(error) = fs::rename(old_absolute.as_path(), new_absolute.as_path()) {
-        rollback_journal(vault, &journal_path, &mut journal);
-        return Err(invalid(format!("could not rename NPC folder: {error}")));
-    }
-    let updated = rename_character_document(
-        vault,
-        &new_dir.join("character.json"),
-        current.id,
-        request.expected_revision,
-        request.name,
-    );
-    let character = match updated {
-        Ok(character) => character,
-        Err(error) => {
-            if fs::rename(new_absolute.as_path(), old_absolute.as_path()).is_err() {
-                journal.state = TransactionState::NeedsRecovery;
-                let _ = write_journal(&vault.resolve(&journal_path)?, &journal);
-            } else {
-                rollback_journal(vault, &journal_path, &mut journal);
-            }
-            return Err(error);
-        }
+
+    let resolved = vault.resolve(character_path)?;
+    let loaded = JsonStore::default().load(&resolved)?;
+    let DomainDocument::Character(mut character) = loaded.value else {
+        return Err(invalid("renamed NPC path contains the wrong document kind"));
     };
-    journal.cursor = journal.steps.len();
-    journal.state = TransactionState::Committed;
-    write_journal(&vault.resolve(&journal_path)?, &journal)?;
+    if character.id != current.id {
+        return Err(invalid("renamed NPC identity changed unexpectedly"));
+    }
+    check_revision(character.revision, request.expected_revision)?;
+    character.revision = next_revision(character.revision, "NPC")?;
+    character.name = request.name;
+    character.updated_at = now()?;
+    character.validate()?;
+
+    let project_path = area_path
+        .parent()
+        .ok_or_else(|| invalid("area path must be nested directly inside a project"))?;
+    let transaction_id = ObjectId::new();
+    let stage_root = project_path
+        .join(".project/transactions")
+        .join(format!("{transaction_id}.stage"));
+    let staged_character = stage_root.join("character.json");
+    let backup = project_path
+        .join(".project/backups/npc-renames")
+        .join(transaction_id.to_string())
+        .join("character.json");
+    vault.ensure_directory(&stage_root)?;
+    if let Err(error) = JsonStore::default().create(
+        &vault.resolve(&staged_character)?,
+        &DomainDocument::Character(character.clone()),
+    ) {
+        remove_new_directory(vault, &stage_root);
+        return Err(error.into());
+    }
+    let mut steps = vec![TransactionStep {
+        action: TransactionAction::Replace,
+        target: portable(character_path)?,
+        staged: portable(&staged_character)?,
+        backup: Some(portable(&backup)?),
+        expected_sha256: Some(loaded.stamp.sha256),
+    }];
+    if new_dir != old_dir {
+        steps.push(TransactionStep {
+            action: TransactionAction::Move,
+            target: portable(&new_dir)?,
+            staged: portable(old_dir)?,
+            backup: None,
+            expected_sha256: None,
+        });
+    }
+    if let Err(error) = transactions.prepare(
+        vault,
+        project_path,
+        transaction_id,
+        TransactionPurpose::CharacterRename,
+        steps,
+    ) {
+        remove_new_directory(vault, &stage_root);
+        return Err(error.into());
+    }
+    transactions.execute(vault, project_path, transaction_id)?;
     Ok(RenamedNpc {
         character,
         character_folder: new_dir.to_string_lossy().replace('\\', "/"),
@@ -238,40 +276,39 @@ fn publish_duplicate(
     let folder = object_folder(&character.name, character.id)?;
     let final_dir = area_path.join(&folder);
     let transaction_id = ObjectId::new();
-    let staged_dir = area_path.join(format!(
-        ".{}.{}.staged",
-        folder.to_string_lossy(),
-        transaction_id
-    ));
-    let journal_path = transaction_path(area_path, "npc-duplicate", transaction_id)?;
-    let mut journal = TransactionJournal::new(vec![transaction_step(&final_dir, &staged_dir)?])?;
-    ensure_journal_parent(vault, &journal_path)?;
-    write_journal(&vault.resolve(&journal_path)?, &journal)?;
+    let project_path = area_path
+        .parent()
+        .ok_or_else(|| invalid("area path must be nested directly inside a project"))?;
+    let staged_dir = project_path
+        .join(".project/transactions")
+        .join(format!("{transaction_id}.stage"))
+        .join("npc");
     if let Err(error) = stage_duplicate(vault, &staged_dir, character, appearance, bindings) {
         remove_new_directory(vault, &staged_dir);
-        rollback_journal(vault, &journal_path, &mut journal);
         return Err(error);
     }
-    journal.state = TransactionState::Applying;
-    write_journal(&vault.resolve(&journal_path)?, &journal)?;
-    let final_absolute = vault.resolve(&final_dir)?;
-    if final_absolute.as_path().exists() {
+    if vault.resolve(&final_dir)?.as_path().exists() {
         remove_new_directory(vault, &staged_dir);
-        rollback_journal(vault, &journal_path, &mut journal);
         return Err(invalid("the generated duplicate NPC folder already exists"));
     }
-    if let Err(error) = fs::rename(
-        vault.resolve(&staged_dir)?.as_path(),
-        final_absolute.as_path(),
+    let transactions = TransactionService::default();
+    if let Err(error) = transactions.prepare(
+        vault,
+        project_path,
+        transaction_id,
+        TransactionPurpose::General,
+        vec![TransactionStep {
+            action: TransactionAction::Create,
+            target: portable(&final_dir)?,
+            staged: portable(&staged_dir)?,
+            backup: None,
+            expected_sha256: None,
+        }],
     ) {
         remove_new_directory(vault, &staged_dir);
-        journal.state = TransactionState::NeedsRecovery;
-        let _ = write_journal(&vault.resolve(&journal_path)?, &journal);
-        return Err(invalid(format!("could not publish duplicate NPC: {error}")));
+        return Err(error.into());
     }
-    journal.cursor = journal.steps.len();
-    journal.state = TransactionState::Committed;
-    write_journal(&vault.resolve(&journal_path)?, &journal)?;
+    transactions.execute(vault, project_path, transaction_id)?;
     Ok(final_dir.to_string_lossy().replace('\\', "/"))
 }
 
@@ -304,34 +341,6 @@ fn stage_duplicate(
     Ok(())
 }
 
-fn rename_character_document(
-    vault: &VaultRoot,
-    path: &Path,
-    character_id: ObjectId,
-    expected_revision: u32,
-    name: String,
-) -> Result<Character, AppearanceServiceError> {
-    let resolved = vault.resolve(path)?;
-    let loaded = JsonStore::default().load(&resolved)?;
-    let DomainDocument::Character(mut character) = loaded.value else {
-        return Err(invalid("renamed NPC path contains the wrong document kind"));
-    };
-    if character.id != character_id {
-        return Err(invalid("renamed NPC identity changed unexpectedly"));
-    }
-    check_revision(character.revision, expected_revision)?;
-    character.revision = next_revision(character.revision, "NPC")?;
-    character.name = name;
-    character.updated_at = now()?;
-    character.validate()?;
-    JsonStore::default().compare_and_swap(
-        &resolved,
-        &loaded.stamp,
-        &DomainDocument::Character(character.clone()),
-    )?;
-    Ok(character)
-}
-
 fn ensure_unique_name(
     snapshot: &AreaSnapshot,
     name: &str,
@@ -350,12 +359,6 @@ fn ensure_unique_name(
     Ok(())
 }
 
-fn move_step(target: &Path, source: &Path) -> Result<TransactionStep, AppearanceServiceError> {
-    Ok(TransactionStep {
-        action: TransactionAction::Move,
-        target: RelativePath::parse(target.to_string_lossy().replace('\\', "/"))?,
-        staged: RelativePath::parse(source.to_string_lossy().replace('\\', "/"))?,
-        backup: None,
-        expected_sha256: None,
-    })
+fn portable(path: &Path) -> Result<RelativePath, AppearanceServiceError> {
+    RelativePath::parse(path.to_string_lossy().replace('\\', "/")).map_err(Into::into)
 }

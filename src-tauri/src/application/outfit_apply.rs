@@ -6,8 +6,8 @@ use crate::domain::{
     RelativePath, ReviewState, SCHEMA_VERSION,
 };
 use crate::storage::{
-    object_folder, write_journal, JsonStore, TransactionAction, TransactionJournal,
-    TransactionState, TransactionStep, VaultRoot, VersionStamp,
+    object_folder, JsonStore, TransactionAction, TransactionPurpose, TransactionService,
+    TransactionStep, VaultRoot, VersionStamp,
 };
 
 use super::appearance_service::{appearance_from_draft, now, AppearanceServiceError, SavedNpc};
@@ -23,6 +23,7 @@ pub(super) fn apply_to_existing_npc(
     area_path: &Path,
     draft_id: ObjectId,
     expected_revision: u32,
+    expected_sha256: Option<&str>,
 ) -> Result<SavedNpc, AppearanceServiceError> {
     let snapshot = AreaSnapshot::load(vault, area_path)?;
     let draft_path = snapshot
@@ -31,6 +32,11 @@ pub(super) fn apply_to_existing_npc(
         .cloned()
         .ok_or_else(|| invalid("outfit draft path is missing"))?;
     let loaded_draft = JsonStore::default().load(&vault.resolve(&draft_path)?)?;
+    if expected_sha256.is_some_and(|expected| expected != loaded_draft.stamp.sha256) {
+        return Err(AppearanceServiceError::Storage(
+            crate::storage::StorageError::WriteConflict,
+        ));
+    }
     let DomainDocument::OutfitDraft(draft) = loaded_draft.value else {
         return Err(invalid("outfit path contains the wrong document kind"));
     };
@@ -265,13 +271,10 @@ pub(super) fn apply_to_existing_npc(
     let transaction_id = ObjectId::new();
     let transaction_root = project_path
         .join(".project/transactions")
-        .join(format!("outfit-apply--{transaction_id}"));
+        .join(format!("{transaction_id}.stage"));
     let backup_root = project_path
         .join(".project/backups")
         .join(format!("outfit-apply--{transaction_id}"));
-    let journal_path = project_path
-        .join(".project/transactions")
-        .join(format!("outfit-apply--{transaction_id}.json"));
     let mut plans = Vec::new();
     if character_changed {
         plans.push(replacement(
@@ -310,7 +313,13 @@ pub(super) fn apply_to_existing_npc(
         loaded_draft.stamp,
         DomainDocument::OutfitDraft(assigned.clone()),
     )?);
-    publish(vault, &journal_path, &plans)?;
+    publish(
+        vault,
+        project_path,
+        TransactionPurpose::General,
+        transaction_id,
+        &plans,
+    )?;
 
     Ok(SavedNpc {
         character,
@@ -402,21 +411,12 @@ pub(super) fn write_plan(
 
 pub(super) fn publish(
     vault: &VaultRoot,
-    journal_path: &Path,
+    project_path: &Path,
+    purpose: TransactionPurpose,
+    transaction_id: ObjectId,
     plans: &[PlannedWrite],
 ) -> Result<(), AppearanceServiceError> {
     preflight_targets(vault, plans)?;
-    let journal_parent = journal_path
-        .parent()
-        .ok_or_else(|| invalid("outfit transaction journal has no parent"))?;
-    vault.ensure_directory(journal_parent)?;
-    let mut journal = TransactionJournal::new(
-        plans
-            .iter()
-            .map(|plan| plan.step.clone())
-            .collect::<Vec<_>>(),
-    )?;
-    write_journal(&vault.resolve(journal_path)?, &journal)?;
     let staged_result = (|| {
         for plan in plans {
             let staged = Path::new(plan.step.staged.as_str());
@@ -429,19 +429,21 @@ pub(super) fn publish(
         preflight(vault, plans)
     })();
     if let Err(error) = staged_result {
-        return abort_prepared(vault, journal_path, plans, &mut journal, error);
+        remove_staging(vault, plans)?;
+        return Err(error);
     }
-    journal.state = TransactionState::Applying;
-    write_journal(&vault.resolve(journal_path)?, &journal)?;
-    for plan in plans {
-        if let Err(error) = apply_step(vault, &plan.step) {
-            journal.state = TransactionState::NeedsRecovery;
-            let _ = write_journal(&vault.resolve(journal_path)?, &journal);
-            return Err(error);
-        }
-        journal.advance()?;
-        write_journal(&vault.resolve(journal_path)?, &journal)?;
+    let transactions = TransactionService::default();
+    if let Err(error) = transactions.prepare(
+        vault,
+        project_path,
+        transaction_id,
+        purpose,
+        plans.iter().map(|plan| plan.step.clone()).collect(),
+    ) {
+        remove_staging(vault, plans)?;
+        return Err(error.into());
     }
+    transactions.execute(vault, project_path, transaction_id)?;
     Ok(())
 }
 
@@ -519,27 +521,6 @@ fn verify_replacement(
     Ok(())
 }
 
-fn abort_prepared(
-    vault: &VaultRoot,
-    journal_path: &Path,
-    plans: &[PlannedWrite],
-    journal: &mut TransactionJournal,
-    original: AppearanceServiceError,
-) -> Result<(), AppearanceServiceError> {
-    match remove_staging(vault, plans) {
-        Ok(()) => {
-            journal.state = TransactionState::RolledBack;
-            write_journal(&vault.resolve(journal_path)?, journal)?;
-            Err(original)
-        }
-        Err(cleanup) => {
-            journal.state = TransactionState::NeedsRecovery;
-            let _ = write_journal(&vault.resolve(journal_path)?, journal);
-            Err(cleanup)
-        }
-    }
-}
-
 fn remove_staging(vault: &VaultRoot, plans: &[PlannedWrite]) -> Result<(), AppearanceServiceError> {
     let first = plans
         .first()
@@ -562,65 +543,6 @@ fn remove_staging(vault: &VaultRoot, plans: &[PlannedWrite]) -> Result<(), Appea
         })?;
     }
     Ok(())
-}
-
-fn apply_step(vault: &VaultRoot, step: &TransactionStep) -> Result<(), AppearanceServiceError> {
-    let target = vault.resolve(Path::new(step.target.as_str()))?;
-    let staged = vault.resolve(Path::new(step.staged.as_str()))?;
-    let parent = target
-        .as_path()
-        .parent()
-        .ok_or_else(|| invalid("outfit transaction target has no parent"))?;
-    let parent_relative = parent
-        .strip_prefix(vault.path())
-        .map_err(|_| invalid("outfit transaction target escaped its vault"))?;
-    vault.ensure_directory(parent_relative)?;
-    match step.action {
-        TransactionAction::Create | TransactionAction::Move => {
-            if target.as_path().exists() {
-                return Err(invalid("outfit transaction target already exists"));
-            }
-        }
-        TransactionAction::Replace => {
-            let expected = step
-                .expected_sha256
-                .as_deref()
-                .ok_or_else(|| invalid("replacement has no expected digest"))?;
-            let current = fs::read(target.as_path()).map_err(|error| {
-                invalid(format!(
-                    "could not verify outfit transaction target: {error}"
-                ))
-            })?;
-            if VersionStamp::from_bytes(&current).sha256 != expected {
-                return Err(AppearanceServiceError::Storage(
-                    crate::storage::StorageError::WriteConflict,
-                ));
-            }
-            let backup = step
-                .backup
-                .as_ref()
-                .ok_or_else(|| invalid("replacement has no backup path"))?;
-            let backup = vault.resolve(Path::new(backup.as_str()))?;
-            let backup_parent = backup
-                .as_path()
-                .parent()
-                .ok_or_else(|| invalid("outfit backup has no parent"))?;
-            let backup_parent = backup_parent
-                .strip_prefix(vault.path())
-                .map_err(|_| invalid("outfit backup escaped its vault"))?;
-            vault.ensure_directory(backup_parent)?;
-            fs::rename(target.as_path(), backup.as_path()).map_err(|error| {
-                invalid(format!(
-                    "could not back up outfit transaction target: {error}"
-                ))
-            })?;
-        }
-    }
-    fs::rename(staged.as_path(), target.as_path()).map_err(|error| {
-        invalid(format!(
-            "could not publish outfit transaction document: {error}"
-        ))
-    })
 }
 
 fn portable(path: &Path) -> Result<RelativePath, AppearanceServiceError> {

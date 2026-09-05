@@ -5,6 +5,7 @@ import type { MotionCard, MotionOpenTarget } from "../../domain/animations";
 interface MotionCardViewProps {
   motion: MotionCard;
   disabled: boolean;
+  busy?: boolean;
   onOpen: (target: MotionOpenTarget) => void;
   onResolveOpen: () => Promise<MotionOpenTarget>;
   onOpenDummy: () => void;
@@ -18,6 +19,7 @@ interface MotionCardViewProps {
 export function MotionCardView({
   motion,
   disabled,
+  busy = false,
   onOpen,
   onResolveOpen,
   onOpenDummy,
@@ -44,7 +46,7 @@ export function MotionCardView({
       }}
     >
       {preview}
-      <button className="motion-card-main" type="button" onClick={resolve}>
+      <button className="motion-card-main" type="button" disabled={busy} onClick={resolve}>
         <span className="motion-card-copy">
           <small>{motion.action_key}</small>
           <strong>{motion.name}</strong>
@@ -68,7 +70,12 @@ export function MotionCardView({
         <em>{badge}</em>
       </button>
       <div className="motion-card-actions" role="group" aria-label={`Actions for ${motion.name}`}>
-        <button type="button" onClick={onOpenDummy} aria-label={`Edit ${motion.name} dummy`}>
+        <button
+          type="button"
+          onClick={onOpenDummy}
+          disabled={busy}
+          aria-label={`Edit ${motion.name} dummy`}
+        >
           ✦ Dummy
         </button>
         <button type="button" onClick={onDuplicate} disabled={disabled}>
@@ -88,7 +95,7 @@ export function MotionCardView({
       </div>
       {menuOpen && (
         <div className="motion-context-menu" role="menu" aria-label={`${motion.name} menu`}>
-          <button type="button" role="menuitem" onClick={onOpenDummy}>
+          <button type="button" role="menuitem" disabled={busy} onClick={onOpenDummy}>
             Open dummy editor
           </button>
           <button type="button" role="menuitem" disabled={disabled} onClick={onDuplicate}>

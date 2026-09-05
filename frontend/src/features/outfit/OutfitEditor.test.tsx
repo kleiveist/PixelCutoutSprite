@@ -11,6 +11,7 @@ import type {
 } from "../../api/outfit-client";
 import type { Direction, OutfitFitting, SlotRef } from "../../domain";
 import type { AssetImportInspection, AssetInventory } from "../../domain/inventory";
+import { guardEditorNavigation, type EditorController } from "../editing";
 import { OutfitEditor } from "./OutfitEditor";
 
 const ids = {
@@ -28,6 +29,7 @@ const ids = {
 };
 
 const allDirections: Direction[] = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
+const initialOutfitSha256 = "d".repeat(64);
 
 function assetRef(direction: Direction): SlotRef {
   const suffix = String(allDirections.indexOf(direction) + 1).padStart(12, "0");
@@ -79,6 +81,7 @@ function editorContext(withFitting = false): OutfitEditorContext {
       created_at: "2026-09-05T09:00:00Z",
       updated_at: "2026-09-05T09:00:00Z",
     },
+    draft_sha256: initialOutfitSha256,
     template: {
       schema_version: 1,
       kind: "motion_template",
@@ -351,6 +354,7 @@ async function openNew(
     assetsClient?: AssetClient;
     autosaveDelayMs?: number;
     onDirtyChange?: (dirty: boolean) => void;
+    onEditorControllerChange?: (controller: EditorController | null) => void;
   } = {},
 ): Promise<void> {
   render(
@@ -362,6 +366,7 @@ async function openNew(
       assetsClient={options.assetsClient}
       autosaveDelayMs={options.autosaveDelayMs ?? 1}
       onDirtyChange={options.onDirtyChange}
+      onEditorControllerChange={options.onEditorControllerChange}
     />,
   );
   fireEvent.click(await screen.findByRole("button", { name: /New NPC outfit/i }));
@@ -411,12 +416,14 @@ describe("OutfitEditor", () => {
 
   it("keeps a read-only vault inspectable without exposing outfit writes", async () => {
     const client = mockClient();
+    const assets = mockAssetsClient();
     render(
       <OutfitEditor
         sessionId="session"
         areaId={ids.area}
         templateRef={{ id: ids.template, revision: 1 }}
         client={client}
+        assetsClient={assets}
         writable={false}
       />,
     );
@@ -431,6 +438,99 @@ describe("OutfitEditor", () => {
     expect(screen.getByRole("group", { name: "Outfit editing controls" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Save as NPC/i })).toBeDisabled();
     expect(client.autosave).not.toHaveBeenCalled();
+    expect(assets.listenForDrops).not.toHaveBeenCalled();
+    expect(assets.chooseSources).not.toHaveBeenCalled();
+    expect(assets.inspect).not.toHaveBeenCalled();
+    expect(assets.import).not.toHaveBeenCalled();
+  });
+
+  it("blocks navigation while the native target-start operation is still running", async () => {
+    const client = mockClient();
+    const pending = deferred<OutfitEditorContext>();
+    client.start = vi.fn(async () => pending.promise);
+    const registration = { current: null as EditorController | null };
+    render(
+      <OutfitEditor
+        sessionId="session"
+        areaId={ids.area}
+        templateRef={{ id: ids.template, revision: 1 }}
+        client={client}
+        onEditorControllerChange={(controller) => {
+          registration.current = controller;
+        }}
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /New NPC outfit/i }));
+
+    expect(registration.current!.getState()).toMatchObject({
+      mutationInFlight: true,
+      status: "Starting outfit draft",
+    });
+    expect(
+      guardEditorNavigation(
+        registration.current!,
+        vi.fn(() => true),
+      ),
+    ).toMatchObject({
+      allowed: false,
+      reason: "mutation_in_flight",
+    });
+
+    await act(async () => pending.resolve(editorContext()));
+    await screen.findByRole("tab", { name: "Dress" });
+  });
+
+  it("reports dirty and in-flight state through the controller backed by its autosave queue", async () => {
+    const context = editorContext(true);
+    const pending = deferred<void>();
+    const client = mockClient(context);
+    client.autosave = vi.fn(async (_session, _area, _draft, revision, edits) => {
+      await pending.promise;
+      return {
+        ...context,
+        draft: { ...context.draft, ...edits, revision: revision + 1 },
+      };
+    });
+    const registration = { current: null as EditorController | null };
+    await openNew(client, {
+      autosaveDelayMs: 60_000,
+      onEditorControllerChange: (controller) => {
+        registration.current = controller;
+      },
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Fine tune" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Image" }), {
+      target: { value: `${ids.asset}:1:hand_l` },
+    });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Local offset X" }), {
+      target: { value: "6" },
+    });
+    await waitFor(() => expect(registration.current?.getState().saveState).toBe("dirty"));
+
+    let saving!: Promise<void>;
+    act(() => {
+      saving = registration.current!.save();
+    });
+    expect(registration.current!.getState().mutationInFlight).toBe(true);
+    expect(
+      guardEditorNavigation(
+        registration.current!,
+        vi.fn(() => true),
+      ),
+    ).toMatchObject({
+      allowed: false,
+      reason: "mutation_in_flight",
+    });
+
+    await act(async () => {
+      pending.resolve(undefined);
+      await saving;
+    });
+    expect(registration.current!.getState()).toMatchObject({
+      saveState: "saved",
+      dirty: false,
+      mutationInFlight: false,
+    });
   });
 
   it("keeps inventory selection across all three visible editor modes", async () => {
@@ -685,9 +785,14 @@ describe("OutfitEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm and copy into vault" }));
 
     await waitFor(() =>
-      expect(client.autoAssign).toHaveBeenCalledWith(expect.any(String), ids.area, ids.draft, 1, [
-        { asset_id: ids.importedAsset, revision: 1, slot_id: "hand_l" },
-      ]),
+      expect(client.autoAssign).toHaveBeenCalledWith(
+        expect.any(String),
+        ids.area,
+        ids.draft,
+        1,
+        [{ asset_id: ids.importedAsset, revision: 1, slot_id: "hand_l" }],
+        initialOutfitSha256,
+      ),
     );
     expect(assets.import).toHaveBeenCalledWith(
       expect.any(String),
@@ -733,6 +838,7 @@ describe("OutfitEditor", () => {
         ids.draft,
         3,
         expect.objectContaining({ name: "Latest Mara" }),
+        initialOutfitSha256,
       ),
     );
     expect(
@@ -787,11 +893,18 @@ describe("OutfitEditor", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /Villagers/ }));
     fireEvent.click(screen.getByRole("button", { name: "Create NPC" }));
     await waitFor(() =>
-      expect(client.saveAsNpc).toHaveBeenCalledWith(expect.any(String), ids.area, ids.draft, 1, {
-        name: "Mara",
-        description: "",
-        label_ids: ["bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2"],
-      }),
+      expect(client.saveAsNpc).toHaveBeenCalledWith(
+        expect.any(String),
+        ids.area,
+        ids.draft,
+        1,
+        {
+          name: "Mara",
+          description: "",
+          label_ids: ["bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2"],
+        },
+        initialOutfitSha256,
+      ),
     );
     expect(await screen.findByText(/Character, Default appearance/)).toBeInTheDocument();
   });
@@ -829,7 +942,13 @@ describe("OutfitEditor", () => {
     fireEvent.click(apply);
 
     await waitFor(() =>
-      expect(client.applyToNpc).toHaveBeenCalledWith("session", ids.area, ids.draft, 1),
+      expect(client.applyToNpc).toHaveBeenCalledWith(
+        "session",
+        ids.area,
+        ids.draft,
+        1,
+        initialOutfitSha256,
+      ),
     );
     expect(await screen.findByText("NPC updated")).toBeInTheDocument();
   });

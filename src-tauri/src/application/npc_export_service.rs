@@ -16,11 +16,15 @@ use crate::domain::{
     SlotId, SlotRef,
 };
 use crate::exports::{
-    motion_semantic_sha256, CancellationToken, ExportActionInput, ExportError, ExportOutcome,
-    ExportRequest, ExportService, FrameContext, FrameSource, FrameSourceError, GodotExportOptions,
-    GodotExporter, GodotPackageOutcome, ProgressReporter,
+    motion_semantic_sha256, CancellationToken, CurrentExport, ExportActionInput, ExportError,
+    ExportOutcome, ExportProgress, ExportRequest, ExportService, ExportStage, FrameContext,
+    FrameSource, FrameSourceError, GodotExportOptions, GodotExporter, GodotPackageOutcome,
+    ProgressReporter,
 };
-use crate::storage::{StorageError, VaultRoot};
+use crate::storage::{
+    JsonStore, StorageError, TransactionAction, TransactionFault, TransactionPurpose,
+    TransactionService, TransactionStep, VaultRoot, VersionStamp,
+};
 
 use super::npc_dashboard::{validate_compatibility, validate_export_compatibility};
 use super::outfit_render::{
@@ -89,6 +93,7 @@ pub enum NpcExportError {
 }
 
 pub(crate) struct PreparedNpcExport {
+    pub(crate) project_folder: PathBuf,
     pub(crate) output_directory: PathBuf,
     pub(crate) request: ExportRequest,
     pub(crate) frame_source: PersistedNpcFrameSource,
@@ -204,8 +209,42 @@ impl NpcExportService {
         C: CancellationToken,
         P: ProgressReporter,
     {
+        let transactions = TransactionService::default();
+        self.execute_with_transactions(
+            vault,
+            area_path,
+            request,
+            cancellation,
+            progress,
+            &transactions,
+        )
+    }
+
+    /// Testable production seam for crash-window assertions. Callers still provide only stable
+    /// domain input; journal locations and filesystem steps remain server-derived.
+    #[doc(hidden)]
+    pub fn execute_with_transactions<C, P, F>(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        request: StartNpcExportRequest,
+        cancellation: &C,
+        progress: &mut P,
+        transactions: &TransactionService<F>,
+    ) -> Result<NpcExportExecutionOutcome, NpcExportError>
+    where
+        C: CancellationToken,
+        P: ProgressReporter,
+        F: TransactionFault,
+    {
         let prepared = self.prepare(vault, area_path, request)?;
-        self.execute_prepared(vault, prepared, cancellation, progress)
+        self.execute_prepared_with_transactions(
+            vault,
+            prepared,
+            cancellation,
+            progress,
+            transactions,
+        )
     }
 
     pub(crate) fn execute_prepared<C, P>(
@@ -219,7 +258,31 @@ impl NpcExportService {
         C: CancellationToken,
         P: ProgressReporter,
     {
+        let transactions = TransactionService::default();
+        self.execute_prepared_with_transactions(
+            vault,
+            prepared,
+            cancellation,
+            progress,
+            &transactions,
+        )
+    }
+
+    fn execute_prepared_with_transactions<C, P, F>(
+        &self,
+        vault: &VaultRoot,
+        prepared: PreparedNpcExport,
+        cancellation: &C,
+        progress: &mut P,
+        transactions: &TransactionService<F>,
+    ) -> Result<NpcExportExecutionOutcome, NpcExportError>
+    where
+        C: CancellationToken,
+        P: ProgressReporter,
+        F: TransactionFault,
+    {
         let PreparedNpcExport {
+            project_folder,
             output_directory,
             request,
             mut frame_source,
@@ -227,14 +290,14 @@ impl NpcExportService {
             include_godot_scene,
         } = prepared;
         let export_service = ExportService::new(vault.clone(), env!("CARGO_PKG_VERSION"));
-        let (generic, godot_package) = if format == ExportOutputFormat::GodotPackage {
-            let generic = export_service.build_without_current(
-                &output_directory,
-                &request,
-                &mut frame_source,
-                cancellation,
-                progress,
-            )?;
+        let generic = export_service.build_without_current(
+            &output_directory,
+            &request,
+            &mut frame_source,
+            cancellation,
+            progress,
+        )?;
+        let godot_package = if format == ExportOutputFormat::GodotPackage {
             let generic_build = vault.resolve(&output_directory.join(generic.build.as_str()))?;
             let package_directory = managed_godot_package_directory(
                 &output_directory,
@@ -250,20 +313,22 @@ impl NpcExportService {
                 cancellation,
                 progress,
             )?;
-            // The generic build and derived package are both validated before one final,
-            // cancellation-aware publication of the managed current pointer.
-            export_service.publish_current(&output_directory, &generic, cancellation, progress)?;
-            (generic, Some(godot_package))
+            Some(godot_package)
         } else {
-            let generic = export_service.export(
-                &output_directory,
-                &request,
-                &mut frame_source,
-                cancellation,
-                progress,
-            )?;
-            (generic, None)
+            None
         };
+        // Immutable generic/Godot artifacts are complete before the sole authoritative pointer
+        // changes. The pointer publication itself is project-owned and recoverable after a crash.
+        publish_current_transactionally(CurrentPublication {
+            vault,
+            project_folder: &project_folder,
+            output_directory: &output_directory,
+            export_service: &export_service,
+            outcome: &generic,
+            cancellation,
+            progress,
+            transactions,
+        })?;
         Ok(NpcExportExecutionOutcome {
             generic,
             format,
@@ -433,7 +498,11 @@ impl NpcExportService {
         )?;
         let output_directory =
             managed_output_directory(area_path, &snapshot, character.id, &bindings)?;
+        let project_folder = area_path.parent().ok_or_else(|| {
+            NpcExportError::Invalid("area path is not nested inside a project".to_owned())
+        })?;
         Ok(PreparedNpcExport {
+            project_folder: project_folder.to_path_buf(),
             output_directory,
             format: request.format,
             include_godot_scene: request.include_godot_scene,
@@ -454,6 +523,155 @@ impl NpcExportService {
                 bitmaps,
             },
         })
+    }
+}
+
+struct CurrentPublication<'a, C, P, F> {
+    vault: &'a VaultRoot,
+    project_folder: &'a Path,
+    output_directory: &'a Path,
+    export_service: &'a ExportService,
+    outcome: &'a ExportOutcome,
+    cancellation: &'a C,
+    progress: &'a mut P,
+    transactions: &'a TransactionService<F>,
+}
+
+fn publish_current_transactionally<C, P, F>(
+    publication: CurrentPublication<'_, C, P, F>,
+) -> Result<(), NpcExportError>
+where
+    C: CancellationToken,
+    P: ProgressReporter,
+    F: TransactionFault,
+{
+    let CurrentPublication {
+        vault,
+        project_folder,
+        output_directory,
+        export_service,
+        outcome,
+        cancellation,
+        progress,
+        transactions,
+    } = publication;
+    let current = export_service.validated_current_pointer(output_directory, outcome)?;
+    progress.report(ExportProgress {
+        stage: ExportStage::Publishing,
+        completed: 0,
+        total: 1,
+        message: "Preparing recoverable current.json publication".to_owned(),
+    });
+    if cancellation.is_cancelled() {
+        return Err(ExportError::Cancelled.into());
+    }
+
+    let transaction_id = ObjectId::new();
+    let stage_root = project_folder
+        .join(".project/transactions")
+        .join(format!("{transaction_id}.stage"));
+    let staged_pointer = stage_root.join("current.json");
+    let pointer = output_directory.join("current.json");
+    vault.ensure_directory(&stage_root)?;
+    let bytes = serde_json::to_vec_pretty(&current)
+        .map_err(|error| NpcExportError::Invalid(error.to_string()))?;
+    let stage_result = JsonStore::default().create_bytes(
+        &vault.resolve(&staged_pointer)?,
+        &bytes,
+        validate_current_pointer_bytes,
+    );
+    if let Err(error) = stage_result {
+        remove_export_stage(vault, &stage_root);
+        return Err(error.into());
+    }
+
+    let resolved_pointer = vault.resolve(&pointer)?;
+    let step = match fs::symlink_metadata(resolved_pointer.as_path()) {
+        Ok(metadata) if !metadata.is_file() || metadata.file_type().is_symlink() => {
+            remove_export_stage(vault, &stage_root);
+            return Err(StorageError::InvalidVault(
+                "managed export current.json must be a regular file".to_owned(),
+            )
+            .into());
+        }
+        Ok(_) => {
+            let previous = match fs::read(resolved_pointer.as_path()) {
+                Ok(previous) => previous,
+                Err(error) => {
+                    remove_export_stage(vault, &stage_root);
+                    return Err(StorageError::io(
+                        "read managed export pointer",
+                        resolved_pointer.relative(),
+                        error,
+                    )
+                    .into());
+                }
+            };
+            TransactionStep {
+                action: TransactionAction::Replace,
+                target: portable_export_path(&pointer)?,
+                staged: portable_export_path(&staged_pointer)?,
+                backup: Some(portable_export_path(
+                    &project_folder
+                        .join(".project/backups/export-completions")
+                        .join(transaction_id.to_string())
+                        .join("current.json"),
+                )?),
+                expected_sha256: Some(VersionStamp::from_bytes(&previous).sha256),
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => TransactionStep {
+            action: TransactionAction::Create,
+            target: portable_export_path(&pointer)?,
+            staged: portable_export_path(&staged_pointer)?,
+            backup: None,
+            expected_sha256: None,
+        },
+        Err(error) => {
+            remove_export_stage(vault, &stage_root);
+            return Err(StorageError::io(
+                "inspect managed export pointer",
+                resolved_pointer.relative(),
+                error,
+            )
+            .into());
+        }
+    };
+
+    if let Err(error) = transactions.prepare(
+        vault,
+        project_folder,
+        transaction_id,
+        TransactionPurpose::ExportCompletion,
+        vec![step],
+    ) {
+        remove_export_stage(vault, &stage_root);
+        return Err(error.into());
+    }
+    transactions.execute(vault, project_folder, transaction_id)?;
+    progress.report(ExportProgress {
+        stage: ExportStage::Publishing,
+        completed: 1,
+        total: 1,
+        message: "Published recoverable current.json".to_owned(),
+    });
+    Ok(())
+}
+
+fn validate_current_pointer_bytes(bytes: &[u8]) -> Result<(), crate::domain::DomainError> {
+    let current: CurrentExport = serde_json::from_slice(bytes)
+        .map_err(|error| crate::domain::DomainError::InvalidJson(error.to_string()))?;
+    current.validate()
+}
+
+fn portable_export_path(path: &Path) -> Result<crate::domain::RelativePath, NpcExportError> {
+    crate::domain::RelativePath::parse(path.to_string_lossy().replace('\\', "/"))
+        .map_err(|error| NpcExportError::Invalid(error.to_string()))
+}
+
+fn remove_export_stage(vault: &VaultRoot, stage_root: &Path) {
+    if let Ok(resolved) = vault.resolve(stage_root) {
+        let _ = fs::remove_dir_all(resolved.as_path());
     }
 }
 

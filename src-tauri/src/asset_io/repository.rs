@@ -9,7 +9,10 @@ use crate::domain::{
     Asset, AssetRevision, DocumentKind, DomainCatalog, DomainDocument, ObjectId, PixelPoint,
     PixelSize, ProfileRevision, RelativePath, Sha256Digest, SlotId, UtcTimestamp, SCHEMA_VERSION,
 };
-use crate::storage::{object_folder, JsonStore, StorageError, VaultRoot};
+use crate::storage::{
+    object_folder, JsonStore, StorageError, TransactionAction, TransactionFault,
+    TransactionPurpose, TransactionService, TransactionStep, VaultRoot,
+};
 
 use super::{
     resolve_assignment, AssetImportError, ImportAssignment, ImportDecision, InspectedEntry,
@@ -63,6 +66,32 @@ impl AssetRepository {
         inspected: &InspectedPackage,
         assignments: &[ImportAssignment],
     ) -> Result<Vec<ImportedAsset>, AssetRepositoryError> {
+        let transactions = TransactionService::default();
+        self.import_package_with_transactions(
+            vault,
+            area_path,
+            area_id,
+            inspected,
+            assignments,
+            &transactions,
+        )
+    }
+
+    /// Testable production seam for verifying interruption and recovery of a package import.
+    /// Transaction paths, staged values, and asset identities remain repository-derived.
+    #[doc(hidden)]
+    pub fn import_package_with_transactions<F>(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        area_id: ObjectId,
+        inspected: &InspectedPackage,
+        assignments: &[ImportAssignment],
+        transactions: &TransactionService<F>,
+    ) -> Result<Vec<ImportedAsset>, AssetRepositoryError>
+    where
+        F: TransactionFault,
+    {
         let resolved = inspected
             .entries
             .iter()
@@ -79,7 +108,14 @@ impl AssetRepository {
                 })
             })
             .collect::<Result<Vec<_>, AssetImportError>>()?;
-        self.import_resolved(vault, area_path, area_id, inspected, &resolved)
+        self.import_resolved(
+            vault,
+            area_path,
+            area_id,
+            inspected,
+            &resolved,
+            transactions,
+        )
     }
 
     pub fn import_configured_package(
@@ -91,6 +127,33 @@ impl AssetRepository {
         decisions: &[ImportDecision],
         profile: &ProfileRevision,
     ) -> Result<Vec<ImportedAsset>, AssetRepositoryError> {
+        let transactions = TransactionService::default();
+        self.import_configured_package_with_transactions(
+            vault,
+            area_path,
+            area_id,
+            inspected,
+            (decisions, profile),
+            &transactions,
+        )
+    }
+
+    /// Testable production seam for interrupting an import after its configured decisions have
+    /// been resolved. Normal application callers use [`Self::import_configured_package`].
+    #[doc(hidden)]
+    pub fn import_configured_package_with_transactions<F>(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        area_id: ObjectId,
+        inspected: &InspectedPackage,
+        configuration: (&[ImportDecision], &ProfileRevision),
+        transactions: &TransactionService<F>,
+    ) -> Result<Vec<ImportedAsset>, AssetRepositoryError>
+    where
+        F: TransactionFault,
+    {
+        let (decisions, profile) = configuration;
         if inspected.package.profile_ref != profile.reference() || profile.area_id != area_id {
             return Err(AssetRepositoryError::Import(
                 AssetImportError::InvalidPackage(
@@ -128,92 +191,147 @@ impl AssetRepository {
                 target_pivot: Some(slot.pivot_px),
             });
         }
-        self.import_resolved(vault, area_path, area_id, inspected, &resolved)
+        self.import_resolved(
+            vault,
+            area_path,
+            area_id,
+            inspected,
+            &resolved,
+            transactions,
+        )
     }
 
-    fn import_resolved(
+    fn import_resolved<F>(
         &self,
         vault: &VaultRoot,
         area_path: &Path,
         area_id: ObjectId,
         inspected: &InspectedPackage,
         resolved: &[ResolvedImport],
-    ) -> Result<Vec<ImportedAsset>, AssetRepositoryError> {
+        transactions: &TransactionService<F>,
+    ) -> Result<Vec<ImportedAsset>, AssetRepositoryError>
+    where
+        F: TransactionFault,
+    {
         let timestamp =
             UtcTimestamp::parse(&Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
                 .map_err(StorageError::InvalidDocument)?;
+        let project_path = area_path.parent().ok_or_else(|| {
+            AssetRepositoryError::Storage(StorageError::InvalidVault(
+                "area path is not nested directly inside a project".to_owned(),
+            ))
+        })?;
+        let transaction_id = ObjectId::new();
+        let stage_root = project_path
+            .join(".project/transactions")
+            .join(format!("{transaction_id}.stage"));
+        vault.ensure_directory(&stage_root)?;
         let mut imported = Vec::with_capacity(inspected.entries.len());
-        for source in &inspected.entries {
-            let entry = &inspected.package.entries[source.entry_index];
-            let selection = resolved
-                .iter()
-                .find(|candidate| candidate.entry_index == source.entry_index)
-                .ok_or(AssetRepositoryError::UnexpectedManifest)?;
-            let asset_id = ObjectId::new();
-            let folder = object_folder(&entry.name, asset_id)?;
-            let relative_base = area_path.join(".area/assets").join(folder);
-            let revision_dir = relative_base.join("r0001");
-            let (source_file, image_size_px, pivot_px, effective_hash) = write_revision_images(
-                vault,
-                &revision_dir,
-                relative_base.file_name().expect("asset folder is present"),
-                "r0001",
-                source,
-                entry,
-                ImageWriteOptions {
-                    handling: selection.size_handling,
-                    target_size: selection.target_size,
-                    target_pivot: selection.target_pivot,
-                },
-            )?;
-            let asset = Asset {
-                schema_version: SCHEMA_VERSION,
-                kind: DocumentKind::Asset,
-                id: asset_id,
-                revision: 1,
-                area_id,
-                name: entry.name.clone(),
-                original_name: Path::new(&entry.source)
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or("source.png")
-                    .to_owned(),
-                asset_kind: entry.asset_kind,
-                label_ids: Vec::new(),
-                released_revisions: vec![1],
-                origin_note: entry.origin_note.clone(),
-                license_note: entry.license_note.clone(),
-                archived: false,
-                created_at: timestamp,
-                updated_at: timestamp,
-            };
-            let revision = AssetRevision {
-                schema_version: SCHEMA_VERSION,
-                kind: DocumentKind::AssetRevision,
-                asset_id,
-                revision: 1,
-                profile_ref: inspected.package.profile_ref,
-                slot_id: selection.slot_id.clone(),
-                direction: selection.direction,
-                variant: entry.variant.clone(),
-                source_file,
-                image_size_px,
-                pivot_px,
-                content_hash: effective_hash,
-                sprite_mirroring_allowed: entry.sprite_mirroring_allowed,
-                published_at: timestamp,
-            };
-            asset.validate().map_err(StorageError::InvalidDocument)?;
-            revision.validate().map_err(StorageError::InvalidDocument)?;
-            let manifest = vault.resolve(&relative_base.join("asset.json"))?;
-            let revision_manifest = vault.resolve(&revision_dir.join("revision.json"))?;
-            JsonStore::default().create(&manifest, &DomainDocument::Asset(asset.clone()))?;
-            JsonStore::default().create(
-                &revision_manifest,
-                &DomainDocument::AssetRevision(revision.clone()),
-            )?;
-            imported.push(ImportedAsset { asset, revision });
+        let staged_result = (|| {
+            let mut steps = Vec::with_capacity(inspected.entries.len());
+            for source in &inspected.entries {
+                let entry = &inspected.package.entries[source.entry_index];
+                let selection = resolved
+                    .iter()
+                    .find(|candidate| candidate.entry_index == source.entry_index)
+                    .ok_or(AssetRepositoryError::UnexpectedManifest)?;
+                let asset_id = ObjectId::new();
+                let folder = object_folder(&entry.name, asset_id)?;
+                let relative_base = area_path.join(".area/assets").join(folder);
+                let staged_base = stage_root.join(
+                    relative_base
+                        .file_name()
+                        .ok_or(AssetRepositoryError::UnexpectedManifest)?,
+                );
+                let revision_dir = staged_base.join("r0001");
+                let (source_file, image_size_px, pivot_px, effective_hash) = write_revision_images(
+                    vault,
+                    &revision_dir,
+                    relative_base.file_name().expect("asset folder is present"),
+                    "r0001",
+                    source,
+                    entry,
+                    ImageWriteOptions {
+                        handling: selection.size_handling,
+                        target_size: selection.target_size,
+                        target_pivot: selection.target_pivot,
+                    },
+                )?;
+                let asset = Asset {
+                    schema_version: SCHEMA_VERSION,
+                    kind: DocumentKind::Asset,
+                    id: asset_id,
+                    revision: 1,
+                    area_id,
+                    name: entry.name.clone(),
+                    original_name: Path::new(&entry.source)
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or("source.png")
+                        .to_owned(),
+                    asset_kind: entry.asset_kind,
+                    label_ids: Vec::new(),
+                    released_revisions: vec![1],
+                    origin_note: entry.origin_note.clone(),
+                    license_note: entry.license_note.clone(),
+                    archived: false,
+                    created_at: timestamp,
+                    updated_at: timestamp,
+                };
+                let revision = AssetRevision {
+                    schema_version: SCHEMA_VERSION,
+                    kind: DocumentKind::AssetRevision,
+                    asset_id,
+                    revision: 1,
+                    profile_ref: inspected.package.profile_ref,
+                    slot_id: selection.slot_id.clone(),
+                    direction: selection.direction,
+                    variant: entry.variant.clone(),
+                    source_file,
+                    image_size_px,
+                    pivot_px,
+                    content_hash: effective_hash,
+                    sprite_mirroring_allowed: entry.sprite_mirroring_allowed,
+                    published_at: timestamp,
+                };
+                asset.validate().map_err(StorageError::InvalidDocument)?;
+                revision.validate().map_err(StorageError::InvalidDocument)?;
+                let manifest = vault.resolve(&staged_base.join("asset.json"))?;
+                let revision_manifest = vault.resolve(&revision_dir.join("revision.json"))?;
+                JsonStore::default().create(&manifest, &DomainDocument::Asset(asset.clone()))?;
+                JsonStore::default().create(
+                    &revision_manifest,
+                    &DomainDocument::AssetRevision(revision.clone()),
+                )?;
+                steps.push(TransactionStep {
+                    action: TransactionAction::Create,
+                    target: portable(&relative_base)?,
+                    staged: portable(&staged_base)?,
+                    backup: None,
+                    expected_sha256: None,
+                });
+                imported.push(ImportedAsset { asset, revision });
+            }
+            Ok::<_, AssetRepositoryError>(steps)
+        })();
+        let steps = match staged_result {
+            Ok(steps) => steps,
+            Err(error) => {
+                let _ = fs::remove_dir_all(vault.resolve(&stage_root)?.as_path());
+                return Err(error);
+            }
+        };
+        if let Err(error) = transactions.prepare(
+            vault,
+            project_path,
+            transaction_id,
+            TransactionPurpose::AssetImport,
+            steps,
+        ) {
+            let _ = fs::remove_dir_all(vault.resolve(&stage_root)?.as_path());
+            return Err(error.into());
         }
+        transactions.execute(vault, project_path, transaction_id)?;
         Ok(imported)
     }
 
@@ -249,10 +367,19 @@ impl AssetRepository {
             .checked_add(1)
             .ok_or(AssetRepositoryError::UnexpectedManifest)?;
         let revision_name = format!("r{revision_number:04}");
-        let revision_dir = relative_base.join(&revision_name);
-        let (source_file, image_size_px, pivot_px, content_hash) = write_revision_images(
+        let project_path = area_path.parent().ok_or_else(|| {
+            AssetRepositoryError::Storage(StorageError::InvalidVault(
+                "area path is not nested directly inside a project".to_owned(),
+            ))
+        })?;
+        let transaction_id = ObjectId::new();
+        let stage_root = project_path
+            .join(".project/transactions")
+            .join(format!("{transaction_id}.stage"));
+        let staged_revision = stage_root.join("revision");
+        let image_result = write_revision_images(
             vault,
-            &revision_dir,
+            &staged_revision,
             asset_folder.as_os_str(),
             &revision_name,
             source,
@@ -262,7 +389,14 @@ impl AssetRepository {
                 target_size: None,
                 target_pivot: None,
             },
-        )?;
+        );
+        let (source_file, image_size_px, pivot_px, content_hash) = match image_result {
+            Ok(value) => value,
+            Err(error) => {
+                let _ = fs::remove_dir_all(vault.resolve(&stage_root)?.as_path());
+                return Err(error);
+            }
+        };
         let timestamp =
             UtcTimestamp::parse(&Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
                 .map_err(StorageError::InvalidDocument)?;
@@ -283,20 +417,56 @@ impl AssetRepository {
             published_at: timestamp,
         };
         revision.validate().map_err(StorageError::InvalidDocument)?;
-        let revision_manifest = vault.resolve(&revision_dir.join("revision.json"))?;
-        store.create(
-            &revision_manifest,
-            &DomainDocument::AssetRevision(revision.clone()),
-        )?;
         asset.revision = asset.revision.saturating_add(1);
         asset.released_revisions.push(revision_number);
         asset.updated_at = timestamp;
         asset.validate().map_err(StorageError::InvalidDocument)?;
-        store.compare_and_swap(
-            &manifest,
-            &loaded.stamp,
-            &DomainDocument::Asset(asset.clone()),
-        )?;
+        let staged = (|| {
+            store.create(
+                &vault.resolve(&staged_revision.join("revision.json"))?,
+                &DomainDocument::AssetRevision(revision.clone()),
+            )?;
+            store.create(
+                &vault.resolve(&stage_root.join("asset.json"))?,
+                &DomainDocument::Asset(asset.clone()),
+            )?;
+            Ok::<_, AssetRepositoryError>(())
+        })();
+        if let Err(error) = staged {
+            let _ = fs::remove_dir_all(vault.resolve(&stage_root)?.as_path());
+            return Err(error);
+        }
+        let backup = project_path
+            .join(".project/backups")
+            .join(format!("asset-revision--{transaction_id}"))
+            .join("asset.json");
+        let transactions = TransactionService::default();
+        if let Err(error) = transactions.prepare(
+            vault,
+            project_path,
+            transaction_id,
+            TransactionPurpose::ReleaseRevision,
+            vec![
+                TransactionStep {
+                    action: TransactionAction::Create,
+                    target: portable(&relative_base.join(&revision_name))?,
+                    staged: portable(&staged_revision)?,
+                    backup: None,
+                    expected_sha256: None,
+                },
+                TransactionStep {
+                    action: TransactionAction::Replace,
+                    target: portable(&relative_base.join("asset.json"))?,
+                    staged: portable(&stage_root.join("asset.json"))?,
+                    backup: Some(portable(&backup)?),
+                    expected_sha256: Some(loaded.stamp.sha256),
+                },
+            ],
+        ) {
+            let _ = fs::remove_dir_all(vault.resolve(&stage_root)?.as_path());
+            return Err(error.into());
+        }
+        transactions.execute(vault, project_path, transaction_id)?;
         Ok(ImportedAsset { asset, revision })
     }
 }
@@ -355,6 +525,12 @@ fn equipment_uses_asset(item: &crate::domain::Equipment, asset_id: ObjectId) -> 
             .additional_parts
             .iter()
             .any(|part| piece_uses_asset(&part.asset, &part.fit_by_direction, asset_id))
+}
+
+fn portable(path: &Path) -> Result<RelativePath, AssetRepositoryError> {
+    RelativePath::parse(path.to_string_lossy().replace('\\', "/"))
+        .map_err(StorageError::from)
+        .map_err(Into::into)
 }
 
 fn piece_uses_asset(

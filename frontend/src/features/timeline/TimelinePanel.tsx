@@ -820,8 +820,7 @@ function toggleNumber(values: ReadonlySet<number>, value: number): Set<number> {
 }
 function isEditable(target: EventTarget): boolean {
   return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLSelectElement ||
-    target instanceof HTMLTextAreaElement
+    target instanceof HTMLElement &&
+    Boolean(target.closest("input, textarea, select, [contenteditable='true']"))
   );
 }

@@ -271,13 +271,8 @@ fn existing_npc_apply_writes_only_the_edited_scope_and_a_noop_only_assigns_the_d
                 .file_name()
                 .to_str()
                 .is_some_and(|name| name.starts_with("outfit-apply--") && name.ends_with(".json"))
-        })
-        .unwrap()
-        .path();
-    let journal: TransactionJournal =
-        serde_json::from_slice(&fs::read(journal_path).unwrap()).unwrap();
-    assert_eq!(journal.steps.len(), 1);
-    assert_eq!(journal.cursor, 1);
+        });
+    assert!(journal_path.is_none());
 }
 #[test]
 fn existing_npc_apply_rejects_same_revision_external_edits_before_any_write() {

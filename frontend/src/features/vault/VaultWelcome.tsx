@@ -6,17 +6,24 @@ import {
   type VaultClient,
   type VaultInspection,
 } from "../../api/vault-client";
+import { classifyNativeError } from "../editing";
 
 interface VaultWelcomeProps {
   client?: VaultClient;
+  currentVault?: OpenVault | null;
   onOpened: (vault: OpenVault) => void;
 }
 
-export function VaultWelcome({ client = vaultClient, onOpened }: VaultWelcomeProps) {
+export function VaultWelcome({
+  client = vaultClient,
+  currentVault = null,
+  onOpened,
+}: VaultWelcomeProps) {
   const [inspection, setInspection] = useState<VaultInspection | null>(null);
   const [recents, setRecents] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lockRemovalArmed, setLockRemovalArmed] = useState(false);
 
   useEffect(() => {
     void client
@@ -29,10 +36,15 @@ export function VaultWelcome({ client = vaultClient, onOpened }: VaultWelcomePro
     await run(async () => {
       const path = await client.chooseDirectory();
       if (!path) return;
+      if (currentVault?.path === path && currentVault.mode === "read_write") {
+        onOpened(currentVault);
+        return;
+      }
       const result = await client.inspect(path);
       setInspection(result);
+      setLockRemovalArmed(false);
       if (result.state === "empty") onOpened(await client.initialize(path));
-      if (result.state === "valid") onOpened(await client.open(path));
+      if (result.state === "valid" && !result.writer_present) onOpened(await client.open(path));
     });
   }
 
@@ -44,7 +56,46 @@ export function VaultWelcome({ client = vaultClient, onOpened }: VaultWelcomePro
   }
 
   async function reopen(path: string): Promise<void> {
-    await run(async () => onOpened(await client.open(path)));
+    await run(async () => {
+      if (currentVault?.path === path && currentVault.mode === "read_write") {
+        onOpened(currentVault);
+        return;
+      }
+      const result = await client.inspect(path);
+      setInspection(result);
+      setLockRemovalArmed(false);
+      if (result.state === "valid" && !result.writer_present) {
+        onOpened(await client.open(path));
+      }
+    });
+  }
+
+  async function openReadOnly(): Promise<void> {
+    if (inspection?.state !== "valid") return;
+    await run(async () => onOpened(await client.open(inspection.path)));
+  }
+
+  async function recoverConfirmedCrash(): Promise<void> {
+    if (inspection?.state !== "valid" || !inspection.lock_recovery) return;
+    const path = inspection.path;
+    const confirmationToken = inspection.lock_recovery.confirmation_token;
+    setBusy(true);
+    setError(null);
+    try {
+      await client.recoverOrphanedLock(path, confirmationToken);
+      onOpened(await client.open(path));
+    } catch (reason) {
+      const failure = classifyNativeError(reason);
+      try {
+        setInspection(await client.inspect(path));
+        setError(`${failure.message} The current lock state was refreshed; review it again.`);
+      } catch {
+        setError(failure.message);
+      }
+      setLockRemovalArmed(false);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function run(action: () => Promise<void>): Promise<void> {
@@ -53,7 +104,7 @@ export function VaultWelcome({ client = vaultClient, onOpened }: VaultWelcomePro
     try {
       await action();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(classifyNativeError(reason).message);
     } finally {
       setBusy(false);
     }
@@ -77,6 +128,55 @@ export function VaultWelcome({ client = vaultClient, onOpened }: VaultWelcomePro
           <button type="button" disabled={busy} onClick={confirmForeignVault}>
             Initialize without replacing files
           </button>
+        </section>
+      )}
+
+      {inspection?.state === "valid" && inspection.writer_present && (
+        <section className="vault-notice" aria-labelledby="writer-lock-title">
+          <strong id="writer-lock-title">This vault already has a writer</strong>
+          <p>
+            Open it read-only while that app is active. Remove the lock only after verifying that
+            its owner process has ended; elapsed time alone never expires a writer lock.
+          </p>
+          {inspection.lock_recovery?.owner && (
+            <p>
+              Recorded owner: process {inspection.lock_recovery.owner.process_id} · instance{" "}
+              <code>{inspection.lock_recovery.owner.instance_id}</code>
+            </p>
+          )}
+          {inspection.lock_recovery?.damaged && (
+            <p role="status">The lock metadata is damaged, so its owner could not be identified.</p>
+          )}
+          <button type="button" disabled={busy} onClick={openReadOnly}>
+            Open read-only
+          </button>
+          {!lockRemovalArmed ? (
+            <button
+              type="button"
+              disabled={busy || !inspection.lock_recovery}
+              onClick={() => setLockRemovalArmed(true)}
+            >
+              I verified the previous app stopped
+            </button>
+          ) : (
+            <div
+              className="vault-lock-confirmation"
+              role="group"
+              aria-labelledby="lock-removal-confirmation-title"
+            >
+              <strong id="lock-removal-confirmation-title">Final confirmation</strong>
+              <p>
+                Removing a live writer lock could allow two apps to modify this vault. Continue only
+                if the recorded process is no longer running.
+              </p>
+              <button type="button" disabled={busy} onClick={recoverConfirmedCrash}>
+                Remove recorded lock and open
+              </button>
+              <button type="button" disabled={busy} onClick={() => setLockRemovalArmed(false)}>
+                Keep lock
+              </button>
+            </div>
+          )}
         </section>
       )}
 

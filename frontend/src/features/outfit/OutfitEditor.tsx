@@ -44,6 +44,12 @@ import { OutfitTargetChooser } from "./OutfitTargetChooser";
 import { SaveNpcDialog } from "./SaveNpcDialog";
 import { ImportReviewDialog } from "../inventory";
 import {
+  classifyNativeError,
+  downloadRecoveryCopy,
+  type EditorController,
+  type EditorControllerChange,
+} from "../editing";
+import {
   assetKey,
   identityTransform,
   isTextEditing,
@@ -64,6 +70,7 @@ export interface OutfitEditorProps {
   autosaveDelayMs?: number;
   writable?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
+  onEditorControllerChange?: EditorControllerChange;
   onPlaybackChange?: (playing: boolean) => void;
   onOpenDummy?: (templateRef: RevisionRef) => void;
   onImportAssets?: () => void;
@@ -190,6 +197,7 @@ export function OutfitEditor({
   autosaveDelayMs = 2_000,
   writable = true,
   onDirtyChange,
+  onEditorControllerChange,
   onPlaybackChange,
   onOpenDummy,
   onImportAssets,
@@ -200,6 +208,36 @@ export function OutfitEditor({
   const [context, setContext] = useState<OutfitEditorContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const activeControllerRef = useRef<EditorController | null>(null);
+  const chooserMutationRef = useRef<string | null>(null);
+  const bridgeEditorController = useCallback<EditorControllerChange>((controller) => {
+    activeControllerRef.current = controller;
+  }, []);
+  const controller = useMemo<EditorController>(
+    () => ({
+      id: `outfit:${sessionId}:${areaId}:${templateRef.id}`,
+      label: "outfit draft",
+      getState: () =>
+        activeControllerRef.current?.getState() ?? {
+          saveState: "saved",
+          status: chooserMutationRef.current ?? "Choose an outfit target",
+          dirty: false,
+          mutationInFlight: chooserMutationRef.current !== null,
+          writable,
+          canUndo: false,
+          canRedo: false,
+        },
+      save: () => activeControllerRef.current?.save() ?? Promise.resolve(),
+      undo: () => activeControllerRef.current?.undo(),
+      redo: () => activeControllerRef.current?.redo(),
+    }),
+    [areaId, sessionId, templateRef.id, writable],
+  );
+
+  useEffect(() => {
+    onEditorControllerChange?.(controller);
+    return () => onEditorControllerChange?.(null);
+  }, [controller, onEditorControllerChange]);
 
   useEffect(() => {
     let current = true;
@@ -224,6 +262,7 @@ export function OutfitEditor({
   }, [areaId, client, sessionId, templateRef]);
 
   async function start(target: OutfitTarget): Promise<void> {
+    chooserMutationRef.current = "Starting outfit draft";
     setLoading(true);
     setError(null);
     try {
@@ -231,11 +270,13 @@ export function OutfitEditor({
     } catch (reason) {
       setError(messageOf(reason));
     } finally {
+      chooserMutationRef.current = null;
       setLoading(false);
     }
   }
 
   async function resume(draftId: string): Promise<void> {
+    chooserMutationRef.current = "Opening outfit draft";
     setLoading(true);
     setError(null);
     try {
@@ -243,6 +284,7 @@ export function OutfitEditor({
     } catch (reason) {
       setError(messageOf(reason));
     } finally {
+      chooserMutationRef.current = null;
       setLoading(false);
     }
   }
@@ -274,6 +316,7 @@ export function OutfitEditor({
       autosaveDelayMs={autosaveDelayMs}
       writable={writable}
       onDirtyChange={onDirtyChange}
+      onEditorControllerChange={bridgeEditorController}
       onPlaybackChange={onPlaybackChange}
       onOpenDummy={() => onOpenDummy?.(context.draft.template_ref)}
       onImportAssets={onImportAssets}
@@ -292,6 +335,7 @@ function ActiveOutfitEditor({
   autosaveDelayMs,
   writable,
   onDirtyChange,
+  onEditorControllerChange,
   onPlaybackChange,
   onOpenDummy,
   onImportAssets,
@@ -306,6 +350,7 @@ function ActiveOutfitEditor({
   autosaveDelayMs: number;
   writable: boolean;
   onDirtyChange?: (dirty: boolean) => void;
+  onEditorControllerChange?: EditorControllerChange;
   onPlaybackChange?: (playing: boolean) => void;
   onOpenDummy: () => void;
   onImportAssets?: () => void;
@@ -339,6 +384,7 @@ function ActiveOutfitEditor({
   historyRef.current = history;
   const commandBusyRef = useRef(false);
   const savePromiseRef = useRef<Promise<number> | null>(null);
+  const persistedSha256Ref = useRef(context.draft_sha256);
   const previewPendingRef = useRef<{
     direction: Direction;
     frame: number;
@@ -397,49 +443,60 @@ function ActiveOutfitEditor({
   );
   const currentLocal = localOverrideFor(history.present, slotId, direction);
 
-  const persistLatest = useCallback(async (): Promise<number> => {
-    for (;;) {
-      if (savePromiseRef.current) {
-        await savePromiseRef.current;
-        continue;
-      }
-      const state = historyRef.current;
-      if (state.saveState === "saved") return state.persistedRevision;
-      if (state.saveState === "conflict") {
-        throw new Error(state.saveError ?? "The saved draft changed outside this editor.");
-      }
-      if (state.saveState === "saving") {
-        throw new Error("The draft save state is inconsistent; reload the saved draft.");
-      }
-      const savingSequence = state.editSequence;
-      dispatch({ type: "save_started" });
-      const operation = client
-        .autosave(sessionId, areaId, context.draft.id, state.persistedRevision, state.present)
-        .then((saved) => {
-          dispatch({
-            type: "save_succeeded",
-            revision: saved.draft.revision,
-            savingSequence,
+  const persistLatest = useCallback(
+    async (retryConflict = false): Promise<number> => {
+      for (;;) {
+        if (savePromiseRef.current) {
+          await savePromiseRef.current;
+          continue;
+        }
+        const state = historyRef.current;
+        if (state.saveState === "saved") return state.persistedRevision;
+        if (state.saveState === "conflict" && !retryConflict) {
+          throw new Error(state.saveError ?? "The saved draft changed outside this editor.");
+        }
+        if (state.saveState === "saving") {
+          throw new Error("The draft save state is inconsistent; reload the saved draft.");
+        }
+        const savingSequence = state.editSequence;
+        dispatch({ type: "save_started" });
+        const operation = client
+          .autosave(
+            sessionId,
+            areaId,
+            context.draft.id,
+            state.persistedRevision,
+            state.present,
+            persistedSha256Ref.current,
+          )
+          .then((saved) => {
+            persistedSha256Ref.current = saved.draft_sha256;
+            dispatch({
+              type: "save_succeeded",
+              revision: saved.draft.revision,
+              savingSequence,
+            });
+            return saved.draft.revision;
+          })
+          .catch((reason: unknown) => {
+            const failure = classifyNativeError(reason);
+            dispatch({
+              type: "save_failed",
+              message: failure.message,
+              conflict: failure.kind === "conflict",
+            });
+            throw reason;
           });
-          return saved.draft.revision;
-        })
-        .catch((reason: unknown) => {
-          const message = messageOf(reason);
-          dispatch({
-            type: "save_failed",
-            message,
-            conflict: /conflict|expected .* found|changed since/i.test(message),
-          });
-          throw reason;
-        });
-      savePromiseRef.current = operation;
-      try {
-        await operation;
-      } finally {
-        if (savePromiseRef.current === operation) savePromiseRef.current = null;
+        savePromiseRef.current = operation;
+        try {
+          await operation;
+        } finally {
+          if (savePromiseRef.current === operation) savePromiseRef.current = null;
+        }
       }
-    }
-  }, [areaId, client, context.draft.id, dispatch, sessionId]);
+    },
+    [areaId, client, context.draft.id, dispatch, sessionId],
+  );
 
   const saveNow = useCallback(async (): Promise<void> => {
     await persistLatest();
@@ -530,8 +587,9 @@ function ActiveOutfitEditor({
     setPlaying((value) => !value);
   }, [context.motion.frame_count, context.motion.loop_mode, frame, playing]);
 
-  const navigationUnsafe = writable && (history.saveState !== "saved" || commandBusy || applying);
-  useEffect(() => onDirtyChange?.(navigationUnsafe), [navigationUnsafe, onDirtyChange]);
+  const hasUnsavedChanges = writable && history.saveState !== "saved";
+  const navigationUnsafe = hasUnsavedChanges || commandBusy || applying;
+  useEffect(() => onDirtyChange?.(hasUnsavedChanges), [hasUnsavedChanges, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   useEffect(() => onPlaybackChange?.(playing), [onPlaybackChange, playing]);
   useEffect(() => () => onPlaybackChange?.(false), [onPlaybackChange]);
@@ -548,21 +606,8 @@ function ActiveOutfitEditor({
   useEffect(() => {
     function keyboard(event: KeyboardEvent): void {
       if (isTextEditing(event.target)) return;
-      const modifier = event.ctrlKey || event.metaKey;
-      if (modifier && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        if (writable) void saveNow().catch(() => undefined);
-      } else if (commandBusyRef.current) {
+      if (commandBusyRef.current) {
         return;
-      } else if (modifier && event.key.toLowerCase() === "z" && event.shiftKey) {
-        event.preventDefault();
-        dispatch({ type: "redo" });
-      } else if (modifier && event.key.toLowerCase() === "z") {
-        event.preventDefault();
-        dispatch({ type: "undo" });
-      } else if (modifier && event.key.toLowerCase() === "y") {
-        event.preventDefault();
-        dispatch({ type: "redo" });
       } else if (event.key === " ") {
         event.preventDefault();
         togglePlayback();
@@ -576,7 +621,7 @@ function ActiveOutfitEditor({
     }
     window.addEventListener("keydown", keyboard);
     return () => window.removeEventListener("keydown", keyboard);
-  }, [context.motion.frame_count, saveNow, togglePlayback, writable]);
+  }, [context.motion.frame_count, togglePlayback]);
 
   function edit(edits: OutfitDraftEdits): void {
     if (!writable || commandBusyRef.current) return;
@@ -624,7 +669,7 @@ function ActiveOutfitEditor({
 
   const inspectPaths = useCallback(
     async (paths: string[]): Promise<void> => {
-      if (paths.length === 0 || !beginCommand()) return;
+      if (!writable || paths.length === 0 || !beginCommand()) return;
       setActionError(null);
       try {
         await persistLatest();
@@ -638,7 +683,7 @@ function ActiveOutfitEditor({
         endCommand();
       }
     },
-    [areaId, assetsClient, beginCommand, endCommand, onStatus, persistLatest, sessionId],
+    [areaId, assetsClient, beginCommand, endCommand, onStatus, persistLatest, sessionId, writable],
   );
 
   useEffect(() => {
@@ -659,6 +704,7 @@ function ActiveOutfitEditor({
   }, [assetsClient, inspectPaths, writable]);
 
   async function chooseImportSources(): Promise<void> {
+    if (!writable) return;
     onImportAssets?.();
     try {
       await inspectPaths(await assetsClient.chooseSources());
@@ -668,7 +714,7 @@ function ActiveOutfitEditor({
   }
 
   async function confirmImport(decisions: ImportDecision[]): Promise<void> {
-    if (!inspection || !beginCommand()) return;
+    if (!writable || !inspection || !beginCommand()) return;
     setActionError(null);
     try {
       const revision = await persistLatest();
@@ -680,6 +726,7 @@ function ActiveOutfitEditor({
       const importedRefs = importedOutfitRefs(imported, inventory, inspection, decisions);
       setInspection(null);
       const refreshed = await client.resume(sessionId, areaId, context.draft.id);
+      persistedSha256Ref.current = refreshed.draft_sha256;
       setInventory(refreshed.inventory);
       setSelectedAssets(new Set(importedRefs.map(assetKey)));
       if (importedRefs.length > 0) {
@@ -689,7 +736,9 @@ function ActiveOutfitEditor({
           context.draft.id,
           revision,
           importedRefs,
+          persistedSha256Ref.current,
         );
+        persistedSha256Ref.current = assigned.draft_sha256;
         dispatch({ type: "command_applied", draft: assigned.draft });
         setSelectedAssets(new Set());
         onStatus?.(`${importedRefs.length} imported outfit image(s) assigned by slot metadata`);
@@ -721,7 +770,9 @@ function ActiveOutfitEditor({
         context.draft.id,
         revision,
         assets,
+        persistedSha256Ref.current,
       );
+      persistedSha256Ref.current = assigned.draft_sha256;
       dispatch({ type: "command_applied", draft: assigned.draft });
       setSelectedAssets(new Set());
     } catch (reason) {
@@ -750,7 +801,13 @@ function ActiveOutfitEditor({
     setActionError(null);
     try {
       const revision = await persistLatest();
-      const npc = await client.applyToNpc(sessionId, areaId, context.draft.id, revision);
+      const npc = await client.applyToNpc(
+        sessionId,
+        areaId,
+        context.draft.id,
+        revision,
+        persistedSha256Ref.current,
+      );
       setSavedNpc(npc);
       onSavedNpc?.(npc);
     } catch (reason) {
@@ -766,7 +823,14 @@ function ActiveOutfitEditor({
     setActionError(null);
     try {
       const revision = await persistLatest();
-      const npc = await client.saveAsNpc(sessionId, areaId, context.draft.id, revision, request);
+      const npc = await client.saveAsNpc(
+        sessionId,
+        areaId,
+        context.draft.id,
+        revision,
+        request,
+        persistedSha256Ref.current,
+      );
       setSavedNpc(npc);
       setSaveDialog(false);
       onSavedNpc?.(npc);
@@ -787,6 +851,7 @@ function ActiveOutfitEditor({
     setActionError(null);
     try {
       const refreshed = await client.resume(sessionId, areaId, context.draft.id);
+      persistedSha256Ref.current = refreshed.draft_sha256;
       dispatch({ type: "reloaded", draft: refreshed.draft });
       setInventory(refreshed.inventory);
     } catch (reason) {
@@ -797,24 +862,60 @@ function ActiveOutfitEditor({
   }
 
   function saveRecoveryCopy(): void {
-    const recovery = JSON.stringify(
-      {
-        format: "pixel-cutout-sprite-outfit-recovery",
-        format_version: 1,
-        draft_id: context.draft.id,
-        persisted_revision: historyRef.current.persistedRevision,
-        edits: historyRef.current.present,
-      },
-      null,
-      2,
-    );
-    const url = URL.createObjectURL(new Blob([recovery], { type: "application/json" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `outfit-${context.draft.id}-recovery.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadRecoveryCopy(`outfit-${context.draft.id}-recovery.json`, {
+      format: "pixel-cutout-sprite-outfit-recovery",
+      format_version: 1,
+      draft_id: context.draft.id,
+      persisted_revision: historyRef.current.persistedRevision,
+      persisted_sha256: persistedSha256Ref.current,
+      edits: historyRef.current.present,
+    });
   }
+
+  const controller = useMemo<EditorController>(
+    () => ({
+      id: `outfit:${sessionId}:${context.draft.id}`,
+      label: "outfit draft",
+      getState: () => {
+        const state = historyRef.current;
+        const mutationInFlight = savePromiseRef.current !== null || commandBusyRef.current;
+        return {
+          saveState: state.saveState,
+          status:
+            mutationInFlight && state.saveState !== "saving"
+              ? "Native outfit operation in progress"
+              : saveStateLabel(state.saveState),
+          dirty: state.saveState !== "saved",
+          mutationInFlight,
+          writable,
+          canUndo: state.past.length > 0,
+          canRedo: state.future.length > 0,
+        };
+      },
+      save: async () => {
+        await persistLatest(historyRef.current.saveState === "conflict");
+      },
+      undo: () => dispatch({ type: "undo" }),
+      redo: () => dispatch({ type: "redo" }),
+      recoveryCopy: () => ({
+        fileName: `outfit-${context.draft.id}-recovery.json`,
+        value: {
+          format: "pixel-cutout-sprite-outfit-recovery",
+          format_version: 1,
+          draft_id: context.draft.id,
+          persisted_revision: historyRef.current.persistedRevision,
+          persisted_sha256: persistedSha256Ref.current,
+          edits: historyRef.current.present,
+        },
+      }),
+    }),
+    [context.draft.id, dispatch, persistLatest, sessionId, writable],
+  );
+
+  useEffect(() => {
+    onEditorControllerChange?.(controller);
+    return () => onEditorControllerChange?.(null);
+  }, [controller, onEditorControllerChange]);
 
   const transform =
     scope === "binding"
@@ -868,7 +969,9 @@ function ActiveOutfitEditor({
               history.saveState === "saving" ||
               history.saveState === "saved"
             }
-            onClick={() => void saveNow().catch(() => undefined)}
+            onClick={() =>
+              void persistLatest(history.saveState === "conflict").catch(() => undefined)
+            }
           >
             Save now
           </button>
@@ -907,18 +1010,29 @@ function ActiveOutfitEditor({
       {history.saveError && (
         <p role="alert" className="outfit-error">
           {history.saveError} Current in-memory edits are retained.{" "}
-          {history.saveState === "conflict" ? (
-            <span className="outfit-conflict-actions">
-              <button type="button" onClick={saveRecoveryCopy}>
-                Save recovery copy
+          <span className="outfit-conflict-actions">
+            {history.saveState === "conflict" ? (
+              <button
+                type="button"
+                disabled={commandBusy}
+                onClick={() => void persistLatest(true).catch(() => undefined)}
+              >
+                Retry write
               </button>
+            ) : (
+              <button type="button" disabled={commandBusy} onClick={() => void saveNow()}>
+                Retry save
+              </button>
+            )}
+            <button type="button" onClick={saveRecoveryCopy}>
+              Save recovery copy
+            </button>
+            {history.saveState === "conflict" && (
               <button type="button" onClick={() => void reloadSavedDraft()}>
                 Reload saved draft
               </button>
-            </span>
-          ) : (
-            "Use Save now to retry."
-          )}
+            )}
+          </span>
         </p>
       )}
       <div className="outfit-mode-tabs" role="tablist" aria-label="Outfit editor modes">
@@ -1131,6 +1245,7 @@ function ActiveOutfitEditor({
           inspection={inspection}
           onCancel={() => setInspection(null)}
           onConfirm={(decisions) => void confirmImport(decisions)}
+          writable={writable}
         />
       )}
     </section>
