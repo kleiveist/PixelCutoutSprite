@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P12 abgeschlossen; P13 ist der nächste Schritt
+**Implementierung:** P00–P13 abgeschlossen; P14 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -113,6 +113,17 @@ Dateinamenskonvention bleibt ein sichtbarer Vorschlag. Größenabweichungen erfo
 Revisionen, Verwendungslisten und recoverbares Archivieren werden aus normalen JSON-/PNG-Dateien
 auch nach dem Wiederöffnen rekonstruiert.
 
+P13 verbindet den freigegebenen Bewegungspfad mit dem Outfit-Editor. Der
+`AppearanceService` öffnet ausschließlich freigegebene Motion-Revisionen, verlangt eine
+sichtbare Wahl zwischen neuem Entwurf, vorhandenem kompatiblem NPC und gespeicherter
+Entwurfswiederaufnahme, ordnet bestätigte Richtungsbilder zu und persistiert Fitting sowie lokale
+Overrides per CAS. Der React-Editor liefert die drei Modi Inventory, Dress und Fine tune,
+Playback/Frame-Schritte, einen speicherunabhängigen Undo-/Redo-Stack, zweisekündigen Autosave und
+sichtbaren Änderungs-Scope. Das Speichern erzeugt Character, Default-Appearance und erste Binding
+in einem gestuften NPC-Ordner; das Binding referenziert die unveränderliche Motion-Revision. Die
+P06-Routen-/Kartennavigation reicht dabei den bestehenden Bereichs- und Revisionskontext
+ausdrücklich weiter.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -138,7 +149,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P10](../prompts/pixelcutoutsprite/10.md) | Acht Richtungen, Spiegelregeln und Schichten | Abgeschlossen |
 | [P11](../prompts/pixelcutoutsprite/11.md) | Bewegungspresets und tatsächliche Kartenvorschauen | Abgeschlossen |
 | [P12](../prompts/pixelcutoutsprite/12.md) | PNG-Inventar und Paketimport | Abgeschlossen |
-| [P13](../prompts/pixelcutoutsprite/13.md) | Ausstattungseditor, Feinschliff und NPC-Entwürfe | Nicht begonnen |
+| [P13](../prompts/pixelcutoutsprite/13.md) | Ausstattungseditor, Feinschliff und NPC-Entwürfe | Abgeschlossen |
 | [P14](../prompts/pixelcutoutsprite/14.md) | Ausrüstung und optionale Eigenbewegung | Nicht begonnen |
 | [P15](../prompts/pixelcutoutsprite/15.md) | NPC-Dashboard, Mehrfachanimationen und Revisionen | Nicht begonnen |
 | [P16](../prompts/pixelcutoutsprite/16.md) | Generischer PNG-/JSON-Export | Nicht begonnen |
@@ -168,6 +179,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P10: acht Richtungszustände, anatomische Spiegelung, Zielschichten, sichere Assetregeln, Detach und blockierende Freigabeabdeckung erstellt und gegatet.
 - [x] P11: sechs editierbare Presets, sichtbare/bakebare Helper, getrennte Sprunghöhe/Schatten, echte Lazy-Kartenvorschauen, Inhaltscache und geführte Freigabe erstellt und gegatet.
 - [x] P12: erreichbares Bereichsinventar, nativen Dialog/Drop, strikte Paket-/PNG-Prüfung, explizite Zuordnung und Größenbehandlung, Revisionen, Verwendungsnachweise und Archiv erstellt und gegatet.
+- [x] P13: Outfit-Editor, AppearanceService, wiederaufnehmbare Entwürfe und erste NPC-Erzeugung erstellt, in den Area-/Motion-Router eingebunden und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
 - [ ] Meilenstein C: Figuren, P12–P15.
@@ -309,6 +321,32 @@ bytegleich als `original.png`; `source.png` bleibt bei normaler Übernahme byteg
 ausdrücklich bestätigter Ausschnitt, transparentes Padding oder Nearest-Resampling. Nur dessen
 Hash gehört zur effektiv verwendeten Assetrevision.
 
+**2026-09-05 / P13:** Eine richtungsspezifische `AssetRevision` kann mit dem bisherigen einzelnen
+`SlotAppearance.asset` weder Bildwahl noch Pivot für alle acht Ansichten ausdrücken. Der v1-Vertrag
+wurde deshalb additiv erweitert: `OutfitDraft.fittings` speichert Slot, Richtung, Bild, Pivot,
+Fitting, Sichtbarkeit und Layer; `DirectionFit` kann Bild und Pivot pro Richtung überschreiben.
+Eine `variant_fittings`-Liste hält weitere durch diskrete Motion-Keys gewählte Bilder und Pivots,
+ohne den richtungsweiten Transform doppelt zu speichern. Alte Dokumente bleiben durch
+Serde-Defaults lesbar.
+
+**2026-09-05 / P13:** Eine ausdrücklich genehmigte horizontale Asset-Spiegelung wird als
+`asset_fallback_approvals` persistiert. Ein materialisiertes Ziel-Fitting enthält bereits
+zielrichtungsbezogene Geometrie; deshalb spiegelt der Renderer dort nur das Quellbitmap. Nur alte
+Fallbacks ohne Ziel-Fitting spiegeln zusätzlich Quellpivot und -transform. Neu zugewiesene oder
+neu freigegebene Quellen müssen aktiv und veröffentlicht sein; bestehende Pins bleiben nach einer
+Archivierung benannt, renderbar und feinjustierbar.
+
+**2026-09-05 / P13:** Dummy-Kontur und Auswahlgriff sind DOM-/SVG-Overlays über dem RGBA-Canvas.
+Der native Preview-Command liefert die aus derselben Eltern-/Motionmatrix berechneten Guide-
+Matrizen getrennt von den RGBA-Bytes und bestätigt `guides_included: false`; dadurch können
+Editorhilfen nicht versehentlich Teil der Renderausgabe werden. Der fachliche P11-Bodenschatten
+bleibt dagegen ein am Bodenursprung verankerter Compositor-Part in der Outfit-Vorschau.
+
+**2026-09-05 / P13:** Erster NPC-Save und Existing-NPC-Apply verwenden keine behauptete
+Verzeichnisatomarität. Sie validieren und stagen einzelne JSON-Dokumente, pinnen vorhandene
+Revisionen zusätzlich per SHA-256, veröffentlichen nur die tatsächlich geänderten Scopes in
+Journalreihenfolge und markieren partielle Crashfenster für die P18-Recovery.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -325,6 +363,9 @@ Hash gehört zur effektiv verwendeten Assetrevision.
 | ADR-011 | Pose-, einzelnes Asset- und Gesamtbild-Spiegeln sind drei getrennte APIs; Asset-Fallbacks benötigen eine ausdrückliche Freigabe. | Bewahrt anatomische Links-/Rechts-Identität und verhindert, dass asymmetrische Ausstattung still die Hand oder Richtung wechselt. |
 | ADR-012 | Preset-Helper sind versionierte additive Quelldaten; Kartenvorschauen verwenden gespeicherte Samples und einen inhaltsadressierten Byte-LRU. | Helper bleiben sichtbar, abschaltbar und bakebar, während Karten und Editor nach Änderungen denselben Pixelpfad zeigen, ohne alle Karten permanent zu rendern. |
 | ADR-013 | Asset-Import ist ein zweistufiger Inspect/Confirm-Vorgang; externe Originale und effektive Revisionsbilder sind getrennt. | Dateinamensvorschläge bleiben überprüfbar, Größenänderungen nie still, und die Vault speichert ausschließlich portable Bereichspfade plus Inhalts-Hashes. |
+| ADR-014 | Richtungsbild und Pivot werden im Outfit-Fitting und optional in `DirectionFit` gespeichert; `SlotAppearance.asset` bleibt kompatibler Basis-Fallback. | P12 importiert ein Bild je Slot und Richtung. Nur ein richtungsfähiger Vertrag kann Bildwahl und Feinschliff ohne stille Kopien persistieren. |
+| ADR-015 | Diskrete Spritevarianten ergänzen ein Richtungs-Fitting additiv um variantenspezifisches Bild und Pivot; Transform, Sichtbarkeit und Layer bleiben richtungsweit. | Ein Motion-Key muss das importierte Variantenbild tatsächlich wechseln, ohne die deterministische Defaultwahl oder alte v1-Dokumente aufzubrechen. |
+| ADR-016 | Outfit-Mutationen halten den nativen Vault-Writer-Lock über Lesen, Prüfen und die vollständige journalisierte Veröffentlichung; Existing-NPC-Basen pinnen Revision und Inhalts-Hash. | Ein nur pro Einzelwrite gehaltener Lock ließe konkurrierende Befehle zwischen Prüfung und CAS eintreten; gleiche Revision mit extern geänderten Bytes darf ebenfalls nicht überschrieben werden. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -394,6 +435,10 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P12 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 96 Tests und alle Compiler-/Formatgates | Native Commands, Vault-/Profilauflösung, Importer, Repository und alle bisherigen Sampler-/Compositorverträge bleiben gemeinsam grün. |
 | 2026-09-05 / P12 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 70 Tests in 24 Dateien und alle Frontend-Gates | Nativer Dialogadapter, Tauri-Drop, sichtbare Zuordnung, sechs Dropdownfilter, Größenwahl, Usage-Dialog, Archiv und Bereichseinstieg sind abgedeckt; der Build umfasst 82 Module. |
 | 2026-09-05 / P12 | `tools/control.py docs check`, `quality architecture`, `integrate --check --json` und `tauri test --cargo --build-dry-run` | Linux-Host, Python 3.13.15 | PASS | 141 Dokumentseiten konsistent, TypeScript-AST parst 93 Dateien, Desktopprofil und nativer Linux-Buildplan sind intakt. Der zentrale `quality lint` bleibt bis P20 aus den bereits dokumentierten Toolinggründen offen. |
+| 2026-09-05 / P13 | fokussierte Outfit-, Domain-, Inventar- und Richtungsresolver-Tests | Linux-Host, Rust 1.97.1 | PASS: 42 Tests | 16 echte Outfit-Workflows, 12 Dokumentverträge, drei Inventarfälle und elf Richtungsfälle belegen Entwurf/Wiederaufnahme, exakte Release- und Profil-Pins, Varianten, genehmigte Assetspiegelung, Vorschau, Transaktionssave, konfliktgeschütztes Apply und unveränderte ältere Referenzen. |
+| 2026-09-05 / P13 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 118 Tests und alle Compiler-/Formatgates | Die Outfitfälle wurden ohne Logikänderung in kleine Include-Dateien getrennt, damit auch der begrenzte portable WASI-Analyzer den realen Integrationsumfang zuverlässig verarbeitet. |
+| 2026-09-05 / P13 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 88 Tests in 26 Dateien und alle Frontend-Gates | Explizite Zielwahl, wiederaufnehmbare Entwürfe, Archiv-Pins, Basis- und Variantenfitting, Undo/Redo, serialisiertes Autosave, Read-only und die Übergabe der exakt gewählten Release-Revision sind abgedeckt; der Build umfasst 92 Module. |
+| 2026-09-05 / P13 | `tools/control.py docs check`, `quality architecture`, `tauri test --cargo --build-dry-run` und stabile Source-Policytests | Linux-Host, Python 3.13.15 | PASS | 141 Dokumentseiten konsistent, TypeScript-AST parst 105 Dateien, Desktopprofil/Cargo/native Dry-Run sind intakt und 16 Repository-Vertragstests bestehen. Die vier schon seit P04 dokumentierten, versionsabhängigen Gesamt-Suite-Fixtureabweichungen bleiben bis zur P20-Toolingphase offen. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -403,8 +448,7 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P13 ausführen: Inventar, Anziehen und Feinschliff zu einem
-zusammenhängenden Editor verbinden und einen persistenten NPC-Entwurf speichern.
+**Nächster ausführbarer Schritt:** P14 für Equipment und optionale Eigenbewegung ausführen.
 
 ## Outcomes & Retrospective
 
@@ -442,4 +486,7 @@ gleichen Rust-Grenzen, Vorschläge werden erst durch bestätigte Dropdownzuordnu
 Original/effektives Bild bleiben nachvollziehbar getrennt. Das aus der Vault neu aufgebaute
 Inventar zeigt Revision, Profil, Slot, Richtung, Labels und konkrete Verwendungen; Archivierung
 erhält bereits referenzierte Bytes.
+P13 ergänzt den ersten vollständigen Figurenübergang von einer freigegebenen Motion über
+richtungsspezifisches Outfit-Fitting bis zum stabil identifizierten NPC und seiner ersten
+Animationszuordnung.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

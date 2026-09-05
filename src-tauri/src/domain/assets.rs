@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     validate_kind_revision, validate_name, validate_schema, Direction, DocumentKind, DomainError,
     ObjectId, PixelPoint, PixelSize, RelativePath, RevisionRef, Sha256Digest, SlotId, SlotRef,
-    UtcTimestamp,
+    Transform2D, UtcTimestamp,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -124,7 +124,115 @@ impl OutfitDraftStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpriteVariantFitting {
+    pub variant: String,
+    pub asset: SlotRef,
+    pub pivot_px: PixelPoint,
+}
+
+impl SpriteVariantFitting {
+    pub(super) fn validate(&self, path: &str) -> Result<(), DomainError> {
+        validate_variant(&format!("{path}.variant"), &self.variant)?;
+        self.asset.validate(&format!("{path}.asset"))?;
+        self.pivot_px.validate(&format!("{path}.pivot_px"))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OutfitFitting {
+    pub slot_id: SlotId,
+    pub direction: Direction,
+    pub asset: SlotRef,
+    pub pivot_px: PixelPoint,
+    #[serde(default)]
+    pub variant_fittings: Vec<SpriteVariantFitting>,
+    pub transform: Transform2D,
+    pub visible: bool,
+    pub layer_delta: i16,
+}
+
+impl OutfitFitting {
+    fn validate(&self, path: &str) -> Result<(), DomainError> {
+        SlotId::parse(self.slot_id.as_str())?;
+        self.asset.validate(&format!("{path}.asset"))?;
+        if self.asset.slot_id != self.slot_id {
+            return Err(DomainError::invalid(
+                format!("{path}.asset.slot_id"),
+                "must match the fitted slot",
+            ));
+        }
+        self.pivot_px.validate(&format!("{path}.pivot_px"))?;
+        let mut variants = HashSet::new();
+        for (index, variant) in self.variant_fittings.iter().enumerate() {
+            variant.validate(&format!("{path}.variant_fittings[{index}]"))?;
+            if variant.asset.slot_id != self.slot_id {
+                return Err(DomainError::invalid(
+                    format!("{path}.variant_fittings[{index}].asset.slot_id"),
+                    "must match the fitted slot",
+                ));
+            }
+            if !variants.insert(variant.variant.clone()) {
+                return Err(DomainError::DuplicateId(format!(
+                    "{path}.variant:{}",
+                    variant.variant
+                )));
+            }
+        }
+        self.transform.validate(&format!("{path}.transform"))?;
+        if !(-64..=64).contains(&self.layer_delta) {
+            return Err(DomainError::invalid(
+                format!("{path}.layer_delta"),
+                "must be within -64..=64",
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OutfitLocalOverride {
+    pub slot_id: SlotId,
+    pub direction: Direction,
+    pub transform: Transform2D,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AssetFallbackApproval {
+    pub slot_id: SlotId,
+    pub target_direction: Direction,
+    pub source_direction: Direction,
+    pub variant: String,
+}
+
+impl AssetFallbackApproval {
+    pub(super) fn validate(&self, path: &str) -> Result<(), DomainError> {
+        SlotId::parse(self.slot_id.as_str())?;
+        validate_variant(&format!("{path}.variant"), &self.variant)?;
+        if self.target_direction == self.source_direction
+            || horizontal_mirror(self.target_direction) != self.source_direction
+        {
+            return Err(DomainError::invalid(
+                path,
+                "asset fallback must name the horizontal mirror source",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl OutfitLocalOverride {
+    fn validate(&self, path: &str) -> Result<(), DomainError> {
+        SlotId::parse(self.slot_id.as_str())?;
+        self.transform.validate(&format!("{path}.transform"))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OutfitDraft {
     pub schema_version: u32,
@@ -136,8 +244,26 @@ pub struct OutfitDraft {
     pub profile_ref: RevisionRef,
     pub character_id: Option<ObjectId>,
     pub appearance_id: Option<ObjectId>,
+    #[serde(default)]
+    pub base_character_revision: Option<u32>,
+    #[serde(default)]
+    pub base_character_sha256: Option<Sha256Digest>,
+    #[serde(default)]
+    pub base_appearance_revision: Option<u32>,
+    #[serde(default)]
+    pub base_appearance_sha256: Option<Sha256Digest>,
+    #[serde(default)]
+    pub base_binding_ref: Option<RevisionRef>,
+    #[serde(default)]
+    pub base_binding_sha256: Option<Sha256Digest>,
     pub status: OutfitDraftStatus,
     pub selected_assets: Vec<SlotRef>,
+    #[serde(default)]
+    pub asset_fallback_approvals: Vec<AssetFallbackApproval>,
+    #[serde(default)]
+    pub fittings: Vec<OutfitFitting>,
+    #[serde(default)]
+    pub local_overrides: Vec<OutfitLocalOverride>,
     pub created_at: UtcTimestamp,
     pub updated_at: UtcTimestamp,
 }
@@ -153,6 +279,63 @@ impl OutfitDraft {
         )?;
         self.template_ref.validate("outfit_draft.template_ref")?;
         self.profile_ref.validate("outfit_draft.profile_ref")?;
+        if self.base_character_revision == Some(0) || self.base_appearance_revision == Some(0) {
+            return Err(DomainError::invalid(
+                "outfit_draft.base_revision",
+                "base revisions must be positive",
+            ));
+        }
+        if let Some(reference) = self.base_binding_ref {
+            reference.validate("outfit_draft.base_binding_ref")?;
+        }
+        for digest in [
+            self.base_character_sha256.as_ref(),
+            self.base_appearance_sha256.as_ref(),
+            self.base_binding_sha256.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            Sha256Digest::parse(digest.as_str())?;
+        }
+        if self.character_id.is_none()
+            && (self.base_character_revision.is_some()
+                || self.base_character_sha256.is_some()
+                || self.base_appearance_revision.is_some()
+                || self.base_appearance_sha256.is_some()
+                || self.base_binding_ref.is_some()
+                || self.base_binding_sha256.is_some())
+        {
+            return Err(DomainError::invalid(
+                "outfit_draft.base_revision",
+                "new-NPC drafts cannot pin existing document revisions",
+            ));
+        }
+        if self.character_id.is_some() != self.appearance_id.is_some() {
+            return Err(DomainError::invalid(
+                "outfit_draft.character_id",
+                "character and appearance identities must be set or unset together",
+            ));
+        }
+        if self.status == OutfitDraftStatus::InProgress
+            && self.character_id.is_some()
+            && (self.appearance_id.is_none()
+                || self.base_character_revision.is_none()
+                || self.base_character_sha256.is_none()
+                || self.base_appearance_revision.is_none()
+                || self.base_appearance_sha256.is_none())
+        {
+            return Err(DomainError::invalid(
+                "outfit_draft.base_revision",
+                "existing-NPC drafts must pin character and appearance revisions",
+            ));
+        }
+        if self.base_binding_ref.is_some() != self.base_binding_sha256.is_some() {
+            return Err(DomainError::invalid(
+                "outfit_draft.base_binding_ref",
+                "binding identity and content digest must be pinned together",
+            ));
+        }
         if self.status == OutfitDraftStatus::Assigned
             && (self.character_id.is_none() || self.appearance_id.is_none())
         {
@@ -171,7 +354,89 @@ impl OutfitDraft {
                 )));
             }
         }
+        let mut fittings = HashSet::new();
+        for (index, fitting) in self.fittings.iter().enumerate() {
+            fitting.validate(&format!("outfit_draft.fittings[{index}]"))?;
+            if !fittings.insert((fitting.slot_id.clone(), fitting.direction)) {
+                return Err(DomainError::DuplicateId(format!(
+                    "outfit_draft.fitting:{}:{:?}",
+                    fitting.slot_id, fitting.direction
+                )));
+            }
+        }
+        let mut approvals = HashSet::new();
+        for (index, approval) in self.asset_fallback_approvals.iter().enumerate() {
+            approval.validate(&format!("outfit_draft.asset_fallback_approvals[{index}]"))?;
+            if !approvals.insert((
+                approval.slot_id.clone(),
+                approval.target_direction,
+                approval.variant.clone(),
+            )) {
+                return Err(DomainError::DuplicateId(format!(
+                    "outfit_draft.asset_fallback:{}:{:?}:{}",
+                    approval.slot_id, approval.target_direction, approval.variant
+                )));
+            }
+        }
+        let mut overrides = HashSet::new();
+        for (index, local) in self.local_overrides.iter().enumerate() {
+            local.validate(&format!("outfit_draft.local_overrides[{index}]"))?;
+            if !overrides.insert((local.slot_id.clone(), local.direction)) {
+                return Err(DomainError::DuplicateId(format!(
+                    "outfit_draft.override:{}:{:?}",
+                    local.slot_id, local.direction
+                )));
+            }
+        }
+        if !self.fittings.is_empty() {
+            for selected in &self.selected_assets {
+                if !self.fittings.iter().any(|fitting| {
+                    fitting.slot_id == selected.slot_id
+                        && fitting.asset.asset_id == selected.asset_id
+                        && fitting.asset.revision == selected.revision
+                }) {
+                    return Err(DomainError::invalid(
+                        "outfit_draft.selected_assets",
+                        "each base selection must be one of the persisted direction fittings",
+                    ));
+                }
+            }
+            if self.fittings.iter().any(|fitting| {
+                !self
+                    .selected_assets
+                    .iter()
+                    .any(|selected| selected.slot_id == fitting.slot_id)
+            }) {
+                return Err(DomainError::invalid(
+                    "outfit_draft.fittings",
+                    "each fitted slot requires one base selection",
+                ));
+            }
+        }
+        if self.local_overrides.iter().any(|local| {
+            !self.fittings.iter().any(|fitting| {
+                fitting.slot_id == local.slot_id && fitting.direction == local.direction
+            })
+        }) {
+            return Err(DomainError::invalid(
+                "outfit_draft.local_overrides",
+                "a local override requires an assigned image for the same slot and direction",
+            ));
+        }
         Ok(())
+    }
+}
+
+fn horizontal_mirror(direction: Direction) -> Direction {
+    match direction {
+        Direction::N => Direction::N,
+        Direction::Ne => Direction::Nw,
+        Direction::E => Direction::W,
+        Direction::Se => Direction::Sw,
+        Direction::S => Direction::S,
+        Direction::Sw => Direction::Se,
+        Direction::W => Direction::E,
+        Direction::Nw => Direction::Ne,
     }
 }
 

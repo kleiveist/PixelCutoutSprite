@@ -8,8 +8,29 @@
   "profile_ref": {"id": "33333333-3333-4333-8333-333333333333", "revision": 1},
   "character_id": null,
   "appearance_id": null,
+  "base_character_revision": null,
+  "base_character_sha256": null,
+  "base_appearance_revision": null,
+  "base_appearance_sha256": null,
+  "base_binding_ref": null,
+  "base_binding_sha256": null,
   "status": "in_progress",
   "selected_assets": [{"asset_id": "55555555-5555-4555-8555-555555555555", "revision": 1, "slot_id": "hand_l"}],
+  "asset_fallback_approvals": [],
+  "fittings": [
+    {
+      "slot_id": "hand_l",
+      "direction": "s",
+      "asset": {"asset_id": "55555555-5555-4555-8555-555555555555", "revision": 1, "slot_id": "hand_l"},
+      "pivot_px": [4, 2],
+      "transform": {"offset_px": [0, 0], "rotation_deg": 0},
+      "visible": true,
+      "layer_delta": 0
+    }
+  ],
+  "local_overrides": [
+    {"slot_id": "hand_l", "direction": "s", "transform": {"offset_px": [0, 0], "rotation_deg": 0}}
+  ],
   "created_at": "2026-09-05T09:11:00Z",
   "updated_at": "2026-09-05T09:11:00Z"
 }

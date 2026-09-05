@@ -210,6 +210,23 @@ impl VaultService {
         })
     }
 
+    pub fn session_root(
+        &self,
+        session_id: ObjectId,
+        require_write: bool,
+    ) -> Result<VaultRoot, StorageError> {
+        let session = self
+            .sessions
+            .get(&session_id)
+            .ok_or_else(|| StorageError::InvalidVault("unknown vault session".to_owned()))?;
+        if require_write && session.mode != VaultOpenMode::ReadWrite {
+            return Err(StorageError::InvalidVault(
+                "this vault session is read-only; changes were not written".to_owned(),
+            ));
+        }
+        Ok(session.root.clone())
+    }
+
     pub(crate) fn refresh_index(&mut self, session_id: ObjectId) -> Result<(), StorageError> {
         let session = self
             .sessions

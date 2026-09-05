@@ -305,20 +305,50 @@ pub fn asset_usage_count(catalog: &DomainCatalog, asset_id: ObjectId) -> usize {
     let appearance_uses = catalog
         .appearances
         .iter()
-        .flat_map(|appearance| {
-            appearance
-                .slots
-                .iter()
-                .map(|slot| slot.asset.asset_id)
-                .chain(appearance.equipment.iter().map(|item| item.asset.asset_id))
+        .filter(|appearance| {
+            let slot_use = appearance.slots.iter().any(|slot| {
+                slot.asset.asset_id == asset_id
+                    || slot.fit_by_direction.iter().any(|fit| {
+                        fit.asset
+                            .as_ref()
+                            .is_some_and(|reference| reference.asset_id == asset_id)
+                            || fit
+                                .variant_fittings
+                                .iter()
+                                .any(|variant| variant.asset.asset_id == asset_id)
+                    })
+            });
+            slot_use
+                || appearance.equipment.iter().any(|item| {
+                    item.asset.asset_id == asset_id
+                        || item.fit_by_direction.iter().any(|fit| {
+                            fit.asset
+                                .as_ref()
+                                .is_some_and(|reference| reference.asset_id == asset_id)
+                                || fit
+                                    .variant_fittings
+                                    .iter()
+                                    .any(|variant| variant.asset.asset_id == asset_id)
+                        })
+                })
         })
-        .filter(|candidate| *candidate == asset_id)
         .count();
     let draft_uses = catalog
         .outfit_drafts
         .iter()
-        .flat_map(|draft| draft.selected_assets.iter().map(|asset| asset.asset_id))
-        .filter(|candidate| *candidate == asset_id)
+        .filter(|draft| {
+            draft
+                .selected_assets
+                .iter()
+                .any(|asset| asset.asset_id == asset_id)
+                || draft.fittings.iter().any(|fitting| {
+                    fitting.asset.asset_id == asset_id
+                        || fitting
+                            .variant_fittings
+                            .iter()
+                            .any(|variant| variant.asset.asset_id == asset_id)
+                })
+        })
         .count();
     appearance_uses + draft_uses
 }

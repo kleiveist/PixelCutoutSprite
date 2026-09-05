@@ -7,6 +7,7 @@ import type {
   Revision,
   RevisionRef,
   SlotRef,
+  Transform2D,
   UUID,
   UtcTimestamp,
 } from "./common";
@@ -42,12 +43,51 @@ export interface AssetRevision extends ContractHeader<"asset_revision"> {
 
 export type OutfitDraftStatus = "in_progress" | "assigned";
 
+export interface SpriteVariantFitting {
+  variant: string;
+  asset: SlotRef;
+  pivot_px: PixelPoint;
+}
+
+export interface OutfitFitting {
+  slot_id: string;
+  direction: Direction;
+  asset: SlotRef;
+  pivot_px: PixelPoint;
+  variant_fittings: SpriteVariantFitting[];
+  transform: Transform2D;
+  visible: boolean;
+  layer_delta: number;
+}
+
+export interface OutfitLocalOverride {
+  slot_id: string;
+  direction: Direction;
+  transform: Transform2D;
+}
+
+export interface AssetFallbackApproval {
+  slot_id: string;
+  target_direction: Direction;
+  source_direction: Direction;
+  variant: string;
+}
+
 export interface OutfitDraft extends MutableDocument<"outfit_draft"> {
   area_id: UUID;
   template_ref: RevisionRef;
   profile_ref: RevisionRef;
   character_id: UUID | null;
   appearance_id: UUID | null;
+  base_character_revision: Revision | null;
+  base_character_sha256: string | null;
+  base_appearance_revision: Revision | null;
+  base_appearance_sha256: string | null;
+  base_binding_ref: RevisionRef | null;
+  base_binding_sha256: string | null;
   status: OutfitDraftStatus;
   selected_assets: SlotRef[];
+  asset_fallback_approvals: AssetFallbackApproval[];
+  fittings: OutfitFitting[];
+  local_overrides: OutfitLocalOverride[];
 }

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { projectClient, type ProjectClient } from "../api/project-client";
+import { areaClient, type AreaClient } from "../api/area-client";
 import { assetClient, type AssetClient } from "../api/asset-client";
+import { motionClient, type MotionClient } from "../api/motion-client";
+import { outfitClient, type OutfitClient } from "../api/outfit-client";
+import { projectClient, type ProjectClient } from "../api/project-client";
 import { vaultClient, type OpenVault, type VaultClient } from "../api/vault-client";
 import { AppHeader } from "../components/AppHeader";
 import { Breadcrumbs } from "../components/Breadcrumbs";
@@ -12,22 +15,30 @@ import { WorkspaceNav } from "../components/WorkspaceNav";
 import type { ProjectCard } from "../domain/projects";
 import type { AreaCard } from "../domain/areas";
 import type { MotionOpenTarget } from "../domain/animations";
+import type { RevisionRef } from "../domain/common";
 import { AnimationDashboard } from "../features/animations/AnimationDashboard";
 import { MotionDummyEditorRoute } from "../features/dummy-editor/MotionDummyEditorRoute";
 import { InventoryWorkspace } from "../features/inventory/InventoryWorkspace";
+import { OutfitEditor } from "../features/outfit";
 import { ProjectDashboard } from "../features/projects/ProjectDashboard";
 import { navigationItems, routeBreadcrumbs, routeDetails, type WorkspaceRoute } from "./navigation";
 import type { KeyboardAction } from "./shortcuts";
 import { useKeyboardActions } from "./useKeyboardActions";
 
 interface AppProps {
+  areasApi?: AreaClient;
   assetsApi?: AssetClient;
+  motionsApi?: MotionClient;
+  outfitsApi?: OutfitClient;
   projectsApi?: ProjectClient;
   vaultApi?: VaultClient;
 }
 
 export function App({
+  areasApi = areaClient,
   assetsApi = assetClient,
+  motionsApi = motionClient,
+  outfitsApi = outfitClient,
   projectsApi = projectClient,
   vaultApi = vaultClient,
 }: AppProps = {}) {
@@ -39,33 +50,43 @@ export function App({
   const [selectedProject, setSelectedProject] = useState<ProjectCard | null>(null);
   const [selectedArea, setSelectedArea] = useState<AreaCard | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [selectedTemplateRef, setSelectedTemplateRef] = useState<RevisionRef | null>(null);
   const [editorDirty, setEditorDirty] = useState(false);
   const mainContent = useRef<HTMLElement>(null);
   const initialRoute = useRef(true);
 
-  const handleKeyboardAction = useCallback((action: KeyboardAction) => {
-    switch (action) {
-      case "help":
-        setHelpOpen(true);
-        break;
-      case "dismiss":
-        setHelpOpen(false);
-        break;
-      case "toggle-playback":
-        setPlaying((current) => !current);
-        setStatus("Preview playback toggled");
-        break;
-      case "save":
-        setStatus("Nothing to save yet · choose a vault first");
-        break;
-      case "undo":
-        setStatus("Nothing to undo");
-        break;
-      case "redo":
-        setStatus("Nothing to redo");
-        break;
-    }
-  }, []);
+  const handleKeyboardAction = useCallback(
+    (action: KeyboardAction) => {
+      if (
+        (route === "dummy-editor" || (route === "outfit" && selectedTemplateRef !== null)) &&
+        ["save", "undo", "redo", "toggle-playback"].includes(action)
+      ) {
+        return;
+      }
+      switch (action) {
+        case "help":
+          setHelpOpen(true);
+          break;
+        case "dismiss":
+          setHelpOpen(false);
+          break;
+        case "toggle-playback":
+          setPlaying((current) => !current);
+          setStatus("Preview playback toggled");
+          break;
+        case "save":
+          setStatus("Nothing to save yet · choose a vault first");
+          break;
+        case "undo":
+          setStatus("Nothing to undo");
+          break;
+        case "redo":
+          setStatus("Nothing to redo");
+          break;
+      }
+    },
+    [route, selectedTemplateRef],
+  );
 
   useKeyboardActions(handleKeyboardAction);
   const details = routeDetails(route);
@@ -86,16 +107,17 @@ export function App({
   );
 
   function navigate(nextRoute: WorkspaceRoute): void {
-    if (
-      route === "dummy-editor" &&
-      nextRoute !== "dummy-editor" &&
-      editorDirty &&
-      !window.confirm("Discard the unsaved motion-template changes?")
-    ) {
-      setStatus("Navigation cancelled · save the motion template first");
-      return;
+    const leavingEditor =
+      nextRoute !== route &&
+      (route === "dummy-editor" || (route === "outfit" && selectedTemplateRef !== null));
+    if (leavingEditor && editorDirty) {
+      const editorName = route === "dummy-editor" ? "motion template" : "outfit draft";
+      if (!window.confirm(`Discard the unsaved ${editorName} changes?`)) {
+        setStatus(`Navigation cancelled · save the ${editorName} first`);
+        return;
+      }
     }
-    if (nextRoute !== "dummy-editor") setEditorDirty(false);
+    if (leavingEditor) setEditorDirty(false);
     if (nextRoute === "projects" && !vault) {
       setRoute("welcome");
       setStatus("Choose or reopen a vault before browsing projects");
@@ -131,6 +153,7 @@ export function App({
     setSelectedProject(project);
     setSelectedArea(null);
     setSelectedTemplateId(null);
+    setSelectedTemplateRef(null);
     setRoute("areas");
     setStatus(`${project.name} opened · choose or create an area`);
   }
@@ -138,6 +161,7 @@ export function App({
   function openAreaAnimations(area: AreaCard): void {
     setSelectedArea(area);
     setSelectedTemplateId(null);
+    setSelectedTemplateRef(null);
     setRoute("animations");
     setStatus(`${area.name} animation library opened`);
   }
@@ -145,6 +169,7 @@ export function App({
   function openAreaInventory(area: AreaCard): void {
     setSelectedArea(area);
     setSelectedTemplateId(null);
+    setSelectedTemplateRef(null);
     setRoute("outfit");
     setStatus(`${area.name} PNG inventory opened`);
   }
@@ -152,15 +177,22 @@ export function App({
   function openMotionTarget(target: MotionOpenTarget): void {
     setSelectedTemplateId(target.template_id);
     if (target.kind === "dummy_editor") {
+      setSelectedTemplateRef(null);
       setRoute("dummy-editor");
       setStatus("Reusable dummy motion editor opened");
       return;
     }
-    setRoute(target.kind === "binding_editor" ? "characters" : "outfit");
+    if (target.kind === "outfit_chooser") {
+      setSelectedTemplateRef({ id: target.template_id, revision: target.template_revision });
+      setRoute("outfit");
+    } else {
+      setSelectedTemplateRef(null);
+      setRoute("characters");
+    }
     setStatus(
       target.kind === "outfit_chooser" && target.compatible_character_ids.length > 1
         ? `Choose one of ${target.compatible_character_ids.length} compatible NPCs or start a new outfit`
-        : "Outfit workflow selected · the editor arrives in P13",
+        : "Outfit workflow selected",
     );
   }
 
@@ -191,6 +223,7 @@ export function App({
           ) : route === "animations" && vault && selectedArea ? (
             <AnimationDashboard
               areaId={selectedArea.id}
+              client={motionsApi}
               defaultFrameSize={selectedArea.default_frame_size_px}
               defaultGroundOrigin={selectedArea.default_ground_origin_px}
               onOpen={openMotionTarget}
@@ -206,6 +239,25 @@ export function App({
               sessionId={vault.session_id}
               templateId={selectedTemplateId}
             />
+          ) : route === "outfit" && vault && selectedArea && selectedTemplateRef ? (
+            <OutfitEditor
+              areaId={selectedArea.id}
+              assetsClient={assetsApi}
+              client={outfitsApi}
+              onDirtyChange={setEditorDirty}
+              onOpenDummy={(templateRef) => {
+                setSelectedTemplateId(templateRef.id);
+                setSelectedTemplateRef(null);
+                setRoute("dummy-editor");
+                setStatus("Reusable dummy motion editor opened");
+              }}
+              onPlaybackChange={setPlaying}
+              onSavedNpc={(npc) => setStatus(`${npc.character.name} saved as an NPC`)}
+              onStatus={setStatus}
+              sessionId={vault.session_id}
+              templateRef={selectedTemplateRef}
+              writable={vault.mode === "read_write"}
+            />
           ) : route === "outfit" && vault && selectedArea ? (
             <InventoryWorkspace
               areaId={selectedArea.id}
@@ -216,6 +268,7 @@ export function App({
           ) : (
             <PlaceholderView
               details={details}
+              areaClient={areasApi}
               onOpenAreaAnimations={openAreaAnimations}
               onOpenAreaInventory={openAreaInventory}
               onVaultOpened={openVault}

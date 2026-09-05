@@ -37,7 +37,7 @@ The fixed document kinds and their identities are:
 | `motion_revision` | template UUID + release revision | Exact profile, timing, directions, tracks and optional preset semantics |
 | `asset` | asset UUID + object revision | Area and immutable released revision numbers |
 | `asset_revision` | asset UUID + release revision | Exact profile/slot, relative PNG and SHA-256 |
-| `outfit_draft` | draft UUID + object revision | Area, exact motion/profile and selected assets |
+| `outfit_draft` | draft UUID + object revision | Area, exact motion/profile, directional fittings and local overrides |
 | `character` | NPC UUID + object revision | Area, exact profile and default appearance UUID |
 | `appearance` | appearance UUID + object revision | NPC, exact profile, assets, fitting and equipment |
 | `animation_binding` | binding UUID + object revision | NPC, action key, motion revision and appearance |
@@ -95,6 +95,55 @@ optional hair or future equipment may extend beyond them. Widths, pivots and vie
 deterministic half-up integer scaling. `validate_humanoid_v1` compares stored geometry to the
 generator, so missing, reordered or invented slots cannot masquerade as this preset.
 
+## Directional outfit fitting
+
+An outfit draft keeps one compatibility fallback in `selected_assets` per fitted slot and the
+effective editable state in `fittings`. Each base fitting is keyed by `(slot_id, direction)` and
+stores an immutable image revision and pivot plus the direction-wide slot-local offset, rigid
+correction rotation, visibility and layer delta. Its additive `variant_fittings` list maps a unique
+motion sprite-variant name to another immutable image revision and pivot; transforms remain on the
+base fitting so a discrete variant key changes only bitmap and pivot. `local_overrides` is keyed by
+slot and direction and contains only the binding-local transform. Duplicate targets or variants,
+mismatched slots/profiles, orphaned overrides and non-finite or out-of-range transforms are
+invalid.
+
+Normally the base and variant images have the exact fitting direction. The sole exception is a
+persisted `asset_fallback_approvals` entry for the same slot, target direction, horizontal source
+direction and variant. The source revision must explicitly allow sprite mirroring. A materialized
+target fitting stores target-local pivot and transform while retaining the approved source image;
+rendering mirrors only that bitmap. A legacy fallback without a materialized target fitting also
+mirrors the reused source geometry and pivot. Pose mirroring, individual bitmap mirroring and
+whole-frame mirroring remain separate operations.
+
+When a draft becomes the default Appearance, every `DirectionFit` records its direction image,
+pivot and optional `variant_fittings`. The original `SlotAppearance.asset` remains the required
+compatibility fallback so existing v1 documents without the additive fields remain readable. New
+writes include explicit empty draft arrays. Existing pinned revisions remain renderable and
+fine-tunable after archival, but an archived or no-longer-released revision cannot be newly
+assigned or newly approved as a mirror source.
+
+Existing-NPC drafts additionally pin the Character and Appearance revision plus SHA-256 content
+stamp, and do the same for an existing action Binding. Apply verifies those pairs before staging
+any write, preventing a same-revision external edit from being overwritten.
+
+The editor context derives completeness rather than persisting it. Each `missing_required_slots`
+entry carries absent default `missing_directions` and separate `(direction, variant)`
+`missing_variants` sampled from the exact released motion, including resolved mirrored poses.
+Optional slots report variant gaps only after that slot is actually worn.
+
+Rendering uses the shared compositor contract without intermediate rounding:
+
+```text
+slot world = parent × profile view × sampled motion
+image      = slot world × shared appearance fitting × binding-local override × pivot translation
+```
+
+Dummy outlines, axes, pivots and selection handles are not fields in either render request or
+persisted appearance. The native preview returns resolved affine guide matrices separately from
+RGBA bytes; those UI overlays therefore follow the sampled parent hierarchy without entering a
+PNG/RGBA result. An enabled preset ground shadow remains a compositor part anchored to the motion
+ground origin, not a profile slot or guide.
+
 ## Files and portable paths
 
 The layout service introduced with the Vault phase is the only code allowed to construct managed
@@ -115,7 +164,7 @@ locations. Version 1 reserves these conventions:
 <area>/.area/assets/<asset-name>--<asset-id-prefix>/rNNNN/source.png
 <area>/.area/drafts/outfit--<draft-id>.json
 <area>/<character-name>--<id>/character.json
-<character>/appearances/<appearance-id>.json
+<character>/appearances/default.json
 <character>/<action-key>--<binding-id>/binding.json
 <export-build>/manifest.json
 ```

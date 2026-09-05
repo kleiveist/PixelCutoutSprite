@@ -76,6 +76,14 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::set_motion_archived,
             commands::remove_motion,
             commands::resolve_motion_open,
+            commands::inspect_outfit_launch,
+            commands::start_outfit_draft,
+            commands::resume_outfit_draft,
+            commands::autosave_outfit_draft,
+            commands::auto_assign_outfit,
+            commands::render_outfit_preview,
+            commands::save_outfit_as_npc,
+            commands::apply_outfit_to_npc,
         ])
 }
 

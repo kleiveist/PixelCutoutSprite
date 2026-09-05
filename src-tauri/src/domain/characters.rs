@@ -3,8 +3,9 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    validate_kind_revision, validate_name, validate_schema, ActionKey, Direction, DocumentKind,
-    DomainError, ObjectId, RevisionRef, SlotId, SlotRef, Transform2D, UtcTimestamp,
+    validate_kind_revision, validate_name, validate_schema, ActionKey, AssetFallbackApproval,
+    Direction, DocumentKind, DomainError, ObjectId, PixelPoint, RevisionRef, SlotId, SlotRef,
+    SpriteVariantFitting, Transform2D, UtcTimestamp,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -89,6 +90,12 @@ pub enum FollowMode {
 #[serde(deny_unknown_fields)]
 pub struct DirectionFit {
     pub direction: Direction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asset: Option<SlotRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pivot_px: Option<PixelPoint>,
+    #[serde(default)]
+    pub variant_fittings: Vec<SpriteVariantFitting>,
     pub transform: Transform2D,
     pub visible: bool,
     pub layer_delta: i16,
@@ -96,6 +103,22 @@ pub struct DirectionFit {
 
 impl DirectionFit {
     fn validate(&self, path: &str) -> Result<(), DomainError> {
+        if let Some(asset) = &self.asset {
+            asset.validate(&format!("{path}.asset"))?;
+        }
+        if let Some(pivot) = self.pivot_px {
+            pivot.validate(&format!("{path}.pivot_px"))?;
+        }
+        let mut variants = HashSet::new();
+        for (index, variant) in self.variant_fittings.iter().enumerate() {
+            variant.validate(&format!("{path}.variant_fittings[{index}]"))?;
+            if !variants.insert(variant.variant.clone()) {
+                return Err(DomainError::DuplicateId(format!(
+                    "{path}.variant:{}",
+                    variant.variant
+                )));
+            }
+        }
         self.transform.validate(&format!("{path}.transform"))?;
         if !(-64..=64).contains(&self.layer_delta) {
             return Err(DomainError::invalid(
@@ -139,6 +162,8 @@ pub struct Appearance {
     pub profile_ref: RevisionRef,
     pub name: String,
     pub slots: Vec<SlotAppearance>,
+    #[serde(default)]
+    pub asset_fallback_approvals: Vec<AssetFallbackApproval>,
     pub equipment: Vec<Equipment>,
     pub created_at: UtcTimestamp,
     pub updated_at: UtcTimestamp,
@@ -170,6 +195,36 @@ impl Appearance {
                 &slot.fit_by_direction,
                 &format!("appearance.slots[{index}]"),
             )?;
+            if slot.fit_by_direction.iter().any(|fit| {
+                fit.asset
+                    .as_ref()
+                    .is_some_and(|asset| asset.slot_id != slot.slot_id)
+                    || fit
+                        .variant_fittings
+                        .iter()
+                        .any(|variant| variant.asset.slot_id != slot.slot_id)
+            }) {
+                return Err(DomainError::invalid(
+                    format!("appearance.slots[{index}].fit_by_direction.asset"),
+                    "direction asset must match the appearance slot",
+                ));
+            }
+        }
+        let mut approvals = HashSet::new();
+        for (index, approval) in self.asset_fallback_approvals.iter().enumerate() {
+            approval.validate(&format!("appearance.asset_fallback_approvals[{index}]"))?;
+            if !slots.contains(&approval.slot_id)
+                || !approvals.insert((
+                    approval.slot_id.clone(),
+                    approval.target_direction,
+                    approval.variant.clone(),
+                ))
+            {
+                return Err(DomainError::invalid(
+                    "appearance.asset_fallback_approvals",
+                    "fallback approvals must be unique and target an appearance slot",
+                ));
+            }
         }
         let mut equipment_ids = HashSet::new();
         for (index, equipment) in self.equipment.iter().enumerate() {
@@ -191,6 +246,20 @@ impl Appearance {
                 &equipment.fit_by_direction,
                 &format!("appearance.equipment[{index}]"),
             )?;
+            if equipment.fit_by_direction.iter().any(|fit| {
+                fit.asset
+                    .as_ref()
+                    .is_some_and(|asset| asset.slot_id != equipment.asset.slot_id)
+                    || fit
+                        .variant_fittings
+                        .iter()
+                        .any(|variant| variant.asset.slot_id != equipment.asset.slot_id)
+            }) {
+                return Err(DomainError::invalid(
+                    format!("appearance.equipment[{index}].fit_by_direction.asset"),
+                    "direction assets must match the equipment slot",
+                ));
+            }
         }
         Ok(())
     }

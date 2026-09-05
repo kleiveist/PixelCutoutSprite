@@ -1,6 +1,6 @@
-use crate::domain::{AssetRevision, Direction, RevisionRef, SlotId};
+use crate::domain::{AssetFallbackApproval, AssetRevision, Direction, RevisionRef, SlotId};
 
-use super::{horizontal_mirror, AssetFallbackApproval, DirectionError, ResolvedDirection};
+use super::{horizontal_mirror, DirectionError, ResolvedDirection};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AssetOrigin {

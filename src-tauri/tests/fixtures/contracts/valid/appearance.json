@@ -7,8 +7,9 @@
   "profile_ref": {"id": "33333333-3333-4333-8333-333333333333", "revision": 1},
   "name": "Default",
   "slots": [
-    {"slot_id": "hand_l", "asset": {"asset_id": "55555555-5555-4555-8555-555555555555", "revision": 1, "slot_id": "hand_l"}, "fit_by_direction": [{"direction": "s", "transform": {"offset_px": [0, 0], "rotation_deg": 0}, "visible": true, "layer_delta": 0}]}
+    {"slot_id": "hand_l", "asset": {"asset_id": "55555555-5555-4555-8555-555555555555", "revision": 1, "slot_id": "hand_l"}, "fit_by_direction": [{"direction": "s", "asset": {"asset_id": "55555555-5555-4555-8555-555555555555", "revision": 1, "slot_id": "hand_l"}, "pivot_px": [4, 2], "transform": {"offset_px": [0, 0], "rotation_deg": 0}, "visible": true, "layer_delta": 0}]}
   ],
+  "asset_fallback_approvals": [],
   "equipment": [],
   "created_at": "2026-09-05T09:13:00Z",
   "updated_at": "2026-09-05T09:13:00Z"

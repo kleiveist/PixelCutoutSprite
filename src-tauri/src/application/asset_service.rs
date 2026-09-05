@@ -554,22 +554,36 @@ fn asset_usage(documents: &[DomainDocument], asset_id: ObjectId) -> Vec<AssetUsa
     for document in documents {
         match document {
             DomainDocument::Appearance(appearance) => {
-                for slot in appearance
-                    .slots
-                    .iter()
-                    .filter(|slot| slot.asset.asset_id == asset_id)
-                {
+                for slot in appearance.slots.iter().filter(|slot| {
+                    slot.asset.asset_id == asset_id
+                        || slot.fit_by_direction.iter().any(|fit| {
+                            fit.asset
+                                .as_ref()
+                                .is_some_and(|asset| asset.asset_id == asset_id)
+                                || fit
+                                    .variant_fittings
+                                    .iter()
+                                    .any(|variant| variant.asset.asset_id == asset_id)
+                        })
+                }) {
                     usage.push(AssetUsage {
                         kind: "appearance_slot".to_owned(),
                         id: appearance.id,
                         description: format!("{} · slot {}", appearance.name, slot.slot_id),
                     });
                 }
-                for equipment in appearance
-                    .equipment
-                    .iter()
-                    .filter(|item| item.asset.asset_id == asset_id)
-                {
+                for equipment in appearance.equipment.iter().filter(|item| {
+                    item.asset.asset_id == asset_id
+                        || item.fit_by_direction.iter().any(|fit| {
+                            fit.asset
+                                .as_ref()
+                                .is_some_and(|asset| asset.asset_id == asset_id)
+                                || fit
+                                    .variant_fittings
+                                    .iter()
+                                    .any(|variant| variant.asset.asset_id == asset_id)
+                        })
+                }) {
                     usage.push(AssetUsage {
                         kind: "appearance_equipment".to_owned(),
                         id: appearance.id,
@@ -578,15 +592,29 @@ fn asset_usage(documents: &[DomainDocument], asset_id: ObjectId) -> Vec<AssetUsa
                 }
             }
             DomainDocument::OutfitDraft(draft) => {
-                for slot in draft
+                let mut used_slots = draft
                     .selected_assets
                     .iter()
                     .filter(|slot| slot.asset_id == asset_id)
-                {
+                    .map(|slot| slot.slot_id.clone())
+                    .collect::<HashSet<_>>();
+                for fitting in &draft.fittings {
+                    if fitting.asset.asset_id == asset_id
+                        || fitting
+                            .variant_fittings
+                            .iter()
+                            .any(|variant| variant.asset.asset_id == asset_id)
+                    {
+                        used_slots.insert(fitting.slot_id.clone());
+                    }
+                }
+                let mut used_slots = used_slots.into_iter().collect::<Vec<_>>();
+                used_slots.sort_by_key(ToString::to_string);
+                for slot_id in used_slots {
                     usage.push(AssetUsage {
                         kind: "outfit_draft".to_owned(),
                         id: draft.id,
-                        description: format!("Outfit draft · slot {}", slot.slot_id),
+                        description: format!("Outfit draft · slot {slot_id}"),
                     });
                 }
             }

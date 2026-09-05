@@ -147,14 +147,6 @@ pub struct ResolvedPose {
     pub slots: Vec<ResolvedPoseSlot>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AssetFallbackApproval {
-    pub slot_id: SlotId,
-    pub target_direction: Direction,
-    pub source_direction: Direction,
-    pub variant: String,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RequiredPartVisibility {
     Visible,

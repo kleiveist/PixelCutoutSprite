@@ -1,4 +1,13 @@
-import type { Direction, MutableDocument, RevisionRef, SlotRef, Transform2D, UUID } from "./common";
+import type {
+  Direction,
+  MutableDocument,
+  PixelPoint,
+  RevisionRef,
+  SlotRef,
+  Transform2D,
+  UUID,
+} from "./common";
+import type { AssetFallbackApproval, SpriteVariantFitting } from "./assets";
 
 export type CharacterStatus = "draft" | "reviewed" | "archived";
 
@@ -15,6 +24,9 @@ export interface Character extends MutableDocument<"character"> {
 
 export interface DirectionFit {
   direction: Direction;
+  asset?: SlotRef | null;
+  pivot_px?: PixelPoint | null;
+  variant_fittings: SpriteVariantFitting[];
   transform: Transform2D;
   visible: boolean;
   layer_delta: number;
@@ -42,6 +54,7 @@ export interface Appearance extends MutableDocument<"appearance"> {
   profile_ref: RevisionRef;
   name: string;
   slots: SlotAppearance[];
+  asset_fallback_approvals: AssetFallbackApproval[];
   equipment: Equipment[];
 }
 

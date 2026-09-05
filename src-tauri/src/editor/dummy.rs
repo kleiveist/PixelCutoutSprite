@@ -314,7 +314,7 @@ fn dummy_color(index: usize, optional: bool) -> Rgba<u8> {
     ])
 }
 
-fn ground_shadow_bitmap(shadow: GroundShadow) -> RgbaImage {
+pub(crate) fn ground_shadow_bitmap(shadow: GroundShadow) -> RgbaImage {
     let mut image = RgbaImage::new(u32::from(shadow.width_px), u32::from(shadow.height_px));
     let width = i64::from(shadow.width_px);
     let height = i64::from(shadow.height_px);

@@ -47,6 +47,29 @@ A later height change creates `rNNNN.json` with create-only semantics before the
 advanced by SHA-256 compare-and-swap; a failed conflict removes only that newly staged revision.
 Crash-window reconciliation and general rollback remain explicitly assigned to P18.
 
+P13 applies that boundary to first-time NPC creation and to changes on an existing NPC. A
+project-scoped journal records four ordered file replacements for a first save: Character,
+`appearances/default.json`, the first Animation Binding, and the CAS-pinned outfit draft transition
+from `in_progress` to `assigned`. Validated bytes are staged below the matching
+`<project>/.project/transactions/outfit-save--<transaction-id>/` tree and each target file is
+published in journal order; existing targets use project-scoped backups. The journal advances
+through Prepared, Applying, Committed, RolledBack, or NeedsRecovery instead of claiming a
+filesystem-wide directory rename. A failure before any target is published cleans the prepared
+staging tree; an interruption after partial publication deliberately leaves an Applying or
+NeedsRecovery journal for the P18 recovery workflow. The referenced MotionRevision and imported
+PNGs are never copied into the NPC folder.
+
+Existing-NPC apply uses the same protocol but includes only scopes that actually changed, plus the
+draft assignment. Before staging, it compares the pinned object revision and SHA-256 stamp of the
+Character, shared Appearance, and optional existing Binding. An external same-revision edit is
+therefore a conflict rather than an overwrite, and an approval-only Appearance change is not lost.
+
+Unnamed work is an authoritative mutable source at
+`<area>/.area/drafts/outfit--<draft-id>.json`. Every completed editor command makes the UI dirty;
+after two idle seconds the native autosave validates exact asset references and compares the
+loaded document stamp before incrementing its revision. Saving does not clear the session's
+Undo/Redo history, and a failed or conflicting write retains the current in-memory edits.
+
 ## Durability boundary
 
 The staged-write ordering and failure behavior are exercised on Linux. No cross-platform atomic

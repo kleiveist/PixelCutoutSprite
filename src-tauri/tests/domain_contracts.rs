@@ -155,6 +155,38 @@ fn one_released_motion_can_serve_multiple_distinct_characters() {
 }
 
 #[test]
+fn characters_keep_an_older_profile_revision_when_the_area_default_advances() {
+    let mut catalog = valid_catalog();
+    let mut next_profile = catalog.profiles[0].clone();
+    next_profile.revision += 1;
+    next_profile.published_at = UtcTimestamp::parse("2026-09-05T12:01:00Z").unwrap();
+    catalog.areas[0].revision += 1;
+    catalog.areas[0].profile_ref = next_profile.reference();
+    catalog.profiles.push(next_profile);
+
+    catalog
+        .validate()
+        .expect("an area default revision must not invalidate pinned character sources");
+}
+
+#[test]
+fn one_profile_family_cannot_cross_area_boundaries() {
+    let mut catalog = valid_catalog();
+    let mut foreign_revision = catalog.profiles[0].clone();
+    foreign_revision.revision += 1;
+    foreign_revision.area_id =
+        ObjectId::parse("area_id", "00000000-0000-4000-8000-000000000006").unwrap();
+    foreign_revision.published_at = UtcTimestamp::parse("2026-09-05T12:02:00Z").unwrap();
+    catalog.profiles.push(foreign_revision);
+
+    assert!(matches!(
+        catalog.validate(),
+        Err(DomainError::IncompatibleReference { path, .. })
+            if path == "profile_revision.area_id"
+    ));
+}
+
+#[test]
 fn immutable_revisions_statuses_and_freshness_have_explicit_rules() {
     let catalog = valid_catalog();
     let motion = &catalog.motions[0];
@@ -180,6 +212,79 @@ fn immutable_revisions_statuses_and_freshness_have_explicit_rules() {
         export_freshness(export, &changed_hash),
         ExportFreshness::Stale
     );
+}
+
+#[test]
+fn outfit_targets_and_existing_document_pins_are_atomic_pairs() {
+    let mut draft = valid_catalog().outfit_drafts.remove(0);
+    draft.character_id =
+        Some(ObjectId::parse("character_id", "11111111-1111-4111-8111-111111111111").unwrap());
+    assert!(matches!(
+        draft.validate(),
+        Err(DomainError::InvalidValue { path, .. }) if path == "outfit_draft.character_id"
+    ));
+
+    draft.character_id = None;
+    draft.appearance_id =
+        Some(ObjectId::parse("appearance_id", "22222222-2222-4222-8222-222222222222").unwrap());
+    assert!(matches!(
+        draft.validate(),
+        Err(DomainError::InvalidValue { path, .. }) if path == "outfit_draft.character_id"
+    ));
+
+    draft.appearance_id = None;
+    draft.base_binding_ref = Some(RevisionRef {
+        id: ObjectId::parse("binding_id", "33333333-3333-4333-8333-333333333333").unwrap(),
+        revision: 1,
+    });
+    assert!(draft.validate().is_err());
+}
+
+#[test]
+fn sprite_variant_fittings_are_additive_and_match_immutable_asset_metadata() {
+    let mut catalog = valid_catalog();
+    assert!(catalog.outfit_drafts[0].fittings[0]
+        .variant_fittings
+        .is_empty());
+    assert!(catalog.appearances[0].slots[0].fit_by_direction[0]
+        .variant_fittings
+        .is_empty());
+
+    let mut open_revision = catalog.asset_revisions[0].clone();
+    open_revision.revision = 2;
+    open_revision.variant = "open".to_owned();
+    open_revision.source_file =
+        RelativePath::parse("assets/55555555/r0002/glove-left-open.png").unwrap();
+    open_revision.content_hash =
+        Sha256Digest::parse("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+            .unwrap();
+    catalog.assets[0].released_revisions.push(2);
+    catalog.asset_revisions.push(open_revision.clone());
+    let variant = SpriteVariantFitting {
+        variant: "open".to_owned(),
+        asset: SlotRef {
+            asset_id: open_revision.asset_id,
+            revision: open_revision.revision,
+            slot_id: open_revision.slot_id.clone(),
+        },
+        pivot_px: open_revision.pivot_px,
+    };
+    catalog.outfit_drafts[0].fittings[0]
+        .variant_fittings
+        .push(variant.clone());
+    catalog.appearances[0].slots[0].fit_by_direction[0]
+        .variant_fittings
+        .push(variant);
+    catalog
+        .validate()
+        .expect("a named bitmap variant should preserve the one-base-fitting invariant");
+
+    catalog.outfit_drafts[0].fittings[0].variant_fittings[0].variant = "closed".to_owned();
+    assert!(matches!(
+        catalog.validate(),
+        Err(DomainError::IncompatibleReference { path, .. })
+            if path == "outfit_draft.fittings.variant_fittings.asset"
+    ));
 }
 
 #[test]

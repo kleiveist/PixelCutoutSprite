@@ -134,6 +134,10 @@ impl AreaService {
         HumanoidProfileGenerator::preview(reference_height_px).map_err(StorageError::from)
     }
 
+    pub(crate) fn folder(root: &VaultRoot, area_id: ObjectId) -> Result<PathBuf, StorageError> {
+        Ok(find_area(root, area_id)?.folder)
+    }
+
     pub fn dashboard(
         vaults: &VaultService,
         session_id: ObjectId,

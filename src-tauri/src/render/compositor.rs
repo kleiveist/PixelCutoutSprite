@@ -135,7 +135,7 @@ fn validate_request(request: &RenderRequest) -> Result<(), RenderError> {
     Ok(())
 }
 
-fn resolve_world_transforms(
+pub(crate) fn resolve_world_transforms(
     request: &RenderRequest,
 ) -> Result<HashMap<SlotId, Affine>, RenderError> {
     let mut by_id = HashMap::new();
