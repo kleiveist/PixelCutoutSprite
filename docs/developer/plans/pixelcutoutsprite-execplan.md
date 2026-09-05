@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P08 abgeschlossen; P09 ist der nächste Schritt
+**Implementierung:** P00–P09 abgeschlossen; P10 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -79,6 +79,14 @@ Sperren, Raster- und Winkelraster, Zoom, Pan sowie richtungsbezogenes Undo/Redo.
 als spärliche Frame-0-Tracks über den CAS-Draftdienst gespeichert; Hilfslinien und profilgenaue
 Pivot-/Auswahlgriffe bleiben außerhalb des gerenderten PNG.
 
+P09 erweitert diesen Editor um eine echte, horizontal skalierbare Timeline. Spuren, Keyframes,
+Scrubbing, Abspielen, Frame-Schritte, Bereichsauswahl, Zwischenablage, Verschieben, Löschen,
+Interpolation, Auto-Key und bestätigtes Retiming verändern den vollständigen Bewegungsentwurf.
+Ein reiner Rust-Sampler wertet jede Richtung und jeden Index unabhängig aus; dieselbe gesampelte
+Pose speist die Compositorvorschau einschließlich benachbarter Onion-Skin-Frames. Timeline und
+Viewport teilen eine vollständige Undo-/Redo-History. Serialisierte CAS-Autosaves verhindern,
+dass eine ältere Antwort neuere Änderungen als gespeichert markiert.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -100,7 +108,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P06](../prompts/pixelcutoutsprite/06.md) | Animationsbibliothek und zustandsabhängige Navigation | Abgeschlossen |
 | [P07](../prompts/pixelcutoutsprite/07.md) | Gemeinsamer Pixel-Rasterer | Abgeschlossen |
 | [P08](../prompts/pixelcutoutsprite/08.md) | Direkt bedienbarer Dummy-Editor | Abgeschlossen |
-| [P09](../prompts/pixelcutoutsprite/09.md) | Timeline, Keyframes und deterministisches Sampling | Nicht begonnen |
+| [P09](../prompts/pixelcutoutsprite/09.md) | Timeline, Keyframes und deterministisches Sampling | Abgeschlossen |
 | [P10](../prompts/pixelcutoutsprite/10.md) | Acht Richtungen, Spiegelregeln und Schichten | Nicht begonnen |
 | [P11](../prompts/pixelcutoutsprite/11.md) | Bewegungspresets und tatsächliche Kartenvorschauen | Nicht begonnen |
 | [P12](../prompts/pixelcutoutsprite/12.md) | PNG-Inventar und Paketimport | Nicht begonnen |
@@ -130,6 +138,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P06: Animationsbibliothek, persistente Entwürfe, unveränderliche Freigaben und kontextabhängige Navigation erstellt und gegatet.
 - [x] P07: gemeinsamen RGBA8-Pixelcompositor, Hierarchietransforms, Nearest-Sampling, Source-over, Spiegelung und Clipping erstellt und gegatet.
 - [x] P08: echten Dummy-Editor, gepinnte Profilauflösung, Transformwerkzeuge, richtungsbezogene History, Compositorvorschau und CAS-Persistenz erstellt und gegatet.
+- [x] P09: vollständige Timeline, reinen Sampler, Onion-Skin-Vorschau, Retiming, gemeinsame History und serialisierte CAS-Autosaves erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [ ] Meilenstein B: Bewegungen, P07–P11.
 - [ ] Meilenstein C: Figuren, P12–P15.
@@ -216,6 +225,20 @@ bewegten Elternteil, während Raster, Namen, Fokus und Pivotmarker garantiert ke
 gespeichert. Richtungen und nicht vom Pose-Inspector bearbeitete Trackeigenschaften bleiben beim
 Roundtrip erhalten; P09 erweitert denselben Vertrag auf eine vollständige Timeline.
 
+**2026-09-05 / P09:** Ein Loop besitzt weiterhin genau `N` ausgebbare Frames. Der Sampler darf
+am letzten Index zum gedachten Anfang bei `N` interpolieren, erzeugt aber nie ein dupliziertes
+Abschlussbild. Halten, kontinuierliche Werte und diskrete Eigenschaften bleiben getrennt.
+
+**2026-09-05 / P09:** Richtungswechsel und Timeline-Aktionen dürfen keine getrennten
+Speicherinseln bilden. Die History umfasst deshalb den vollständigen Entwurf; ein einziger
+serialisierter Save-Drain vergleicht Inhalte aller Richtungen und reiht Änderungen ein, die
+während eines laufenden CAS-Writes entstehen.
+
+**2026-09-05 / P09:** Bildschirmpixel sind unter einem gedrehten Elternteil keine lokalen
+Bewegungspixel. Der Overlay-Editor invertiert dessen lineare Weltbasis und bewegt bei gemeinsam
+ausgewähltem Eltern-/Kind-Paar nur die oberste Auswahlwurzel, damit die Compositormatrix erhalten
+bleibt.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -283,6 +306,9 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P08 | `cargo test --all-targets --locked`, Clippy `-D warnings`, Check und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 52 Tests | Editor-History, PNG-Decodierung, Elternbindung, Helper-Trennung, CAS-Speichern und Reopen mit veraltetem aktivem Bereichsprofil belegt. |
 | 2026-09-05 / P08 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 39 Tests und alle Frontend-Gates | Richtungsposen, Mehrfachauswahl, Read-only-Inspektion, Sperren, Snapping, Undo/Redo, Fehlererhalt, echte Route und persistentes Reopen belegt. |
 | 2026-09-05 / P08 | `tools/control.py docs check`, `quality architecture` und `integrate --check --json` | Linux-Host, Python 3.13.15 | PASS | 137 Dokumentseiten konsistent, TypeScript-AST parst 65 Dateien und das Tauri-Desktopprofil bleibt vollständig integriert. |
+| 2026-09-05 / P09 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 61 Tests und alle Compiler-/Formatgates | Sieben Sampler-Goldens sowie Editor-/Service-Tests belegen Loopdauer, Reihenfolgeunabhängigkeit, 0/1/viele Keys, Winkelsprung, diskrete Werte, Retiming, Profilvalidierung und wiederholbares Sample-PNG. |
+| 2026-09-05 / P09 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 52 Tests und alle Frontend-Gates | Timeline-Datenoperationen, Ganzentwurf-History, Geometrie, Auto-Key, Onion-Skin-Route, Save-Serialisierung und Navigation sind abgedeckt. |
+| 2026-09-05 / P09 | `tools/control.py docs check`, `quality architecture` und `integrate --check --json` | Linux-Host, Python 3.13.15 | PASS | 138 Dokumentseiten konsistent, TypeScript-AST parst 74 Dateien und das Desktopprofil bleibt integriert. Der zentrale `quality lint` bleibt bis zur geplanten P20-Korrektur wegen `.tooling-state`-Scan und inkompatiblem Clippy-`-F warnings` offen; direkte Produktgates bestehen. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -292,8 +318,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P09 ausführen: Timeline, Keyframes und deterministisches
-Sampling auf dem gemeinsamen Bewegungs- und Compositorvertrag implementieren.
+**Nächster ausführbarer Schritt:** P10 ausführen: acht Richtungen über explizite Quellen,
+Spiegelparität und richtungsbezogene Schichtregeln deterministisch auflösen.
 
 ## Outcomes & Retrospective
 
@@ -312,5 +338,9 @@ gemeinsam verwenden können; Golden-Assertions sichern dabei auch Rand- und Rund
 P08 macht diesen Pfad als direkt bedienbaren, wiederverwendbaren Bewegungseditor sichtbar und
 speichert jede Richtung konfliktgeschützt zurück in den bestehenden Entwurf, ohne Profil oder
 andere Trackdaten stillschweigend umzuschreiben.
+P09 verbindet diesen Editor mit einer vollständigen Timeline und einem reinen Sampler. Vorschau,
+späterer Export, Nachbarposen und gespeicherte Keyframes verwenden nun denselben Datenpfad;
+gemeinsame History und serialisierte CAS-Schreibvorgänge halten auch schnelle richtungs- und
+frameübergreifende Bearbeitung konsistent.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

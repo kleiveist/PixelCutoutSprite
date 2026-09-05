@@ -4,9 +4,14 @@ import type { CSSProperties } from "react";
 import type { Direction, PixelPoint, PixelSize } from "../../domain/common";
 import "./DummyEditorPage.css";
 import {
+  movePoseSelection,
+  rotatePoseSelection,
+  slotMatrix,
+  type EditorSlot,
+} from "./editor-geometry";
+import {
   commitPose,
   createHistory,
-  moveSelection,
   neutralTransform,
   redo,
   snapAngle,
@@ -16,19 +21,7 @@ import {
   type EditorPose,
 } from "./editor-state";
 
-export interface EditorSlot {
-  id: string;
-  label: string;
-  parentId: string | null;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  color: string;
-  pivotX?: number;
-  pivotY?: number;
-  optional?: boolean;
-}
+export type { EditorSlot } from "./editor-geometry";
 
 interface DummyEditorPageProps {
   templateName: string;
@@ -39,8 +32,20 @@ interface DummyEditorPageProps {
   frameSize?: PixelSize;
   groundOrigin?: PixelPoint;
   renderedFrameUrl?: string;
+  neighborFrameUrls?: { previous?: string; next?: string };
   readOnly?: boolean;
+  pose?: EditorPose;
+  direction?: Direction;
+  frameIndex?: number;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  saveStatusText?: string;
   onPoseChange?: (pose: EditorPose, direction: Direction) => void;
+  onPoseCommit?: (pose: EditorPose, direction: Direction, label: string) => void;
+  onDirectionChange?: (direction: Direction) => void;
+  onSelectionChange?: (slotIds: string[]) => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
   onSave: (pose: EditorPose, direction: Direction) => Promise<void>;
 }
 
@@ -55,8 +60,20 @@ export function DummyEditorPage({
   frameSize = [128, 128],
   groundOrigin = [64, 108],
   renderedFrameUrl,
+  neighborFrameUrls,
   readOnly = false,
+  pose: controlledPose,
+  direction: controlledDirection,
+  frameIndex,
+  canUndo,
+  canRedo,
+  saveStatusText,
   onPoseChange,
+  onPoseCommit,
+  onDirectionChange,
+  onSelectionChange,
+  onUndo,
+  onRedo,
   onSave,
 }: DummyEditorPageProps) {
   const [histories, setHistories] = useState<Record<Direction, EditorHistory>>(
@@ -72,47 +89,58 @@ export function DummyEditorPage({
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(slots[0] ? [slots[0].id] : []),
   );
-  const [direction, setDirection] = useState<Direction>("s");
+  const [internalDirection, setInternalDirection] = useState<Direction>("s");
   const [pixelSnap, setPixelSnap] = useState(true);
   const [angleSnap, setAngleSnap] = useState(true);
   const [zoom, setZoom] = useState(4);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [saveState, setSaveState] = useState<SaveState>("clean");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const editVersion = useRef(0);
   const drag = useRef<{
     x: number;
     y: number;
     pose: EditorPose;
     selection: ReadonlySet<string>;
+    mode: "move" | "rotate";
   } | null>(null);
+  const panDrag = useRef<{ x: number; y: number } | null>(null);
+  const direction = controlledDirection ?? internalDirection;
   const history = histories[direction];
   const activeSlots = directionalSlots?.[direction] ?? slots;
-  const pose = previewPose ?? history.present;
+  const pose = previewPose ?? controlledPose ?? history.present;
   const selectedSlot = activeSlots.find((slot) => selected.has(slot.id));
   const selectedTransform = selectedSlot ? (pose[selectedSlot.id] ?? neutralTransform()) : null;
 
-  useEffect(
-    () => onPoseChange?.(history.present, direction),
-    [direction, history.present, onPoseChange],
-  );
+  useEffect(() => {
+    if (controlledPose === undefined) onPoseChange?.(history.present, direction);
+  }, [controlledPose, direction, history.present, onPoseChange]);
+
+  useEffect(() => onSelectionChange?.([...selected]), [onSelectionChange, selected]);
 
   useEffect(() => {
-    if (saveState !== "dirty") return;
+    if (controlledPose !== undefined || saveState !== "dirty") return;
     const timer = window.setTimeout(() => void save(), 2000);
     return () => window.clearTimeout(timer);
   });
 
-  const statusText = useMemo(() => {
+  const internalStatusText = useMemo(() => {
     if (saveState === "failed") return `Unsaved · ${saveError ?? "write failed"}`;
     if (saveState === "saving") return "Saving…";
     if (saveState === "dirty") return "Unsaved changes · autosave in 2 s";
     if (saveState === "saved") return "Saved locally";
     return "No changes";
   }, [saveError, saveState]);
+  const statusText = saveStatusText ?? internalStatusText;
 
   function commit(next: EditorPose, label: string): void {
     if (readOnly) return;
     setPreviewPose(null);
+    editVersion.current += 1;
+    if (controlledPose !== undefined) {
+      onPoseCommit?.(next, direction, label);
+      return;
+    }
     setHistories((current) => ({
       ...current,
       [direction]: commitPose(current[direction], next, label),
@@ -121,14 +149,21 @@ export function DummyEditorPage({
   }
 
   async function save(): Promise<void> {
-    setSaveState("saving");
-    setSaveError(null);
+    const version = editVersion.current;
+    if (saveStatusText === undefined) {
+      setSaveState("saving");
+      setSaveError(null);
+    }
     try {
-      await onSave(history.present, direction);
-      setSaveState("saved");
+      await onSave(pose, direction);
+      if (saveStatusText === undefined) {
+        setSaveState(editVersion.current === version ? "saved" : "dirty");
+      }
     } catch (reason) {
-      setSaveError(reason instanceof Error ? reason.message : String(reason));
-      setSaveState("failed");
+      if (saveStatusText === undefined) {
+        setSaveError(reason instanceof Error ? reason.message : String(reason));
+        setSaveState("failed");
+      }
     }
   }
 
@@ -146,14 +181,25 @@ export function DummyEditorPage({
     change: Partial<ReturnType<typeof neutralTransform>>,
     label: string,
   ): void {
-    commit(transformSelection(history.present, selected, change), label);
+    commit(transformSelection(pose, selected, change), label);
   }
 
   function changeHistory(operation: (current: EditorHistory) => EditorHistory): void {
     if (readOnly) return;
+    editVersion.current += 1;
     setHistories((current) => ({ ...current, [direction]: operation(current[direction]) }));
     setPreviewPose(null);
     setSaveState("dirty");
+  }
+
+  function undoCurrent(): void {
+    if (controlledPose !== undefined) onUndo?.();
+    else changeHistory(undo);
+  }
+
+  function redoCurrent(): void {
+    if (controlledPose !== undefined) onRedo?.();
+    else changeHistory(redo);
   }
 
   return (
@@ -166,11 +212,19 @@ export function DummyEditorPage({
         if (!(event.ctrlKey || event.metaKey)) return;
         if (event.key.toLowerCase() === "z") {
           event.preventDefault();
-          changeHistory(event.shiftKey ? redo : undo);
+          event.nativeEvent.stopImmediatePropagation();
+          if (event.shiftKey) redoCurrent();
+          else undoCurrent();
         }
         if (event.key.toLowerCase() === "y") {
           event.preventDefault();
-          changeHistory(redo);
+          event.nativeEvent.stopImmediatePropagation();
+          redoCurrent();
+        }
+        if (event.key.toLowerCase() === "s") {
+          event.preventDefault();
+          event.nativeEvent.stopImmediatePropagation();
+          void save();
         }
       }}
     >
@@ -178,17 +232,20 @@ export function DummyEditorPage({
         <div>
           <span>Motion template</span>
           <strong>{templateName}</strong>
+          {frameIndex !== undefined && <small>Frame {frameIndex + 1}</small>}
         </div>
         <label>
           Direction
           <select
             value={direction}
             onChange={(event) => {
-              if (saveState === "dirty") void save();
               setPreviewPose(null);
-              setDirection(event.target.value as Direction);
-              setSaveState("clean");
-              setSaveError(null);
+              const next = event.target.value as Direction;
+              if (controlledDirection !== undefined) onDirectionChange?.(next);
+              else {
+                if (saveState === "dirty" || saveState === "failed") void save();
+                setInternalDirection(next);
+              }
             }}
           >
             {directions.map((value) => (
@@ -216,15 +273,17 @@ export function DummyEditorPage({
         </label>
         <button
           type="button"
-          disabled={readOnly || history.past.length === 0}
-          onClick={() => changeHistory(undo)}
+          disabled={readOnly || !(controlledPose !== undefined ? canUndo : history.past.length > 0)}
+          onClick={undoCurrent}
         >
           Undo
         </button>
         <button
           type="button"
-          disabled={readOnly || history.future.length === 0}
-          onClick={() => changeHistory(redo)}
+          disabled={
+            readOnly || !(controlledPose !== undefined ? canRedo : history.future.length > 0)
+          }
+          onClick={redoCurrent}
         >
           Redo
         </button>
@@ -305,6 +364,30 @@ export function DummyEditorPage({
         </div>
         <div
           className="editor-viewport"
+          onWheel={(event) => {
+            if (!(event.ctrlKey || event.metaKey)) return;
+            event.preventDefault();
+            setZoom((value) => Math.max(1, Math.min(12, value + (event.deltaY < 0 ? 1 : -1))));
+          }}
+          onPointerDown={(event) => {
+            if (event.button !== 1) return;
+            panDrag.current = { x: event.clientX, y: event.clientY };
+            event.currentTarget.setPointerCapture?.(event.pointerId);
+            event.preventDefault();
+          }}
+          onPointerMove={(event) => {
+            if (!panDrag.current) return;
+            const deltaX = event.clientX - panDrag.current.x;
+            const deltaY = event.clientY - panDrag.current.y;
+            panDrag.current = { x: event.clientX, y: event.clientY };
+            setPan((value) => ({ x: value.x + deltaX, y: value.y + deltaY }));
+          }}
+          onPointerUp={(event) => {
+            if (event.button === 1) panDrag.current = null;
+          }}
+          onPointerCancel={() => {
+            panDrag.current = null;
+          }}
           style={
             {
               "--editor-zoom": zoom,
@@ -318,6 +401,20 @@ export function DummyEditorPage({
         >
           <div className="frame-boundary">
             <span className="ground-line" />
+            {neighborFrameUrls?.previous && (
+              <img
+                className="compositor-frame neighbor-pose previous-pose"
+                src={neighborFrameUrls.previous}
+                alt="Previous sampled pose"
+              />
+            )}
+            {neighborFrameUrls?.next && (
+              <img
+                className="compositor-frame neighbor-pose next-pose"
+                src={neighborFrameUrls.next}
+                alt="Next sampled pose"
+              />
+            )}
             {renderedFrameUrl && (
               <img
                 className="compositor-frame"
@@ -347,7 +444,7 @@ export function DummyEditorPage({
                     }}
                     onClick={(event) => chooseSlot(slot.id, event.ctrlKey || event.metaKey)}
                     onPointerDown={(event) => {
-                      if (readOnly || state.locked) return;
+                      if (event.button !== 0 || readOnly || state.locked) return;
                       const selection = selected.has(slot.id)
                         ? new Set(selected)
                         : new Set([slot.id]);
@@ -355,27 +452,51 @@ export function DummyEditorPage({
                       drag.current = {
                         x: event.clientX,
                         y: event.clientY,
-                        pose: history.present,
+                        pose,
                         selection,
+                        mode:
+                          event.altKey ||
+                          (event.target instanceof HTMLElement &&
+                            event.target.classList.contains("rotation-handle"))
+                            ? "rotate"
+                            : "move",
                       };
                       event.currentTarget.setPointerCapture?.(event.pointerId);
                     }}
                     onPointerMove={(event) => {
                       if (!drag.current) return;
+                      const deltaX = (event.clientX - drag.current.x) / zoom;
+                      const deltaY = (event.clientY - drag.current.y) / zoom;
                       setPreviewPose(
-                        moveSelection(
-                          drag.current.pose,
-                          drag.current.selection,
-                          (event.clientX - drag.current.x) / zoom,
-                          (event.clientY - drag.current.y) / zoom,
-                          pixelSnap,
-                        ),
+                        drag.current.mode === "rotate"
+                          ? rotatePoseSelection(
+                              drag.current.pose,
+                              drag.current.selection,
+                              activeSlots,
+                              deltaX,
+                              (value) => snapAngle(value, angleSnap),
+                            )
+                          : movePoseSelection(
+                              drag.current.pose,
+                              drag.current.selection,
+                              activeSlots,
+                              groundOrigin,
+                              deltaX,
+                              deltaY,
+                              pixelSnap,
+                            ),
                       );
                     }}
                     onPointerUp={() => {
                       if (!drag.current) return;
+                      const completed = drag.current;
                       drag.current = null;
-                      if (previewPose) commit(previewPose, `Move ${selected.size} part(s)`);
+                      if (previewPose) {
+                        commit(
+                          previewPose,
+                          `${completed.mode === "rotate" ? "Rotate" : "Move"} ${selected.size} part(s)`,
+                        );
+                      }
                     }}
                     onPointerCancel={() => {
                       drag.current = null;
@@ -389,6 +510,7 @@ export function DummyEditorPage({
                         top: slot.pivotY ?? 0,
                       }}
                     />
+                    <i className="rotation-handle" title="Drag to rotate; Alt-drag also rotates" />
                     <small>{slot.label}</small>
                   </button>
                 );
@@ -414,9 +536,13 @@ export function DummyEditorPage({
                 disabled={readOnly || selectedTransform.locked}
                 step={pixelSnap ? 1 : 0.25}
                 value={selectedTransform.offsetX}
-                onChange={(event) =>
-                  updateSelected({ offsetX: Number(event.target.value) }, "Set X offset")
-                }
+                onChange={(event) => {
+                  const value = Number(event.target.value);
+                  updateSelected(
+                    { offsetX: pixelSnap ? Math.round(value) : value },
+                    "Set X offset",
+                  );
+                }}
               />
             </label>
             <label>
@@ -427,9 +553,13 @@ export function DummyEditorPage({
                 disabled={readOnly || selectedTransform.locked}
                 step={pixelSnap ? 1 : 0.25}
                 value={selectedTransform.offsetY}
-                onChange={(event) =>
-                  updateSelected({ offsetY: Number(event.target.value) }, "Set Y offset")
-                }
+                onChange={(event) => {
+                  const value = Number(event.target.value);
+                  updateSelected(
+                    { offsetY: pixelSnap ? Math.round(value) : value },
+                    "Set Y offset",
+                  );
+                }}
               />
             </label>
             <label>
@@ -479,54 +609,3 @@ export function DummyEditorPage({
 }
 
 const directions: Direction[] = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
-
-type Matrix = [number, number, number, number, number, number];
-
-function slotMatrix(
-  slot: EditorSlot,
-  slots: readonly EditorSlot[],
-  pose: EditorPose,
-  groundOrigin: PixelPoint,
-): Matrix {
-  const byId = new Map(slots.map((item) => [item.id, item]));
-  const anchors = new Map<string, Matrix>();
-  const resolveAnchor = (current: EditorSlot): Matrix => {
-    const cached = anchors.get(current.id);
-    if (cached) return cached;
-    const parent = current.parentId ? byId.get(current.parentId) : undefined;
-    const parentMatrix = parent
-      ? resolveAnchor(parent)
-      : translation(groundOrigin[0], groundOrigin[1]);
-    const state = pose[current.id] ?? neutralTransform();
-    const own = multiply(
-      translation(current.x + state.offsetX, current.y + state.offsetY),
-      rotation(state.rotation),
-    );
-    const result = multiply(parentMatrix, own);
-    anchors.set(current.id, result);
-    return result;
-  };
-  return multiply(resolveAnchor(slot), translation(-(slot.pivotX ?? 0), -(slot.pivotY ?? 0)));
-}
-
-function translation(x: number, y: number): Matrix {
-  return [1, 0, 0, 1, x, y];
-}
-
-function rotation(degrees: number): Matrix {
-  const radians = (degrees * Math.PI) / 180;
-  return [Math.cos(radians), Math.sin(radians), -Math.sin(radians), Math.cos(radians), 0, 0];
-}
-
-function multiply(parent: Matrix, child: Matrix): Matrix {
-  const [a, b, c, d, tx, ty] = parent;
-  const [e, f, g, h, ux, uy] = child;
-  return [
-    a * e + c * f,
-    b * e + d * f,
-    a * g + c * h,
-    b * g + d * h,
-    a * ux + c * uy + tx,
-    b * ux + d * uy + ty,
-  ];
-}

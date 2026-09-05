@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::{Mutex, MutexGuard};
 
 use tauri::State;
@@ -7,7 +8,10 @@ use crate::application::{
     MotionOpenTarget, MotionService, SaveMotionDraftRequest, VaultService,
 };
 use crate::domain::{Direction, MotionRevision, ObjectId};
-use crate::editor::{encode_dummy_preview, render_dummy, DummyPreview, EditablePose};
+use crate::editor::{
+    encode_dummy_preview, render_dummy, render_sampled_dummy, DummyPreview, EditablePose,
+    SampledDummyPreview,
+};
 
 #[tauri::command]
 pub fn get_motion_dashboard(
@@ -106,6 +110,44 @@ pub fn render_motion_dummy(
         .map_err(|error| error.to_string())?,
     )
     .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn render_motion_sample(
+    session_id: String,
+    template_id: String,
+    draft: MotionDraft,
+    direction: Direction,
+    sample_index: u16,
+    service: State<'_, Mutex<VaultService>>,
+) -> Result<SampledDummyPreview, String> {
+    let service = lock(&service)?;
+    let editor = MotionService::editor_data(
+        &service,
+        parse_id("session_id", &session_id)?,
+        parse_id("template_id", &template_id)?,
+    )
+    .map_err(|error| error.to_string())?;
+    if draft.template_id != editor.draft.template_id
+        || draft.revision != editor.draft.revision
+        || draft.profile_ref != editor.draft.profile_ref
+    {
+        return Err(
+            "preview draft does not match the currently opened template revision".to_owned(),
+        );
+    }
+    let slots = editor
+        .profile
+        .slots
+        .iter()
+        .map(|slot| slot.id.clone())
+        .collect::<HashSet<_>>();
+    let motion = draft.sampling_revision();
+    motion
+        .validate(Some(&slots))
+        .map_err(|error| error.to_string())?;
+    render_sampled_dummy(&editor.profile, &motion, direction, sample_index)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

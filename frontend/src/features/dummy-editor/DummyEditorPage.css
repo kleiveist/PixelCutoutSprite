@@ -168,6 +168,19 @@
   image-rendering: pixelated;
 }
 
+.neighbor-pose {
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.previous-pose {
+  filter: sepia(1) saturate(4) hue-rotate(145deg);
+}
+
+.next-pose {
+  filter: sepia(1) saturate(4) hue-rotate(285deg);
+}
+
 .slot-handle {
   position: absolute;
   padding: 0;
@@ -188,6 +201,18 @@
   height: calc(3px / var(--editor-zoom));
   transform: translate(-50%, -50%);
   background: var(--focus);
+}
+
+.rotation-handle {
+  position: absolute;
+  top: calc(-10px / var(--editor-zoom));
+  right: calc(-2px / var(--editor-zoom));
+  width: calc(5px / var(--editor-zoom));
+  height: calc(5px / var(--editor-zoom));
+  border: calc(1px / var(--editor-zoom)) solid #0d0c10;
+  border-radius: 50%;
+  background: var(--accent-hot);
+  cursor: alias;
 }
 
 .slot-handle small {

@@ -2,6 +2,7 @@ use serde::Serialize;
 use std::sync::Mutex;
 use tauri::{Builder, Runtime};
 
+pub mod animation;
 pub mod application;
 pub mod commands;
 pub mod domain;
@@ -59,6 +60,7 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::load_motion_draft,
             commands::open_motion_editor,
             commands::render_motion_dummy,
+            commands::render_motion_sample,
             commands::save_motion_draft,
             commands::publish_motion,
             commands::set_motion_archived,

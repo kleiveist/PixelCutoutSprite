@@ -1,7 +1,7 @@
 import type { MotionDraft } from "../../domain/animations";
 import type { Direction } from "../../domain/common";
-import type { MotionTrack, TrackProperty } from "../../domain/motion";
-import { neutralTransform, type EditorPose } from "./editor-state";
+import type { Interpolation, MotionTrack, TrackProperty, TrackValue } from "../../domain/motion";
+import { neutralTransform, type EditorPose, type EditorTransform } from "./editor-state";
 
 type EditableProperty = "offset_x_px" | "offset_y_px" | "rotation_deg" | "visible";
 
@@ -11,6 +11,19 @@ const editableProperties: readonly EditableProperty[] = [
   "rotation_deg",
   "visible",
 ];
+
+const transformFields: Record<EditableProperty, keyof EditorTransform> = {
+  offset_x_px: "offsetX",
+  offset_y_px: "offsetY",
+  rotation_deg: "rotation",
+  visible: "visible",
+};
+
+export interface PoseEditResult {
+  draft: MotionDraft;
+  changed: boolean;
+  missingKeys: string[];
+}
 
 export function poseFromDraft(
   draft: MotionDraft,
@@ -94,6 +107,131 @@ export function tracksWithPose(
   return [...retained, ...edited];
 }
 
+export function applyPoseAtFrame(
+  draft: MotionDraft,
+  direction: Direction,
+  frame: number,
+  before: EditorPose,
+  after: EditorPose,
+  slotIds: readonly string[],
+  autoKey: boolean,
+): PoseEditResult {
+  const changes = changedChannels(before, after, slotIds);
+  const missingKeys = changes
+    .filter(({ slotId, property }) => {
+      const track = findTrack(draft.tracks, direction, slotId, property);
+      return !track?.keys.some((key) => key.frame === frame);
+    })
+    .map(({ slotId, property }) => `${slotId}.${property}`);
+  if (!autoKey && missingKeys.length > 0) {
+    return { draft, changed: false, missingKeys };
+  }
+  if (changes.length === 0) return { draft, changed: false, missingKeys: [] };
+
+  let tracks = cloneTracks(draft.tracks);
+  for (const { slotId, property, value } of changes) {
+    tracks = upsertKey(tracks, direction, slotId, property, frame, value);
+  }
+  return { draft: { ...draft, tracks }, changed: true, missingKeys: [] };
+}
+
+export function addPoseKeyframes(
+  draft: MotionDraft,
+  direction: Direction,
+  frame: number,
+  pose: EditorPose,
+  slotIds: readonly string[],
+): MotionDraft {
+  let tracks = cloneTracks(draft.tracks);
+  for (const slotId of slotIds) {
+    const transform = pose[slotId] ?? neutralTransform();
+    for (const property of editableProperties) {
+      tracks = upsertKey(
+        tracks,
+        direction,
+        slotId,
+        property,
+        frame,
+        transform[transformFields[property]] as TrackValue,
+      );
+    }
+  }
+  return { ...draft, tracks };
+}
+
 function isEditableProperty(property: TrackProperty): property is EditableProperty {
   return (editableProperties as readonly TrackProperty[]).includes(property);
+}
+
+function changedChannels(
+  before: EditorPose,
+  after: EditorPose,
+  slotIds: readonly string[],
+): Array<{ slotId: string; property: EditableProperty; value: TrackValue }> {
+  return slotIds.flatMap((slotId) => {
+    const previous = before[slotId] ?? neutralTransform();
+    const next = after[slotId] ?? neutralTransform();
+    return editableProperties.flatMap((property) => {
+      const field = transformFields[property];
+      return previous[field] === next[field]
+        ? []
+        : [{ slotId, property, value: next[field] as TrackValue }];
+    });
+  });
+}
+
+function findTrack(
+  tracks: readonly MotionTrack[],
+  direction: Direction,
+  slotId: string,
+  property: EditableProperty,
+): MotionTrack | undefined {
+  return tracks.find(
+    (track) =>
+      track.direction === direction && track.slot_id === slotId && track.property === property,
+  );
+}
+
+function upsertKey(
+  tracks: MotionTrack[],
+  direction: Direction,
+  slotId: string,
+  property: EditableProperty,
+  frame: number,
+  value: TrackValue,
+): MotionTrack[] {
+  const index = tracks.findIndex(
+    (track) =>
+      track.direction === direction && track.slot_id === slotId && track.property === property,
+  );
+  if (index < 0) {
+    return [
+      ...tracks,
+      {
+        direction,
+        slot_id: slotId,
+        property,
+        interpolation: defaultInterpolation(property),
+        keys: [{ frame, value }],
+      },
+    ];
+  }
+  return tracks.map((track, trackIndex) => {
+    if (trackIndex !== index) return track;
+    const keys = track.keys.filter((key) => key.frame !== frame);
+    keys.push({ frame, value });
+    keys.sort((left, right) => left.frame - right.frame);
+    return { ...track, keys };
+  });
+}
+
+function defaultInterpolation(property: EditableProperty): Interpolation {
+  return property === "visible" ? "hold" : "linear";
+}
+
+function cloneTracks(tracks: readonly MotionTrack[]): MotionTrack[] {
+  return tracks.map((track) => ({
+    ...track,
+    keys: track.keys.map((key) => ({ ...key })),
+  }));
 }

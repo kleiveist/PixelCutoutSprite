@@ -53,7 +53,7 @@ export const navigationItems: readonly NavigationItem[] = [
     label: "Dummy editor",
     eyebrow: "Pose",
     description: "Create readable key poses on the pixel grid.",
-    available: false,
+    available: true,
   },
   {
     route: "outfit",

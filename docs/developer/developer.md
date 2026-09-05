@@ -13,6 +13,7 @@
 - 🎞️ [Motion library and navigation](features/motion-library.md)
 - 🧩 [Deterministic pixel compositor](features/pixel-compositor.md)
 - 🕹️ [Reusable dummy motion editor](features/dummy-editor.md)
+- ⏱️ [Timeline and deterministic sampling](features/timeline-and-sampling.md)
 - 🎨 [PixelCutoutSprite Studio specification](features/pixelcutoutsprite-studio.md)
 - 🧾 [Data formats](formats/formats.md)
 - 🔐 [JSON contract version 1](formats/json-contracts.md)

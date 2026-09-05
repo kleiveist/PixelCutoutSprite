@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
 use pixel_cutout_sprite_studio_lib::domain::{
-    Direction, DirectionView, DocumentKind, MirrorPair, ObjectId, PixelPoint, PixelSize,
-    ProfileRevision, SlotDefinition, SlotId, Transform2D, UtcTimestamp, ViewTransform,
+    Direction, DirectionDefinition, DirectionMode, DirectionView, DocumentKind, Interpolation,
+    Keyframe, LoopMode, MirrorPair, MotionRevision, MotionTrack, ObjectId, PixelPoint, PixelSize,
+    ProfileRevision, SlotDefinition, SlotId, TrackProperty, TrackValue, Transform2D, UtcTimestamp,
+    ViewTransform,
 };
 use pixel_cutout_sprite_studio_lib::editor::{
-    encode_dummy_preview, render_dummy, CommandHistory, PoseTransform,
+    encode_dummy_preview, render_dummy, render_sampled_dummy, CommandHistory, PoseTransform,
 };
 
 fn slot(value: &str) -> SlotId {
@@ -168,4 +170,51 @@ fn compositor_preview_is_a_decodable_png_data_url() {
     let bytes = BASE64.decode(encoded).unwrap();
     let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png).unwrap();
     assert_eq!((image.width(), image.height()), (24, 24));
+}
+
+#[test]
+fn sampled_preview_uses_the_pure_sampler_pose_and_is_repeatable() {
+    let profile = profile();
+    let motion = MotionRevision {
+        schema_version: 1,
+        kind: DocumentKind::MotionRevision,
+        template_id: ObjectId::new(),
+        revision: 1,
+        profile_ref: profile.reference(),
+        frame_size_px: PixelSize(24, 24),
+        ground_origin_px: PixelPoint(8, 12),
+        frame_count: 12,
+        fps: 12,
+        loop_mode: LoopMode::Loop,
+        directions: Direction::ALL
+            .into_iter()
+            .map(|direction| DirectionDefinition {
+                direction,
+                mode: DirectionMode::Explicit,
+                source: None,
+            })
+            .collect(),
+        tracks: vec![MotionTrack {
+            direction: Direction::S,
+            slot_id: slot("hand"),
+            property: TrackProperty::OffsetXPx,
+            interpolation: Interpolation::Linear,
+            keys: vec![
+                Keyframe {
+                    frame: 0,
+                    value: TrackValue::Number(0.0),
+                },
+                Keyframe {
+                    frame: 6,
+                    value: TrackValue::Number(6.0),
+                },
+            ],
+        }],
+        published_at: UtcTimestamp::parse("2026-09-05T10:00:00Z").unwrap(),
+    };
+    let first = render_sampled_dummy(&profile, &motion, Direction::S, 3).unwrap();
+    let second = render_sampled_dummy(&profile, &motion, Direction::S, 3).unwrap();
+    assert_eq!(first, second);
+    assert_eq!(first.pose[&slot("hand")].offset_x_px, 3.0);
+    assert_eq!(first.sample_index, 3);
 }

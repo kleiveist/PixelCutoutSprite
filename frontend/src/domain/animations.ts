@@ -72,6 +72,13 @@ export interface DummyPreview {
   clipping: Array<{ slot_id: string; bounds_px: [number, number, number, number] }>;
 }
 
+export interface SampledDummyPreview extends DummyPreview {
+  pose: EditablePoseDto;
+  source_direction: Direction;
+  mirror_parity: boolean;
+  sample_index: number;
+}
+
 export type EditablePoseDto = Record<
   string,
   {
@@ -80,6 +87,7 @@ export type EditablePoseDto = Record<
     rotation: number;
     visible: boolean;
     locked: boolean;
+    layerDelta?: number;
   }
 >;
 

@@ -59,9 +59,23 @@ function client(data: MotionEditorData): MotionClient {
     loadDraft: vi.fn(),
     openEditor: vi.fn(async () => data),
     renderDummy: vi.fn(async () => ({ data_url: "data:image/png;base64,cG5n", clipping: [] })),
+    renderSample: vi.fn(async (_session, _template, sampledDraft, direction, sampleIndex) => ({
+      data_url: "data:image/png;base64,cG5n",
+      clipping: [],
+      pose: sampledPose(sampledDraft, direction, sampleIndex),
+      source_direction: direction,
+      mirror_parity: false,
+      sample_index: Math.min(sampleIndex, sampledDraft.frame_count - 1),
+    })),
     saveDraft: vi.fn(async (_session, request) => ({
       ...data.draft,
       revision: data.draft.revision + 1,
+      frame_size_px: request.frame_size_px,
+      ground_origin_px: request.ground_origin_px,
+      frame_count: request.frame_count,
+      fps: request.fps,
+      loop_mode: request.loop_mode,
+      directions: request.directions,
       tracks: request.tracks,
     })),
     publish: vi.fn(),
@@ -79,9 +93,10 @@ describe("MotionDummyEditorRoute", () => {
       <MotionDummyEditorRoute sessionId="session" templateId={draft.template_id} client={api} />,
     );
     await screen.findByLabelText("Reusable motion template Walk");
-    await waitFor(() => expect(api.renderDummy).toHaveBeenCalled());
+    await waitFor(() => expect(api.renderSample).toHaveBeenCalled());
+    fireEvent.click(screen.getByLabelText("Auto-key"));
     fireEvent.change(screen.getByLabelText("X offset"), { target: { value: "4" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Save" })[0]);
     await waitFor(() => expect(api.saveDraft).toHaveBeenCalled());
     const saved = vi.mocked(api.saveDraft).mock.calls[0][1];
     expect(saved.expected_revision).toBe(1);
@@ -99,6 +114,80 @@ describe("MotionDummyEditorRoute", () => {
       />,
     );
     await screen.findByLabelText("Reusable motion template Walk");
-    expect(screen.getByLabelText("X offset")).toHaveValue(4);
+    await waitFor(() => expect(screen.getByLabelText("X offset")).toHaveValue(4));
+  });
+
+  it("serializes saves and never marks a newer edit as saved by an older response", async () => {
+    const editor = { template_name: "Walk", draft, profile, writable: true };
+    const api = client(editor);
+    const first = deferred<MotionDraft>();
+    const second = deferred<MotionDraft>();
+    vi.mocked(api.saveDraft)
+      .mockImplementationOnce(async (_session, request) =>
+        first.promise.then((value) => ({ ...value, tracks: request.tracks })),
+      )
+      .mockImplementationOnce(async (_session, request) =>
+        second.promise.then((value) => ({ ...value, tracks: request.tracks })),
+      );
+    render(
+      <MotionDummyEditorRoute sessionId="session" templateId={draft.template_id} client={api} />,
+    );
+    await screen.findByLabelText("Reusable motion template Walk");
+    fireEvent.click(screen.getByLabelText("Auto-key"));
+    fireEvent.change(screen.getByLabelText("X offset"), { target: { value: "2" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Save" })[0]);
+    await waitFor(() => expect(api.saveDraft).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText("X offset"), { target: { value: "4" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Save" })[0]);
+    first.resolve({ ...draft, revision: 2, updated_at: "2026-09-05T10:01:00Z" });
+    await waitFor(() => expect(api.saveDraft).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.saveDraft).mock.calls[1][1].expected_revision).toBe(2);
+    expect(vi.mocked(api.saveDraft).mock.calls[1][1].tracks).toContainEqual(
+      expect.objectContaining({ keys: [{ frame: 0, value: 4 }] }),
+    );
+    expect(screen.getByText("Saving…")).toBeInTheDocument();
+
+    second.resolve({ ...draft, revision: 3, updated_at: "2026-09-05T10:02:00Z" });
+    await waitFor(() => expect(screen.getAllByText("Saved locally").length).toBeGreaterThan(0));
   });
 });
+
+function sampledPose(sampledDraft: MotionDraft, direction: Direction, frame: number) {
+  const result: Record<
+    string,
+    { offsetX: number; offsetY: number; rotation: number; visible: boolean; locked: boolean }
+  > = {};
+  for (const track of sampledDraft.tracks.filter(
+    (candidate) => candidate.direction === direction,
+  )) {
+    const key =
+      [...track.keys].reverse().find((candidate) => candidate.frame <= frame) ?? track.keys[0];
+    if (!key) continue;
+    const transform = result[track.slot_id] ?? {
+      offsetX: 0,
+      offsetY: 0,
+      rotation: 0,
+      visible: true,
+      locked: false,
+    };
+    if (track.property === "offset_x_px" && typeof key.value === "number")
+      transform.offsetX = key.value;
+    if (track.property === "offset_y_px" && typeof key.value === "number")
+      transform.offsetY = key.value;
+    if (track.property === "rotation_deg" && typeof key.value === "number")
+      transform.rotation = key.value;
+    if (track.property === "visible" && typeof key.value === "boolean")
+      transform.visible = key.value;
+    result[track.slot_id] = transform;
+  }
+  return result;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}

@@ -32,6 +32,7 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
   const [selectedProject, setSelectedProject] = useState<ProjectCard | null>(null);
   const [selectedArea, setSelectedArea] = useState<AreaCard | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [editorDirty, setEditorDirty] = useState(false);
   const mainContent = useRef<HTMLElement>(null);
   const initialRoute = useRef(true);
 
@@ -78,6 +79,16 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
   );
 
   function navigate(nextRoute: WorkspaceRoute): void {
+    if (
+      route === "dummy-editor" &&
+      nextRoute !== "dummy-editor" &&
+      editorDirty &&
+      !window.confirm("Discard the unsaved motion-template changes?")
+    ) {
+      setStatus("Navigation cancelled · save the motion template first");
+      return;
+    }
+    if (nextRoute !== "dummy-editor") setEditorDirty(false);
     if (nextRoute === "projects" && !vault) {
       setRoute("welcome");
       setStatus("Choose or reopen a vault before browsing projects");
@@ -175,6 +186,8 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
           ) : route === "dummy-editor" && vault && selectedTemplateId ? (
             <MotionDummyEditorRoute
               key={selectedTemplateId}
+              onDirtyChange={setEditorDirty}
+              onPlaybackChange={setPlaying}
               onStatus={setStatus}
               sessionId={vault.session_id}
               templateId={selectedTemplateId}

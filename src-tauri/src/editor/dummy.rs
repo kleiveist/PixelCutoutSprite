@@ -5,7 +5,8 @@ use image::{codecs::png::PngEncoder, ExtendedColorType, ImageEncoder, Rgba, Rgba
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::domain::{Direction, PixelPoint, PixelSize, ProfileRevision, SlotId};
+use crate::animation::{AnimationSampler, SampleError};
+use crate::domain::{Direction, MotionRevision, PixelPoint, PixelSize, ProfileRevision, SlotId};
 use crate::render::{
     PixelCompositor, RenderError, RenderPart, RenderRequest, RenderTransform, RenderedFrame,
 };
@@ -18,6 +19,8 @@ pub enum DummyCompileError {
     MissingTransform(String),
     #[error(transparent)]
     Render(#[from] RenderError),
+    #[error(transparent)]
+    Sample(#[from] SampleError),
     #[error("dummy preview could not be encoded as PNG: {0}")]
     Encode(#[from] image::ImageError),
 }
@@ -33,6 +36,8 @@ pub struct PoseTransform {
     pub rotation_deg: f64,
     pub visible: bool,
     pub locked: bool,
+    #[serde(default, rename = "layerDelta")]
+    pub layer_delta: i16,
 }
 
 impl Default for PoseTransform {
@@ -43,6 +48,7 @@ impl Default for PoseTransform {
             rotation_deg: 0.0,
             visible: true,
             locked: false,
+            layer_delta: 0,
         }
     }
 }
@@ -53,6 +59,16 @@ pub type EditablePose = HashMap<SlotId, PoseTransform>;
 pub struct DummyPreview {
     pub data_url: String,
     pub clipping: Vec<crate::render::ClippingNotice>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SampledDummyPreview {
+    pub data_url: String,
+    pub clipping: Vec<crate::render::ClippingNotice>,
+    pub pose: EditablePose,
+    pub source_direction: Direction,
+    pub mirror_parity: bool,
+    pub sample_index: u16,
 }
 
 /// Compiles the neutral colored dummy through the same PixelCompositor used by export. Grid,
@@ -98,7 +114,7 @@ pub fn render_dummy(
             local_override: RenderTransform::IDENTITY,
             pivot_px: (f64::from(slot.pivot_px.0), f64::from(slot.pivot_px.1)),
             visible: delta.visible,
-            layer: *layers.get(&slot.id).unwrap_or(&(index as i32)),
+            layer: *layers.get(&slot.id).unwrap_or(&(index as i32)) + i32::from(delta.layer_delta),
             mirror_bitmap_x: false,
             bitmap: RgbaImage::from_pixel(
                 u32::from(slot.size_px.0),
@@ -115,6 +131,49 @@ pub fn render_dummy(
             parts,
         })
         .map_err(Into::into)
+}
+
+/// Samples the persisted motion model and sends that exact pose through the reference compositor.
+/// Playback history and wall-clock time are deliberately absent from this path.
+pub fn render_sampled_dummy(
+    profile: &ProfileRevision,
+    motion: &MotionRevision,
+    direction: Direction,
+    sample_index: u16,
+) -> Result<SampledDummyPreview, DummyCompileError> {
+    let sampled = AnimationSampler.sample(motion, direction, sample_index)?;
+    let pose = sampled
+        .slots
+        .iter()
+        .map(|slot| {
+            (
+                slot.slot_id.clone(),
+                PoseTransform {
+                    offset_x_px: slot.offset_x_px,
+                    offset_y_px: slot.offset_y_px,
+                    rotation_deg: slot.rotation_deg,
+                    visible: slot.visible,
+                    locked: false,
+                    layer_delta: slot.layer_delta,
+                },
+            )
+        })
+        .collect::<EditablePose>();
+    let rendered = encode_dummy_preview(render_dummy(
+        profile,
+        &pose,
+        direction,
+        motion.frame_size_px,
+        motion.ground_origin_px,
+    )?)?;
+    Ok(SampledDummyPreview {
+        data_url: rendered.data_url,
+        clipping: rendered.clipping,
+        pose,
+        source_direction: sampled.source_direction,
+        mirror_parity: sampled.mirror_parity,
+        sample_index,
+    })
 }
 
 pub fn encode_dummy_preview(frame: RenderedFrame) -> Result<DummyPreview, DummyCompileError> {

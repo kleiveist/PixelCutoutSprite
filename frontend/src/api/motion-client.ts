@@ -8,6 +8,7 @@ import type {
   MotionEditorData,
   MotionOpenTarget,
   SaveMotionDraftRequest,
+  SampledDummyPreview,
   DummyPreview,
   EditablePoseDto,
 } from "../domain/animations";
@@ -26,6 +27,13 @@ export interface MotionClient {
     direction: Direction,
     pose: EditablePoseDto,
   ): Promise<DummyPreview>;
+  renderSample(
+    sessionId: string,
+    templateId: string,
+    draft: MotionDraft,
+    direction: Direction,
+    sampleIndex: number,
+  ): Promise<SampledDummyPreview>;
   saveDraft(sessionId: string, request: SaveMotionDraftRequest): Promise<MotionDraft>;
   publish(sessionId: string, templateId: string): Promise<MotionRevision>;
   setArchived(
@@ -64,6 +72,15 @@ export const motionClient: MotionClient = {
       templateId,
       direction,
       pose,
+    });
+  },
+  renderSample(sessionId, templateId, draft, direction, sampleIndex) {
+    return invoke<SampledDummyPreview>("render_motion_sample", {
+      sessionId,
+      templateId,
+      draft,
+      direction,
+      sampleIndex,
     });
   },
   saveDraft(sessionId, request) {

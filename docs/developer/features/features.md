@@ -9,5 +9,6 @@
 - 🎞️ [Motion library and release routing](motion-library.md)
 - 🧩 [Deterministic pixel compositor](pixel-compositor.md)
 - 🕹️ [Reusable dummy motion editor](dummy-editor.md)
+- ⏱️ [Timeline and deterministic sampling](timeline-and-sampling.md)
 
 <!-- AUTO-GENERATED:docs-index END -->

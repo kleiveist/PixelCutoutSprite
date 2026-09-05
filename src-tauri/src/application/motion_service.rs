@@ -65,6 +65,12 @@ impl MotionDraft {
         self.released_from_draft_revision != Some(self.revision)
     }
 
+    /// Builds the immutable-domain shape consumed by the pure sampler without publishing it.
+    /// The returned revision is an in-memory projection only and is never written as a release.
+    pub fn sampling_revision(&self) -> MotionRevision {
+        self.as_release(1, self.updated_at)
+    }
+
     fn as_release(&self, revision: u32, published_at: UtcTimestamp) -> MotionRevision {
         MotionRevision {
             schema_version: SCHEMA_VERSION,
@@ -276,23 +282,7 @@ impl MotionService {
     ) -> Result<MotionEditorData, StorageError> {
         let (root, mode) = session(vaults, session_id)?;
         let (area, motion) = find_motion(&root, template_id)?;
-        let profile_path = VaultLayout::new(root.clone()).profile_revision(
-            &area.folder,
-            motion.draft.profile_ref.id,
-            motion.draft.profile_ref.revision,
-        )?;
-        let loaded = JsonStore::default().load(&profile_path)?;
-        let DomainDocument::ProfileRevision(profile) = loaded.value else {
-            return Err(StorageError::InvalidVault(
-                "motion profile snapshot has the wrong document kind".to_owned(),
-            ));
-        };
-        if profile.reference() != motion.draft.profile_ref || profile.area_id != area.area.id {
-            return Err(StorageError::InvalidVault(
-                "motion profile snapshot does not match its pinned identity or area".to_owned(),
-            ));
-        }
-        profile.validate_humanoid_v1()?;
+        let profile = load_motion_profile(&root, &area, motion.draft.profile_ref)?;
         Ok(MotionEditorData {
             template_name: motion.template.name,
             draft: motion.draft,
@@ -307,7 +297,7 @@ impl MotionService {
         request: SaveMotionDraftRequest,
     ) -> Result<MotionDraft, StorageError> {
         let root = writable_root(vaults, session_id)?;
-        let (_, mut location) = find_motion(&root, request.template_id)?;
+        let (area, mut location) = find_motion(&root, request.template_id)?;
         if location.draft.revision != request.expected_revision {
             return Err(StorageError::WriteConflict);
         }
@@ -322,6 +312,13 @@ impl MotionService {
         location.draft.tracks = request.tracks;
         location.draft.updated_at = now()?;
         location.draft.validate()?;
+        let profile = load_motion_profile(&root, &area, location.draft.profile_ref)?;
+        let slots = profile
+            .slots
+            .iter()
+            .map(|slot| slot.id.clone())
+            .collect::<HashSet<_>>();
+        location.draft.sampling_revision().validate(Some(&slots))?;
         let draft_path = root.resolve(&location.folder.join("draft.json"))?;
         let next_draft_stamp =
             compare_and_swap_draft(&draft_path, &location.draft_stamp, &location.draft)?;
@@ -818,6 +815,31 @@ fn scan_area_ids(root: &VaultRoot) -> Result<Vec<ObjectId>, StorageError> {
         }
     }
     Ok(ids)
+}
+
+fn load_motion_profile(
+    root: &VaultRoot,
+    area: &AreaLocation,
+    reference: RevisionRef,
+) -> Result<ProfileRevision, StorageError> {
+    let path = VaultLayout::new(root.clone()).profile_revision(
+        &area.folder,
+        reference.id,
+        reference.revision,
+    )?;
+    let loaded = JsonStore::default().load(&path)?;
+    let DomainDocument::ProfileRevision(profile) = loaded.value else {
+        return Err(StorageError::InvalidVault(
+            "motion profile snapshot has the wrong document kind".to_owned(),
+        ));
+    };
+    if profile.reference() != reference || profile.area_id != area.area.id {
+        return Err(StorageError::InvalidVault(
+            "motion profile snapshot does not match its pinned identity or area".to_owned(),
+        ));
+    }
+    profile.validate_humanoid_v1()?;
+    Ok(profile)
 }
 
 fn load_release(

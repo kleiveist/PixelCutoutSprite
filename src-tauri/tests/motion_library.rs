@@ -396,3 +396,40 @@ fn editor_reopens_saved_pose_with_its_exact_pinned_profile() {
     assert_eq!(editor.draft.tracks, vec![track]);
     assert!(editor.writable);
 }
+
+#[test]
+fn saving_rejects_tracks_outside_the_pinned_profile_without_mutating_the_draft() {
+    let mut fixture = Fixture::new();
+    let request = fixture.request("Invalid slot", "invalid_slot");
+    let created = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
+    let draft =
+        MotionService::load_draft(&fixture.service, fixture.session_id, created.id).unwrap();
+    let result = MotionService::save_draft(
+        &mut fixture.service,
+        fixture.session_id,
+        SaveMotionDraftRequest {
+            template_id: created.id,
+            expected_revision: draft.revision,
+            frame_size_px: draft.frame_size_px,
+            ground_origin_px: draft.ground_origin_px,
+            frame_count: draft.frame_count,
+            fps: draft.fps,
+            loop_mode: draft.loop_mode,
+            directions: draft.directions.clone(),
+            tracks: vec![MotionTrack {
+                direction: Direction::S,
+                slot_id: pixel_cutout_sprite_studio_lib::domain::SlotId::parse("ghost").unwrap(),
+                property: TrackProperty::OffsetXPx,
+                interpolation: Interpolation::Linear,
+                keys: vec![Keyframe {
+                    frame: 0,
+                    value: TrackValue::Number(1.0),
+                }],
+            }],
+        },
+    );
+    assert!(result.is_err());
+    let reopened =
+        MotionService::load_draft(&fixture.service, fixture.session_id, created.id).unwrap();
+    assert_eq!(reopened, draft);
+}

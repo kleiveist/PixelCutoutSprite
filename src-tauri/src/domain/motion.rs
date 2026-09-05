@@ -8,7 +8,7 @@ use super::{
     PixelSize, RevisionRef, SlotId, UtcTimestamp,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TemplateStatus {
     Active,
@@ -108,7 +108,7 @@ pub struct DirectionDefinition {
     pub source: Option<Direction>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TrackProperty {
     OffsetXPx,
@@ -244,6 +244,7 @@ impl MotionRevision {
             ));
         }
         self.validate_directions()?;
+        let mut channels = HashSet::new();
         for (index, track) in self.tracks.iter().enumerate() {
             track.validate(
                 &format!("motion_revision.tracks[{index}]"),
@@ -254,6 +255,12 @@ impl MotionRevision {
                     path: format!("motion_revision.tracks[{index}].slot_id"),
                     target: track.slot_id.to_string(),
                 });
+            }
+            if !channels.insert((track.direction, track.slot_id.clone(), track.property)) {
+                return Err(DomainError::DuplicateId(format!(
+                    "motion_revision.track:{:?}:{}:{:?}",
+                    track.direction, track.slot_id, track.property
+                )));
             }
         }
         Ok(())

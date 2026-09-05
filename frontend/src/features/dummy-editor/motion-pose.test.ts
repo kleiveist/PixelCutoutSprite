@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MotionDraft } from "../../domain/animations";
 import { neutralTransform } from "./editor-state";
-import { poseFromDraft, tracksWithPose } from "./motion-pose";
+import { addPoseKeyframes, applyPoseAtFrame, poseFromDraft, tracksWithPose } from "./motion-pose";
 
 const draft: MotionDraft = {
   schema_version: 1,
@@ -71,5 +71,34 @@ describe("motion pose persistence", () => {
       rotation: 30,
       visible: false,
     });
+  });
+
+  it("requires auto-key for a new channel and preserves every later key", () => {
+    const before = poseFromDraft(draft, "s", ["hand_l"]);
+    const after = { hand_l: { ...before.hand_l, offsetY: 7 } };
+    const blocked = applyPoseAtFrame(draft, "s", 3, before, after, ["hand_l"], false);
+    expect(blocked.missingKeys).toEqual(["hand_l.offset_y_px"]);
+    expect(blocked.draft).toBe(draft);
+
+    const keyed = applyPoseAtFrame(draft, "s", 3, before, after, ["hand_l"], true);
+    expect(keyed.draft.tracks).toContainEqual(
+      expect.objectContaining({
+        direction: "s",
+        slot_id: "hand_l",
+        property: "offset_y_px",
+        keys: [{ frame: 3, value: 7 }],
+      }),
+    );
+    expect(keyed.draft.tracks[0].keys).toEqual(draft.tracks[0].keys);
+  });
+
+  it("can explicitly add a complete selected pose key without changing frame count", () => {
+    const pose = { hand_l: { ...neutralTransform(), rotation: 30 } };
+    const keyed = addPoseKeyframes(draft, "s", 5, pose, ["hand_l"]);
+    expect(keyed.frame_count).toBe(12);
+    expect(
+      keyed.tracks.find((track) => track.property === "rotation_deg" && track.direction === "s")
+        ?.keys,
+    ).toContainEqual({ frame: 5, value: 30 });
   });
 });

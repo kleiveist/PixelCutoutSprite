@@ -57,6 +57,7 @@ function mockClient(): MotionClient {
     loadDraft: vi.fn(),
     openEditor: vi.fn(),
     renderDummy: vi.fn(),
+    renderSample: vi.fn(),
     saveDraft: vi.fn(),
     publish: vi.fn(async (): Promise<MotionRevision> => ({
       schema_version: 1,
