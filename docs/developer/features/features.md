@@ -7,5 +7,6 @@
 
 - 🎨 [PixelCutoutSprite Studio specification](pixelcutoutsprite-studio.md)
 - 🎞️ [Motion library and release routing](motion-library.md)
+- 🧩 [Deterministic pixel compositor](pixel-compositor.md)
 
 <!-- AUTO-GENERATED:docs-index END -->

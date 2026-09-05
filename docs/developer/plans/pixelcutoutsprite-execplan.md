@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P06 abgeschlossen; P07 ist der nächste Schritt
+**Implementierung:** P00–P07 abgeschlossen; P08 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -67,6 +67,11 @@ des gewählten Bereichs. Karten, Dropdownfilter, Erstellungsdialog und Kontextme
 Zustände vollständig ab. Das Öffnen einer freigegebenen Vorlage verlangt eine ausdrückliche
 Figurenauswahl; bei mehreren kompatiblen NPCs wird nie stillschweigend einer gewählt.
 
+P07 ergänzt den gemeinsamen Rust-Pixelpfad. `PixelCompositor` verbindet aufgelöste Hierarchie,
+Profil, Bewegung, Fitting, lokalen Override und Pivot ohne Zwischenrundung. Ganzzahlige Blits und
+begrenztes inverses Nearest-Sampling erzeugen deterministische RGBA8-Frames mit Source-over-
+Überdeckung und Clipping-Hinweisen. Vorschauhilfen gehören nicht zum Rendervertrag.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -86,7 +91,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P04](../prompts/pixelcutoutsprite/04.md) | Projekt-Dashboard, Labels und Dropdown-Filter | Abgeschlossen |
 | [P05](../prompts/pixelcutoutsprite/05.md) | Bereiche und humanoide Körperprofile | Abgeschlossen |
 | [P06](../prompts/pixelcutoutsprite/06.md) | Animationsbibliothek und zustandsabhängige Navigation | Abgeschlossen |
-| [P07](../prompts/pixelcutoutsprite/07.md) | Gemeinsamer Pixel-Rasterer | Nicht begonnen |
+| [P07](../prompts/pixelcutoutsprite/07.md) | Gemeinsamer Pixel-Rasterer | Abgeschlossen |
 | [P08](../prompts/pixelcutoutsprite/08.md) | Direkt bedienbarer Dummy-Editor | Nicht begonnen |
 | [P09](../prompts/pixelcutoutsprite/09.md) | Timeline, Keyframes und deterministisches Sampling | Nicht begonnen |
 | [P10](../prompts/pixelcutoutsprite/10.md) | Acht Richtungen, Spiegelregeln und Schichten | Nicht begonnen |
@@ -116,6 +121,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P04: Projekt-Dashboard, JSON-CRUD, Workspace-/Projektlabels und Dropdown-Filter erstellt.
 - [x] P05: Bereichskarten, humanoides 16-Slot-Profil, exakte Skalierung, Vorschau und unveränderliche Profilrevisionen erstellt und gegatet.
 - [x] P06: Animationsbibliothek, persistente Entwürfe, unveränderliche Freigaben und kontextabhängige Navigation erstellt und gegatet.
+- [x] P07: gemeinsamen RGBA8-Pixelcompositor, Hierarchietransforms, Nearest-Sampling, Source-over, Spiegelung und Clipping erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [ ] Meilenstein B: Bewegungen, P07–P11.
 - [ ] Meilenstein C: Figuren, P12–P15.
@@ -181,6 +187,15 @@ Karte wieder nachvollziehbar als Entwurf.
 alle Kandidaten an die Oberfläche und öffnet nur bei einer ausdrücklich gewählten Figur eine
 bestehende Bindung; der Dummy bleibt immer als sichtbarer, deterministischer Weg erreichbar.
 
+**2026-09-05 / P07:** Die Profil-/Bewegungshierarchie und bildlokales Fitting sind getrennte
+Transformstufen. Nur Profil und gesampelte Bewegung werden an Kinder vererbt; Fitting und lokaler
+Binding-Override verändern das konkrete Sprite. Dadurch bleibt dieselbe Bewegung für verschieden
+zugeschnittene NPC-Teile wiederverwendbar.
+
+**2026-09-05 / P07:** Pixelzentren liegen auf halben Koordinaten. Erst das inverse Sampling des
+fertigen Welttransforms verwendet `floor`; auch negative Koordinaten werden deshalb ohne
+stufenweise Rundungsdrift reproduzierbar abgeschnitten.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -242,6 +257,8 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P06 | `cargo test --all-targets --locked`, Clippy `-D warnings`, Check und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 39 Tests | Vier neue Bibliothekstests belegen Entwurf/Freigabe, Timinggrenzen, Duplikat/Archiv/Entfernen, Mehrfach-NPC-Auswahl und Bindungsauflösung. |
 | 2026-09-05 / P06 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 29 Tests und alle Frontend-Gates | Bibliothekskarten, Dropdownfilter, Dialogvalidierung, Kontextmenü, Dummy-Einstieg und explizite Figurenwahl sind abgedeckt. |
 | 2026-09-05 / P06 | `tools/control.py quality architecture`, `integrate --check` und Docs-Check | Linux-Host, Python 3.13.15 | PASS im Phasenbranch | Architektur- und Integrationsgrenzen bleiben intakt; 135 Dokumentseiten sind vollständig verknüpft. Der zentrale `quality lint` bleibt wegen seines bereits in P04 erfassten inkompatiblen Clippy-Flags `-F warnings` offen; das direkte Clippy-Gate mit `-D warnings` besteht. |
+| 2026-09-05 / P07 | `cargo test --all-targets --locked`, Clippy `-D warnings`, Check und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 47 Tests | Acht Compositor-Goldentests prüfen vollständige RGBA-Frames, Alpha/Lagen, Hierarchie/Fitting, nichtnulligen Pivot, negative Koordinaten, Spiegelung, Clipping, Fehler und Bytewiederholung. |
+| 2026-09-05 / P07 | fokussierter 128×128-Debuglauf mit `--nocapture` | Linux-Host | PASS: zwei Frames in rund 0,33 ms | Einzelne Diagnosemessung ohne allgemeines Leistungsversprechen; repräsentative Last folgt P19. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -251,8 +268,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P07 ausführen: den gemeinsamen deterministischen
-Pixel-Rasterer für Vorschau und Export implementieren.
+**Nächster ausführbarer Schritt:** P08 ausführen: den direkt bedienbaren Dummy-Editor auf dem
+gemeinsamen Pixel-Rasterer implementieren.
 
 ## Outcomes & Retrospective
 
@@ -266,5 +283,7 @@ unveränderlichen Revisionen und visueller Slotprüfung.
 P06 ergänzt die persistente Bewegungsbibliothek mit belastbaren Entwurfs-/Freigabezuständen,
 vollständigen Kartenaktionen und einer Navigation, die Projekt, Bereich, Vorlage und optionale
 Figurenbindung ausdrücklich statt implizit auflöst.
+P07 schafft den UI-unabhängigen, deterministischen RGBA8-Renderpfad, den Vorschau und Export
+gemeinsam verwenden können; Golden-Assertions sichern dabei auch Rand- und Rundungsregeln.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

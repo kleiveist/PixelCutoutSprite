@@ -5,6 +5,7 @@ use tauri::{Builder, Runtime};
 pub mod application;
 pub mod commands;
 pub mod domain;
+pub mod render;
 pub mod storage;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

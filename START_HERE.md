@@ -32,11 +32,12 @@ Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository 
 
 ## Aktueller Arbeitsauftrag
 
-P00 bis P06 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
+P00 bis P07 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
 Projekt-Dashboard über ein exakt skaliertes humanoides Gebiet in die Animationsbibliothek.
 Vorlagen, mutable `draft.json`-Arbeitsstände und unveränderliche Freigaben liegen als gewöhnliche
 Dateien in ihrem Bereich. Karten besitzen Dropdown-Filter und explizite Wege zum Dummy sowie zum
-Outfit-/NPC-Fluss. Der nächste Schritt ist P07 für den gemeinsamen Pixel-Rasterer.
+Outfit-/NPC-Fluss. Ein deterministischer PNG-only-RGBA8-Compositor bildet die gemeinsame
+Pixelgrundlage für Vorschau und Export. Der nächste Schritt ist P08 für den bedienbaren Dummy-Editor.
 
 ## Leitentscheidungen
 

@@ -9,7 +9,7 @@ evidence. A phase checkbox or file name alone is not evidence.
 
 | ID | Requirement | Primary phases | Implementation evidence |
 |---|---|---|---|
-| RQ-01 | Pixel-art RPG animation focus | P07–P11 | Planned |
+| RQ-01 | Pixel-art RPG animation focus | P07–P11 | P07: PNG-only RGBA8 compositor preserves hard pixel edges with nearest sampling and no mesh deformation; editors and presets follow |
 | RQ-02 | Native desktop app; no mobile or web product | P01, P20 | P01: native Tauri 2 shell starts on Linux; only bundled WebView content and `core:default`; packaging matrix remains P20 |
 | RQ-03 | Project dashboard after opening a vault | P03–P04 | P04: `App` routes an opened Vault directly to `ProjectDashboard`; app and dashboard tests cover the transition, empty state and cards |
 | RQ-04 | Projects are folders | P03–P04 | P04: `ProjectService` creates a distinct safe folder and `.project/{project.json,labels.json,cache,transactions,backups,trash}`; filesystem integration tests cover reopen, rename, copy and trash |
@@ -22,7 +22,7 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-11 | New animation opens the dummy editor | P06, P08 | P06 creation persists a draft and routes directly to the selected template's dummy target; P08 supplies the full editor |
 | RQ-12 | Released animation opens outfitting | P06, P13 | P06 routing sends a released revision to an explicit outfit/NPC chooser; P13 supplies the editor |
 | RQ-13 | Dummy remains directly accessible | P06, P08 | P06 cards expose both a visible Dummy button and a right-click menu item; neither is the sole access path |
-| RQ-14 | Grid and predefined body sizes | P05, P07–P08 | P05: deterministic 80-px proportions scale to every integer height from 16–512 with controlled remainder allocation and an SVG grid preview; shared rasterer/editor follow |
+| RQ-14 | Grid and predefined body sizes | P05, P07–P08 | P05 supplies deterministic profiles; P07 renders their resolved integer geometry into an explicit frame canvas with pixel-centre sampling and clipping notices; the editable grid follows in P08 |
 | RQ-15 | Three-part limbs and two-part torso | P05, P08 | P05: fixed profile contains upper arm/forearm/hand and thigh/shin/foot on both sides plus upper/lower torso, with parents and six mirror pairs |
 | RQ-16 | Head and optional hair, no eye layer | P05, P08, P13 | P05: head is required, hair is the sole optional sixteenth slot, and the strict humanoid-v1 validator rejects any extra eye slot |
 | RQ-17 | Recognizable dummy parts and handles | P08, P19 | Planned |
@@ -48,4 +48,4 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-37 | Compact PNG sheets; loose frames optional | P16 | Planned |
 | RQ-38 | Generic integration and Godot output | P16–P17 | Planned |
 | RQ-39 | No required manual bone/skeleton setup | P05, P08, P22 | P05: all parent links, pivots, base positions, view transforms and layer orders are generated; no rig-creation input exists |
-| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P06 implemented in order and gated; P07 is next |
+| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P07 implemented in order and gated; P08 is next |
