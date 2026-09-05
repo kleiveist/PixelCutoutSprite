@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::animation::{AnimationSampler, SampleError};
+use crate::directions::{
+    DirectionError, DirectionResolver, DirectionalPose, SampledSlot as DirectionSampledSlot,
+};
 use crate::domain::{Direction, MotionRevision, PixelPoint, PixelSize, ProfileRevision, SlotId};
 use crate::render::{
     PixelCompositor, RenderError, RenderPart, RenderRequest, RenderTransform, RenderedFrame,
@@ -21,6 +24,8 @@ pub enum DummyCompileError {
     Render(#[from] RenderError),
     #[error(transparent)]
     Sample(#[from] SampleError),
+    #[error(transparent)]
+    Direction(#[from] DirectionError),
     #[error("dummy preview could not be encoded as PNG: {0}")]
     Encode(#[from] image::ImageError),
 }
@@ -141,20 +146,49 @@ pub fn render_sampled_dummy(
     direction: Direction,
     sample_index: u16,
 ) -> Result<SampledDummyPreview, DummyCompileError> {
-    let sampled = AnimationSampler.sample(motion, direction, sample_index)?;
-    let pose = sampled
+    let resolver = DirectionResolver::new(motion, profile)?;
+    let direction_resolution = resolver.resolve(direction)?;
+    let sampled = AnimationSampler.sample(motion, direction_resolution.source, sample_index)?;
+    let sampled_by_slot = sampled
+        .slots
+        .iter()
+        .map(|slot| (&slot.slot_id, slot))
+        .collect::<HashMap<_, _>>();
+    let source_pose = DirectionalPose {
+        direction: direction_resolution.source,
+        slots: profile
+            .slots
+            .iter()
+            .map(|slot| {
+                let sampled = sampled_by_slot.get(&slot.id).copied();
+                Ok(DirectionSampledSlot {
+                    slot_id: slot.id.clone(),
+                    motion: RenderTransform::new(
+                        sampled.map_or(0.0, |value| value.offset_x_px),
+                        sampled.map_or(0.0, |value| value.offset_y_px),
+                        sampled.map_or(0.0, |value| value.rotation_deg),
+                    )?,
+                    visible: sampled.is_none_or(|value| value.visible),
+                    sprite_variant: sampled.and_then(|value| value.sprite_variant.clone()),
+                    layer_delta: sampled.map_or(0, |value| i32::from(value.layer_delta)),
+                })
+            })
+            .collect::<Result<Vec<_>, RenderError>>()?,
+    };
+    let resolved = resolver.resolve_pose(direction, &source_pose)?;
+    let pose = resolved
         .slots
         .iter()
         .map(|slot| {
             (
                 slot.slot_id.clone(),
                 PoseTransform {
-                    offset_x_px: slot.offset_x_px,
-                    offset_y_px: slot.offset_y_px,
-                    rotation_deg: slot.rotation_deg,
+                    offset_x_px: slot.motion.offset_x,
+                    offset_y_px: slot.motion.offset_y,
+                    rotation_deg: slot.motion.rotation_deg,
                     visible: slot.visible,
                     locked: false,
-                    layer_delta: slot.layer_delta,
+                    layer_delta: (slot.layer - slot.base_layer) as i16,
                 },
             )
         })
@@ -170,8 +204,8 @@ pub fn render_sampled_dummy(
         data_url: rendered.data_url,
         clipping: rendered.clipping,
         pose,
-        source_direction: sampled.source_direction,
-        mirror_parity: sampled.mirror_parity,
+        source_direction: direction_resolution.source,
+        mirror_parity: direction_resolution.pose_mirrored,
         sample_index,
     })
 }

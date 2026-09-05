@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::directions::DirectionResolver;
 use crate::domain::{
     validate_portable_display_name, ActionKey, AnimationBinding, Area, Character, Direction,
     DirectionDefinition, DirectionMode, DocumentKind, DomainDocument, DomainError, LoopMode,
@@ -319,6 +320,7 @@ impl MotionService {
             .map(|slot| slot.id.clone())
             .collect::<HashSet<_>>();
         location.draft.sampling_revision().validate(Some(&slots))?;
+        validate_direction_contract(&location.draft.sampling_revision(), &profile, false)?;
         let draft_path = root.resolve(&location.folder.join("draft.json"))?;
         let next_draft_stamp =
             compare_and_swap_draft(&draft_path, &location.draft_stamp, &location.draft)?;
@@ -347,7 +349,7 @@ impl MotionService {
         template_id: ObjectId,
     ) -> Result<MotionRevision, StorageError> {
         let root = writable_root(vaults, session_id)?;
-        let (_, mut location) = find_motion(&root, template_id)?;
+        let (area, mut location) = find_motion(&root, template_id)?;
         let release_number = location
             .template
             .released_revisions
@@ -359,7 +361,14 @@ impl MotionService {
             .ok_or_else(|| StorageError::InvalidVault("motion release overflow".to_owned()))?;
         let timestamp = now()?;
         let release = location.draft.as_release(release_number, timestamp);
-        release.validate(None)?;
+        let profile = load_motion_profile(&root, &area, release.profile_ref)?;
+        let slots = profile
+            .slots
+            .iter()
+            .map(|slot| slot.id.clone())
+            .collect::<HashSet<_>>();
+        release.validate(Some(&slots))?;
+        validate_direction_contract(&release, &profile, true)?;
         let release_path = root.resolve(
             &location
                 .folder
@@ -574,19 +583,7 @@ fn create_motion(
     };
     template.validate()?;
     let (directions, tracks) = source_draft.map_or_else(
-        || {
-            (
-                Direction::ALL
-                    .into_iter()
-                    .map(|direction| DirectionDefinition {
-                        direction,
-                        mode: DirectionMode::Explicit,
-                        source: None,
-                    })
-                    .collect(),
-                Vec::new(),
-            )
-        },
+        || (default_direction_definitions(), Vec::new()),
         |source| (source.directions.clone(), source.tracks.clone()),
     );
     let draft = MotionDraft {
@@ -636,6 +633,46 @@ fn create_motion(
         let _ = fs::remove_dir_all(resolved.as_path());
     }
     result
+}
+
+fn default_direction_definitions() -> Vec<DirectionDefinition> {
+    Direction::ALL
+        .into_iter()
+        .map(|direction| {
+            let source = match direction {
+                Direction::Sw => Some(Direction::Se),
+                Direction::W => Some(Direction::E),
+                Direction::Nw => Some(Direction::Ne),
+                _ => None,
+            };
+            DirectionDefinition {
+                direction,
+                mode: if source.is_some() {
+                    DirectionMode::Mirrored
+                } else {
+                    DirectionMode::Explicit
+                },
+                source,
+            }
+        })
+        .collect()
+}
+
+fn validate_direction_contract(
+    motion: &MotionRevision,
+    profile: &ProfileRevision,
+    require_complete: bool,
+) -> Result<(), StorageError> {
+    let resolver = DirectionResolver::new(motion, profile)
+        .map_err(|error| StorageError::InvalidVault(error.to_string()))?;
+    if require_complete {
+        for direction in Direction::ALL {
+            resolver
+                .resolve(direction)
+                .map_err(|error| StorageError::InvalidVault(error.to_string()))?;
+        }
+    }
+    Ok(())
 }
 
 fn motion_card(location: &MotionLocation) -> MotionCard {

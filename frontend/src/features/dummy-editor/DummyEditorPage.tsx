@@ -193,11 +193,13 @@ export function DummyEditorPage({
   }
 
   function undoCurrent(): void {
+    if (readOnly) return;
     if (controlledPose !== undefined) onUndo?.();
     else changeHistory(undo);
   }
 
   function redoCurrent(): void {
+    if (readOnly) return;
     if (controlledPose !== undefined) onRedo?.();
     else changeHistory(redo);
   }

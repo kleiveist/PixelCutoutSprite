@@ -7,9 +7,9 @@ use pixel_cutout_sprite_studio_lib::application::{
     SaveMotionDraftRequest, VaultService,
 };
 use pixel_cutout_sprite_studio_lib::domain::{
-    ActionKey, AnimationBinding, Character, CharacterStatus, Direction, DocumentKind,
-    DomainDocument, Interpolation, Keyframe, LoopMode, MotionTrack, ObjectId, ObjectType,
-    ReviewState, TrackProperty, TrackValue, UtcTimestamp, SCHEMA_VERSION,
+    ActionKey, AnimationBinding, Character, CharacterStatus, Direction, DirectionMode,
+    DocumentKind, DomainDocument, Interpolation, Keyframe, LoopMode, MotionTrack, ObjectId,
+    ObjectType, ReviewState, TrackProperty, TrackValue, UtcTimestamp, SCHEMA_VERSION,
 };
 use pixel_cutout_sprite_studio_lib::storage::{object_folder, JsonStore, VaultRoot};
 use tempfile::TempDir;
@@ -432,4 +432,93 @@ fn saving_rejects_tracks_outside_the_pinned_profile_without_mutating_the_draft()
     let reopened =
         MotionService::load_draft(&fixture.service, fixture.session_id, created.id).unwrap();
     assert_eq!(reopened, draft);
+}
+
+#[test]
+fn five_source_defaults_and_release_gate_reject_direction_gaps_or_invalid_mirrors() {
+    let mut fixture = Fixture::new();
+    let request = fixture.request("Eight way", "eight_way");
+    let created = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
+    let draft =
+        MotionService::load_draft(&fixture.service, fixture.session_id, created.id).unwrap();
+    assert_eq!(
+        draft
+            .directions
+            .iter()
+            .filter(|definition| definition.mode == DirectionMode::Explicit)
+            .count(),
+        5
+    );
+    assert_eq!(
+        draft
+            .directions
+            .iter()
+            .filter(|definition| definition.mode == DirectionMode::Mirrored)
+            .count(),
+        3
+    );
+
+    let mut with_gap = draft.directions.clone();
+    let northwest = with_gap
+        .iter_mut()
+        .find(|definition| definition.direction == Direction::Nw)
+        .unwrap();
+    northwest.mode = DirectionMode::Missing;
+    northwest.source = None;
+    let saved = MotionService::save_draft(
+        &mut fixture.service,
+        fixture.session_id,
+        SaveMotionDraftRequest {
+            template_id: created.id,
+            expected_revision: draft.revision,
+            frame_size_px: draft.frame_size_px,
+            ground_origin_px: draft.ground_origin_px,
+            frame_count: draft.frame_count,
+            fps: draft.fps,
+            loop_mode: draft.loop_mode,
+            directions: with_gap,
+            tracks: draft.tracks.clone(),
+        },
+    )
+    .unwrap();
+    let error =
+        MotionService::publish(&mut fixture.service, fixture.session_id, created.id).unwrap_err();
+    assert!(error.to_string().contains("missing"));
+    assert!(!fixture
+        .temp
+        .path()
+        .join(fixture.template_folder(&created.name, created.id))
+        .join("revisions/r0001.json")
+        .exists());
+
+    let mut invalid = saved.directions.clone();
+    let west = invalid
+        .iter_mut()
+        .find(|definition| definition.direction == Direction::W)
+        .unwrap();
+    west.mode = DirectionMode::Mirrored;
+    west.source = Some(Direction::Ne);
+    let invalid_result = MotionService::save_draft(
+        &mut fixture.service,
+        fixture.session_id,
+        SaveMotionDraftRequest {
+            template_id: created.id,
+            expected_revision: saved.revision,
+            frame_size_px: saved.frame_size_px,
+            ground_origin_px: saved.ground_origin_px,
+            frame_count: saved.frame_count,
+            fps: saved.fps,
+            loop_mode: saved.loop_mode,
+            directions: invalid,
+            tracks: saved.tracks.clone(),
+        },
+    );
+    assert!(invalid_result
+        .unwrap_err()
+        .to_string()
+        .contains("may only mirror horizontally"));
+    assert_eq!(
+        MotionService::load_draft(&fixture.service, fixture.session_id, created.id).unwrap(),
+        saved
+    );
 }

@@ -4,6 +4,7 @@ import { motionClient, type MotionClient } from "../../api/motion-client";
 import type { EditablePoseDto, MotionDraft, MotionEditorData } from "../../domain/animations";
 import type { Direction } from "../../domain/common";
 import type { ProfileRevision } from "../../domain/profile";
+import { DirectionEditor } from "../directions";
 import {
   TimelinePanel,
   commitMotion,
@@ -66,6 +67,7 @@ export function MotionDummyEditorRoute({
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [directionBusy, setDirectionBusy] = useState<Direction | null>(null);
   const renderSequence = useRef(0);
   const latestDraft = useRef<MotionDraft | null>(null);
   const persistedRevision = useRef(0);
@@ -80,6 +82,7 @@ export function MotionDummyEditorRoute({
     setHistory(null);
     setPreviewUrl(undefined);
     setNeighborUrls({});
+    setSampledPose({});
     setError(null);
     void client
       .openEditor(sessionId, templateId)
@@ -141,6 +144,7 @@ export function MotionDummyEditorRoute({
     const sequence = ++renderSequence.current;
     setPreviewUrl(undefined);
     setNeighborUrls({});
+    setSampledPose({});
     setError(null);
     const adjacent = neighborFrames(frame, previewDraft.frame_count, previewDraft.loop_mode);
     const requests = [client.renderSample(sessionId, templateId, previewDraft, direction, frame)];
@@ -255,6 +259,10 @@ export function MotionDummyEditorRoute({
     const handleKey = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return;
       const command = event.ctrlKey || event.metaKey;
+      const canEditDirection =
+        editor?.writable === true &&
+        latestDraft.current?.directions.find((item) => item.direction === direction)?.mode ===
+          "explicit";
       if (command && event.key.toLowerCase() === "s") {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -262,12 +270,14 @@ export function MotionDummyEditorRoute({
       } else if (command && event.key.toLowerCase() === "z") {
         event.preventDefault();
         event.stopImmediatePropagation();
-        if (event.shiftKey) redoDraft();
-        else undoDraft();
+        if (canEditDirection) {
+          if (event.shiftKey) redoDraft();
+          else undoDraft();
+        }
       } else if (command && event.key.toLowerCase() === "y") {
         event.preventDefault();
         event.stopImmediatePropagation();
-        redoDraft();
+        if (canEditDirection) redoDraft();
       } else if (event.key === " ") {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -288,7 +298,7 @@ export function MotionDummyEditorRoute({
     };
     window.addEventListener("keydown", handleKey, { capture: true });
     return () => window.removeEventListener("keydown", handleKey, { capture: true });
-  }, [redoDraft, requestSave, undoDraft]);
+  }, [direction, editor?.writable, redoDraft, requestSave, undoDraft]);
 
   if (!editor || !history || !draft || !previewDraft)
     return (
@@ -308,6 +318,13 @@ export function MotionDummyEditorRoute({
           ? "Unsaved changes · autosave in 2 s"
           : "Saved locally";
   const activeSlots = directionalSlots[direction] ?? [];
+  const activeDefinition = draft.directions.find((item) => item.direction === direction);
+  const directionIsEditable = activeDefinition?.mode === "explicit";
+  const directionIssues = Object.fromEntries(
+    draft.directions
+      .filter((definition) => definition.mode === "missing")
+      .map((definition) => [definition.direction, ["No source pose configured · release blocked"]]),
+  ) as Partial<Record<Direction, string[]>>;
 
   return (
     <div className="motion-editor-workspace">
@@ -319,6 +336,13 @@ export function MotionDummyEditorRoute({
       {clippingCount > 0 && (
         <p className="workspace-warning" role="status">
           {clippingCount} body part{clippingCount === 1 ? "" : "s"} cross the frame boundary.
+        </p>
+      )}
+      {!directionIsEditable && (
+        <p className="workspace-warning" role="status">
+          {activeDefinition?.mode === "mirrored"
+            ? `${direction.toUpperCase()} is derived from ${activeDefinition.source?.toUpperCase()}. Detach it below before editing its own keys.`
+            : `${direction.toUpperCase()} is missing. Choose Explicit or Mirrored below before editing.`}
         </p>
       )}
       <DummyEditorPage
@@ -357,7 +381,7 @@ export function MotionDummyEditorRoute({
         onSelectionChange={setSelectedSlots}
         onUndo={undoDraft}
         pose={sampledPose}
-        readOnly={!editor.writable}
+        readOnly={!editor.writable || !directionIsEditable}
         renderedFrameUrl={previewUrl}
         saveStatusText={saveStatus}
         slots={directionalSlots.s ?? []}
@@ -396,6 +420,34 @@ export function MotionDummyEditorRoute({
         }}
         onUndo={undoDraft}
         playing={playing}
+        readOnly={!editor.writable || !directionIsEditable}
+      />
+      <DirectionEditor
+        busyDirection={directionBusy}
+        definitions={draft.directions}
+        issues={directionIssues}
+        onChange={(definitions) =>
+          commitDraft({ ...draft, directions: definitions }, "Change direction coverage")
+        }
+        onDetach={(value) => {
+          const snapshot = structuredClone(draft);
+          setDirectionBusy(value);
+          setError(null);
+          void client
+            .detachDirection(sessionId, templateId, snapshot, value)
+            .then((next) => {
+              if (
+                latestDraft.current &&
+                draftContent(latestDraft.current) !== draftContent(snapshot)
+              ) {
+                setError("The motion changed while detaching. Retry the direction action.");
+                return;
+              }
+              commitDraft(next, `Detach ${value.toUpperCase()} as explicit`);
+            })
+            .catch((reason) => setError(message(reason)))
+            .finally(() => setDirectionBusy(null));
+        }}
         readOnly={!editor.writable}
       />
     </div>

@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P09 abgeschlossen; P10 ist der nächste Schritt
+**Implementierung:** P00–P10 abgeschlossen; P11 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -87,6 +87,13 @@ Pose speist die Compositorvorschau einschließlich benachbarter Onion-Skin-Frame
 Viewport teilen eine vollständige Undo-/Redo-History. Serialisierte CAS-Autosaves verhindern,
 dass eine ältere Antwort neuere Änderungen als gespeichert markiert.
 
+P10 führt die Richtungsdefinitionen durch Sampler, Compositor, Editor und Freigabe zusammen. Fünf
+Quellansichten können drei kontrollierte Horizontalableitungen speisen; acht explizite Ansichten
+bleiben zulässig. Der Resolver trennt anatomische Pose-, genehmigungspflichtige Asset- und
+optionale Gesamtbildspiegelung, verwendet Zielprofil und Zielschichten und unterscheidet verdeckte
+von fehlenden Teilen. Der Editor zeigt Ursprung und Lücken, während eine atomare Detach-Aktion
+gespiegelte Tracks in eine eigenständige Richtung kopiert.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -109,7 +116,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P07](../prompts/pixelcutoutsprite/07.md) | Gemeinsamer Pixel-Rasterer | Abgeschlossen |
 | [P08](../prompts/pixelcutoutsprite/08.md) | Direkt bedienbarer Dummy-Editor | Abgeschlossen |
 | [P09](../prompts/pixelcutoutsprite/09.md) | Timeline, Keyframes und deterministisches Sampling | Abgeschlossen |
-| [P10](../prompts/pixelcutoutsprite/10.md) | Acht Richtungen, Spiegelregeln und Schichten | Nicht begonnen |
+| [P10](../prompts/pixelcutoutsprite/10.md) | Acht Richtungen, Spiegelregeln und Schichten | Abgeschlossen |
 | [P11](../prompts/pixelcutoutsprite/11.md) | Bewegungspresets und tatsächliche Kartenvorschauen | Nicht begonnen |
 | [P12](../prompts/pixelcutoutsprite/12.md) | PNG-Inventar und Paketimport | Nicht begonnen |
 | [P13](../prompts/pixelcutoutsprite/13.md) | Ausstattungseditor, Feinschliff und NPC-Entwürfe | Nicht begonnen |
@@ -139,6 +146,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P07: gemeinsamen RGBA8-Pixelcompositor, Hierarchietransforms, Nearest-Sampling, Source-over, Spiegelung und Clipping erstellt und gegatet.
 - [x] P08: echten Dummy-Editor, gepinnte Profilauflösung, Transformwerkzeuge, richtungsbezogene History, Compositorvorschau und CAS-Persistenz erstellt und gegatet.
 - [x] P09: vollständige Timeline, reinen Sampler, Onion-Skin-Vorschau, Retiming, gemeinsame History und serialisierte CAS-Autosaves erstellt und gegatet.
+- [x] P10: acht Richtungszustände, anatomische Spiegelung, Zielschichten, sichere Assetregeln, Detach und blockierende Freigabeabdeckung erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [ ] Meilenstein B: Bewegungen, P07–P11.
 - [ ] Meilenstein C: Figuren, P12–P15.
@@ -239,6 +247,21 @@ Bewegungspixel. Der Overlay-Editor invertiert dessen lineare Weltbasis und beweg
 ausgewähltem Eltern-/Kind-Paar nur die oberste Auswahlwurzel, damit die Compositormatrix erhalten
 bleibt.
 
+**2026-09-05 / P10:** Der P09-Sampler liefert absichtlich die explizite Quellpose, bevor P10
+Anatomie, Zielprofil und Zielschichten auflöst. Damit existiert genau eine richtungsbezogene
+Integrationsgrenze: Vorschau und spätere Exporte adaptieren den Sampler auf `DirectionalPose` und
+lassen alle Spiegelentscheidungen vom `DirectionResolver` treffen.
+
+**2026-09-05 / P10:** Ein Asset-Fallback darf nicht aus der Pose-Spiegelung abgeleitet werden.
+Selbst bei einer gespiegelten Pose gewinnt ein exaktes Zielasset. Das Spiegeln eines Quellassets
+benötigt eine slot-, richtungs- und variantenspezifische Freigabe sowie das Asset-Metadatum
+`sprite_mirroring_allowed`. Die persistente Ablage solcher Freigaben wird mit den gerichteten
+Appearance-Zuordnungen in P12/P13 verbunden.
+
+**2026-09-05 / P10:** Abgeleitete Richtungen bleiben abspielbar, dürfen aber keine wirkungslosen
+Zieltracks sammeln. Die Oberfläche sperrt deren Pose-/Timeline-Mutationen, bis der native
+Detach-Adapter alle Quelltracks in einer gemeinsamen History-Aktion anatomisch gespiegelt hat.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -252,6 +275,7 @@ bleibt.
 | ADR-008 | Workspace-Ordnername .pixelforge-studio bleibt fest. | Gewünschte globale Ablage, getrennt vom Produktbranding. |
 | ADR-009 | Rust-JSON-Vertrag v1 ist autoritativ; TypeScript spiegelt DTOs, und unbekannte Felder werden abgewiesen. | Verhindert konkurrierende Validatoren und verlustbehaftete Roundtrips; Zukunftsversionen bleiben unangetastet. |
 | ADR-010 | Humanoid v1 wird deterministisch aus Referenzhöhe und festen Ansichtsrezepten generiert; jede publizierte Größe ist ein neuer Snapshot. | Exakte ganzzahlige Geometrie ist reproduzierbar, benötigt kein manuelles Skelett und verändert gepinnte Bewegungen nicht rückwirkend. |
+| ADR-011 | Pose-, einzelnes Asset- und Gesamtbild-Spiegeln sind drei getrennte APIs; Asset-Fallbacks benötigen eine ausdrückliche Freigabe. | Bewahrt anatomische Links-/Rechts-Identität und verhindert, dass asymmetrische Ausstattung still die Hand oder Richtung wechselt. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -309,6 +333,10 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P09 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 61 Tests und alle Compiler-/Formatgates | Sieben Sampler-Goldens sowie Editor-/Service-Tests belegen Loopdauer, Reihenfolgeunabhängigkeit, 0/1/viele Keys, Winkelsprung, diskrete Werte, Retiming, Profilvalidierung und wiederholbares Sample-PNG. |
 | 2026-09-05 / P09 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 52 Tests und alle Frontend-Gates | Timeline-Datenoperationen, Ganzentwurf-History, Geometrie, Auto-Key, Onion-Skin-Route, Save-Serialisierung und Navigation sind abgedeckt. |
 | 2026-09-05 / P09 | `tools/control.py docs check`, `quality architecture` und `integrate --check --json` | Linux-Host, Python 3.13.15 | PASS | 138 Dokumentseiten konsistent, TypeScript-AST parst 74 Dateien und das Desktopprofil bleibt integriert. Der zentrale `quality lint` bleibt bis zur geplanten P20-Korrektur wegen `.tooling-state`-Scan und inkompatiblem Clippy-`-F warnings` offen; direkte Produktgates bestehen. |
+| 2026-09-05 / P10 | `cargo test --test direction_resolver --test editor_commands --test motion_library --locked` | Linux-Host, Rust 1.97.1 | PASS: 23 Tests | Fünf Quellen/acht Ziele, acht explizite Ziele, Zyklen, Front/Rückseite, Sampleradapter, Anatomie, Zielschichten, Hidden/Missing, Assetfehler, Detach, persistentes Release-Gate und asymmetrische RGBA-Goldens belegt. |
+| 2026-09-05 / P10 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 76 Tests und alle Compiler-/Formatgates | P09-Sampler, P07-Compositor, Richtungsresolver, Vault-Services und sämtliche früheren Verträge bleiben gemeinsam grün. |
+| 2026-09-05 / P10 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 60 Tests und alle Frontend-Gates | Acht Zustände, Dropdownänderung, Zyklusvermeidung, sichtbare Lücken, native Detach-Integration und abgeleitete Read-only-Bearbeitung sind abgedeckt. |
+| 2026-09-05 / P10 | `tools/control.py docs check`, `quality architecture`, `integrate --check --json` und `tauri test --cargo --build-dry-run` | Linux-Host, Python 3.13.15 | PASS | 139 Dokumentseiten konsistent, TypeScript-AST parst 79 Dateien, Desktopprofil und nativer Linux-Buildplan sind intakt. Der zentrale `quality lint` bleibt bis P20 aus den in P09 dokumentierten Toolinggründen offen. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -318,8 +346,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P10 ausführen: acht Richtungen über explizite Quellen,
-Spiegelparität und richtungsbezogene Schichtregeln deterministisch auflösen.
+**Nächster ausführbarer Schritt:** P11 ausführen: Bewegungspresets auf dem gemeinsamen Sampler
+aufbauen und Animationskarten mit echten, ressourcenschonenden Vorschauen versehen.
 
 ## Outcomes & Retrospective
 
@@ -343,4 +371,8 @@ späterer Export, Nachbarposen und gespeicherte Keyframes verwenden nun denselbe
 gemeinsame History und serialisierte CAS-Schreibvorgänge halten auch schnelle richtungs- und
 frameübergreifende Bearbeitung konsistent.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
+P10 löst alle acht Richtungszustände im laufenden Editor auf: kontrollierte Horizontalspiegelung,
+anatomische Slot-Paarung, Zielprofil-Layer, getrennte Bitmap- und Gesamtbildoperationen, ein
+atomarer Detach-Übergang und eine nicht umgehbare Freigabeprüfung. Eine einseitige Handschuh-
+Fixture durchläuft Resolver, Assetwahl und den P07-Compositor gegen feste RGBA-Goldens.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

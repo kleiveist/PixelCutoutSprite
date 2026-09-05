@@ -14,6 +14,7 @@
 - 🧩 [Deterministic pixel compositor](features/pixel-compositor.md)
 - 🕹️ [Reusable dummy motion editor](features/dummy-editor.md)
 - ⏱️ [Timeline and deterministic sampling](features/timeline-and-sampling.md)
+- 🧭 [Eight-direction resolution](features/eight-direction-resolution.md)
 - 🎨 [PixelCutoutSprite Studio specification](features/pixelcutoutsprite-studio.md)
 - 🧾 [Data formats](formats/formats.md)
 - 🔐 [JSON contract version 1](formats/json-contracts.md)

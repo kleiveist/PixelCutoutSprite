@@ -141,12 +141,14 @@ export function TimelinePanel<T extends PlayableMotion>({
     if (command && event.key.toLowerCase() === "z") {
       event.preventDefault();
       event.nativeEvent.stopImmediatePropagation();
-      if (event.shiftKey) onRedo?.();
-      else onUndo?.();
+      if (!readOnly) {
+        if (event.shiftKey) onRedo?.();
+        else onUndo?.();
+      }
     } else if (command && event.key.toLowerCase() === "y") {
       event.preventDefault();
       event.nativeEvent.stopImmediatePropagation();
-      onRedo?.();
+      if (!readOnly) onRedo?.();
     } else if (command && event.key.toLowerCase() === "s") {
       event.preventDefault();
       event.nativeEvent.stopImmediatePropagation();
@@ -159,7 +161,11 @@ export function TimelinePanel<T extends PlayableMotion>({
       event.preventDefault();
       const delta = event.key === "ArrowLeft" ? -1 : 1;
       onFrameChange(Math.max(0, Math.min(motion.frame_count - 1, frame + delta)));
-    } else if ((event.key === "Delete" || event.key === "Backspace") && selected.size > 0) {
+    } else if (
+      !readOnly &&
+      (event.key === "Delete" || event.key === "Backspace") &&
+      selected.size > 0
+    ) {
       event.preventDefault();
       onMotionChange(deleteKeys(motion, selected), "Delete keyframes");
       setSelected(new Set());
@@ -200,10 +206,10 @@ export function TimelinePanel<T extends PlayableMotion>({
         <button type="button" disabled={readOnly || !onAddPoseKey} onClick={onAddPoseKey}>
           Add/update pose key
         </button>
-        <button type="button" disabled={!canUndo} onClick={onUndo}>
+        <button type="button" disabled={readOnly || !canUndo} onClick={onUndo}>
           Undo
         </button>
-        <button type="button" disabled={!canRedo} onClick={onRedo}>
+        <button type="button" disabled={readOnly || !canRedo} onClick={onRedo}>
           Redo
         </button>
         <button

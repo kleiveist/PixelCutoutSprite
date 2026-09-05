@@ -10,5 +10,6 @@
 - 🧩 [Deterministic pixel compositor](pixel-compositor.md)
 - 🕹️ [Reusable dummy motion editor](dummy-editor.md)
 - ⏱️ [Timeline and deterministic sampling](timeline-and-sampling.md)
+- 🧭 [Eight-direction resolution](eight-direction-resolution.md)
 
 <!-- AUTO-GENERATED:docs-index END -->

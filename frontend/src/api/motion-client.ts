@@ -34,6 +34,12 @@ export interface MotionClient {
     direction: Direction,
     sampleIndex: number,
   ): Promise<SampledDummyPreview>;
+  detachDirection(
+    sessionId: string,
+    templateId: string,
+    draft: MotionDraft,
+    direction: Direction,
+  ): Promise<MotionDraft>;
   saveDraft(sessionId: string, request: SaveMotionDraftRequest): Promise<MotionDraft>;
   publish(sessionId: string, templateId: string): Promise<MotionRevision>;
   setArchived(
@@ -81,6 +87,14 @@ export const motionClient: MotionClient = {
       draft,
       direction,
       sampleIndex,
+    });
+  },
+  detachDirection(sessionId, templateId, draft, direction) {
+    return invoke<MotionDraft>("detach_motion_direction", {
+      sessionId,
+      templateId,
+      draft,
+      direction,
     });
   },
   saveDraft(sessionId, request) {

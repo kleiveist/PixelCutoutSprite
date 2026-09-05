@@ -175,7 +175,7 @@ fn compositor_preview_is_a_decodable_png_data_url() {
 #[test]
 fn sampled_preview_uses_the_pure_sampler_pose_and_is_repeatable() {
     let profile = profile();
-    let motion = MotionRevision {
+    let mut motion = MotionRevision {
         schema_version: 1,
         kind: DocumentKind::MotionRevision,
         template_id: ObjectId::new(),
@@ -217,4 +217,26 @@ fn sampled_preview_uses_the_pure_sampler_pose_and_is_repeatable() {
     assert_eq!(first, second);
     assert_eq!(first.pose[&slot("hand")].offset_x_px, 3.0);
     assert_eq!(first.sample_index, 3);
+
+    let west = motion
+        .directions
+        .iter_mut()
+        .find(|definition| definition.direction == Direction::W)
+        .unwrap();
+    west.mode = DirectionMode::Mirrored;
+    west.source = Some(Direction::E);
+    motion.tracks.push(MotionTrack {
+        direction: Direction::E,
+        slot_id: slot("torso"),
+        property: TrackProperty::OffsetXPx,
+        interpolation: Interpolation::Linear,
+        keys: vec![Keyframe {
+            frame: 0,
+            value: TrackValue::Number(4.0),
+        }],
+    });
+    let mirrored = render_sampled_dummy(&profile, &motion, Direction::W, 0).unwrap();
+    assert_eq!(mirrored.source_direction, Direction::E);
+    assert!(mirrored.mirror_parity);
+    assert_eq!(mirrored.pose[&slot("hand")].offset_x_px, -4.0);
 }

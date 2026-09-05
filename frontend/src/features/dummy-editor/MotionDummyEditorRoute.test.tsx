@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { MotionClient } from "../../api/motion-client";
@@ -67,6 +67,16 @@ function client(data: MotionEditorData): MotionClient {
       mirror_parity: false,
       sample_index: Math.min(sampleIndex, sampledDraft.frame_count - 1),
     })),
+    detachDirection: vi.fn(
+      async (_session, _template, currentDraft: MotionDraft, direction: Direction) => ({
+        ...currentDraft,
+        directions: currentDraft.directions.map((definition) =>
+          definition.direction === direction
+            ? { direction, mode: "explicit" as const, source: null }
+            : definition,
+        ),
+      }),
+    ),
     saveDraft: vi.fn(async (_session, request) => ({
       ...data.draft,
       revision: data.draft.revision + 1,
@@ -150,6 +160,42 @@ describe("MotionDummyEditorRoute", () => {
 
     second.resolve({ ...draft, revision: 3, updated_at: "2026-09-05T10:02:00Z" });
     await waitFor(() => expect(screen.getAllByText("Saved locally").length).toBeGreaterThan(0));
+  });
+
+  it("shows direction coverage and detaches a mirrored direction through the native adapter", async () => {
+    const mirroredDraft: MotionDraft = {
+      ...draft,
+      directions: draft.directions.map((definition) =>
+        definition.direction === "w"
+          ? { direction: "w", mode: "mirrored", source: "e" }
+          : definition,
+      ),
+    };
+    const api = client({ template_name: "Walk", draft: mirroredDraft, profile, writable: true });
+    render(
+      <MotionDummyEditorRoute
+        sessionId="session"
+        templateId={mirroredDraft.template_id}
+        client={api}
+      />,
+    );
+
+    const source = await screen.findByRole("combobox", { name: "W mirror source" });
+    const row = source.closest("tr");
+    expect(row).not.toBeNull();
+    fireEvent.click(within(row!).getByRole("button", { name: "Detach as explicit" }));
+
+    await waitFor(() =>
+      expect(api.detachDirection).toHaveBeenCalledWith(
+        "session",
+        mirroredDraft.template_id,
+        expect.objectContaining({ revision: 1 }),
+        "w",
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "W mode" })).toHaveValue("explicit"),
+    );
   });
 });
 

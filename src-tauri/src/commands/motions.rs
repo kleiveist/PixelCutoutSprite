@@ -7,6 +7,7 @@ use crate::application::{
     CreateMotionRequest, MotionCard, MotionDashboard, MotionDraft, MotionEditorData,
     MotionOpenTarget, MotionService, SaveMotionDraftRequest, VaultService,
 };
+use crate::directions::detach_to_explicit;
 use crate::domain::{Direction, MotionRevision, ObjectId};
 use crate::editor::{
     encode_dummy_preview, render_dummy, render_sampled_dummy, DummyPreview, EditablePose,
@@ -148,6 +149,37 @@ pub fn render_motion_sample(
         .map_err(|error| error.to_string())?;
     render_sampled_dummy(&editor.profile, &motion, direction, sample_index)
         .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn detach_motion_direction(
+    session_id: String,
+    template_id: String,
+    mut draft: MotionDraft,
+    direction: Direction,
+    service: State<'_, Mutex<VaultService>>,
+) -> Result<MotionDraft, String> {
+    let service = lock(&service)?;
+    let editor = MotionService::editor_data(
+        &service,
+        parse_id("session_id", &session_id)?,
+        parse_id("template_id", &template_id)?,
+    )
+    .map_err(|error| error.to_string())?;
+    if draft.template_id != editor.draft.template_id
+        || draft.revision != editor.draft.revision
+        || draft.profile_ref != editor.draft.profile_ref
+    {
+        return Err(
+            "direction draft does not match the currently opened template revision".to_owned(),
+        );
+    }
+    let detached = detach_to_explicit(&draft.sampling_revision(), &editor.profile, direction)
+        .map_err(|error| error.to_string())?;
+    draft.directions = detached.definitions;
+    draft.tracks = detached.tracks;
+    draft.validate().map_err(|error| error.to_string())?;
+    Ok(draft)
 }
 
 #[tauri::command]

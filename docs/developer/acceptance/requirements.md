@@ -28,7 +28,7 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-17 | Recognizable dummy parts and handles | P08, P19 | P08 uses 16 labelled, colour-coded compositor parts plus separate outlines, pivots and focus; DOM and decoded-PNG tests prove helper separation; P19 audits final desktop ergonomics |
 | RQ-18 | Frame count, FPS and frame surface | P06, P09 | P06 stores and validates frame count, FPS, loop, frame canvas and ground origin independently from inherited profile height; P09 keeps preview speed separate and requires an explicit keep/distribute/truncate choice when frame count changes |
 | RQ-19 | Sparse keyframes generate samples | P09, P11 | P09: pure Rust `AnimationSampler` evaluates hold/linear/ease, shortest-path angles, discrete values and exact `0..N-1` loops independently of evaluation order; preview uses the sampled compositor path and deterministic Goldens cover sparse-key boundaries |
-| RQ-20 | Eight directions with controlled reuse | P10 | Planned |
+| RQ-20 | Eight directions with controlled reuse | P10 | P10: shared `DirectionResolver` supports five-source/three-mirror and eight-explicit setups, rejects cycles/front-back/non-opposite mirrors, anatomically swaps paired poses, resolves target layers/assets separately, detaches derived tracks atomically and blocks release gaps; asymmetric eight-way RGBA Goldens and editor tests cover the contract |
 | RQ-21 | Walk, sprint, jump and more motions | P11 | Planned |
 | RQ-22 | Inventory for source sprites | P12 | Planned |
 | RQ-23 | Metadata-based slot suggestions | P12–P13 | Planned |
@@ -48,4 +48,4 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-37 | Compact PNG sheets; loose frames optional | P16 | Planned |
 | RQ-38 | Generic integration and Godot output | P16–P17 | Planned |
 | RQ-39 | No required manual bone/skeleton setup | P05, P08, P22 | P05 generates all parent links and pivots; P08 opens those attached parts directly for pose editing and contains no skeleton/Bone2D setup step |
-| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P09 implemented in order and gated; P10 is next |
+| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P10 implemented in order and gated; P11 is next |

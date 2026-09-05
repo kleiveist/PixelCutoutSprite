@@ -32,7 +32,7 @@ Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository 
 
 ## Aktueller Arbeitsauftrag
 
-P00 bis P09 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
+P00 bis P10 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
 Projekt-Dashboard über ein exakt skaliertes humanoides Gebiet in die Animationsbibliothek.
 Vorlagen, mutable `draft.json`-Arbeitsstände und unveränderliche Freigaben liegen als gewöhnliche
 Dateien in ihrem Bereich. Karten besitzen Dropdown-Filter und explizite Wege zum Dummy sowie zum
@@ -41,8 +41,10 @@ Pixelgrundlage für Vorschau und Export. Der echte Dummy-Editor lädt den gepinn
 zeigt das compositorgerenderte PNG unter getrennten Hilfslinien und speichert richtungsbezogene
 Posen per CAS. Die vollständige Timeline bearbeitet nun spärliche Keyframes, teilt Vorschau und
 Export den reinen Rust-Sampler, zeigt Nachbarposen und schützt richtungsübergreifende Änderungen
-durch gemeinsame History sowie serialisierte CAS-Autosaves. Der nächste Schritt ist P10 für acht
-Richtungen, kontrollierte Spiegelregeln und Schichtauflösung.
+durch gemeinsame History sowie serialisierte CAS-Autosaves. Ein gemeinsamer Richtungsresolver
+wertet fünf Quellansichten und drei kontrollierte Ableitungen aus, trennt Pose-, Asset- und
+Gesamtbildspiegelung, löst Zielschichten auf und blockiert lückenhafte Freigaben. Der nächste
+Schritt ist P11 für Bewegungspresets und echte Kartenvorschauen.
 
 ## Leitentscheidungen
 
