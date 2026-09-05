@@ -1,3 +1,6 @@
+import { useRef } from "react";
+
+import { useModalFocus } from "../../components/useModalFocus";
 import type { MotionCard } from "../../domain/animations";
 import type { Direction } from "../../domain/common";
 
@@ -16,6 +19,12 @@ export function MotionReleaseDialog({
   onCancel,
   onConfirm,
 }: MotionReleaseDialogProps) {
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const { dialogRef, onDialogKeyDown } = useModalFocus<HTMLDivElement>({
+    canDismiss: !busy,
+    initialFocus: cancelButton,
+    onEscape: onCancel,
+  });
   const missing = allDirections.filter(
     (direction) => !motion.direction_coverage.includes(direction),
   );
@@ -24,10 +33,12 @@ export function MotionReleaseDialog({
   return (
     <div className="motion-dialog-backdrop" role="presentation">
       <div
+        ref={dialogRef}
         className="motion-dialog motion-release-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="release-motion-title"
+        onKeyDown={onDialogKeyDown}
       >
         <header>
           <span>RELEASE CHECK</span>
@@ -67,7 +78,7 @@ export function MotionReleaseDialog({
           </p>
         )}
         <footer>
-          <button type="button" disabled={busy} onClick={onCancel}>
+          <button ref={cancelButton} type="button" disabled={busy} onClick={onCancel}>
             Back to draft
           </button>
           <button

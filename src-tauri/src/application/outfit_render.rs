@@ -1,9 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use image::RgbaImage;
 
-use crate::animation::{AnimationSampler, EquipmentMotionSampler};
+use crate::animation::{AnimationSampler, EquipmentMotionSampler, PreviewCache};
 use crate::directions::{
     mirror_transform_x, AssetResolver, DirectionResolver, DirectionalPose, ResolvedDirection,
     ResolvedPoseSlot, SampledSlot as DirectionSampledSlot,
@@ -25,12 +26,15 @@ use super::appearance_service::{
 };
 use super::outfit_snapshot::AreaSnapshot;
 
+pub(super) type SharedBitmapMap = HashMap<RevisionRef, Arc<RgbaImage>>;
+
 struct PartContext<'a> {
     vault: &'a VaultRoot,
     area_path: &'a Path,
     snapshot: &'a AreaSnapshot,
     source: &'a OutfitRenderSource,
-    bitmaps: Option<&'a HashMap<RevisionRef, RgbaImage>>,
+    bitmaps: Option<&'a SharedBitmapMap>,
+    preview_cache: Option<&'a Mutex<PreviewCache>>,
     direction_resolution: ResolvedDirection,
     fittings: HashMap<SlotId, &'a OutfitFitting>,
     overrides: HashMap<SlotId, Transform2D>,
@@ -57,7 +61,8 @@ pub(super) struct OutfitRenderContext<'a> {
     pub(super) source: &'a OutfitRenderSource,
     pub(super) motion: &'a crate::domain::MotionRevision,
     pub(super) profile: &'a ProfileRevision,
-    pub(super) bitmaps: Option<&'a HashMap<RevisionRef, RgbaImage>>,
+    pub(super) bitmaps: Option<&'a SharedBitmapMap>,
+    pub(super) preview_cache: Option<&'a Mutex<PreviewCache>>,
 }
 
 #[derive(Clone, Copy)]
@@ -81,7 +86,7 @@ struct PreviewFrameInput {
 }
 
 struct FittingRenderData {
-    bitmap: RgbaImage,
+    bitmap: Arc<RgbaImage>,
     transform: RenderTransform,
     pivot_px: (f64, f64),
     visible: bool,
@@ -102,6 +107,15 @@ struct FittedImage<'a> {
     pivot_px: PixelPoint,
 }
 
+pub(crate) struct PreparedOutfitPreview {
+    snapshot: AreaSnapshot,
+    source: OutfitRenderSource,
+    motion: crate::domain::MotionRevision,
+    profile: ProfileRevision,
+    direction: Direction,
+    frame_index: u16,
+}
+
 pub(super) fn render_preview(
     vault: &VaultRoot,
     area_path: &Path,
@@ -110,25 +124,65 @@ pub(super) fn render_preview(
     frame_index: u16,
     edits: Option<OutfitDraftEdits>,
 ) -> Result<OutfitPreviewFrame, AppearanceServiceError> {
+    let prepared = prepare_preview(vault, area_path, draft_id, direction, frame_index, edits)?;
+    render_prepared_preview(vault, area_path, prepared, None)
+}
+
+pub(super) fn prepare_preview(
+    vault: &VaultRoot,
+    area_path: &Path,
+    draft_id: ObjectId,
+    direction: Direction,
+    frame_index: u16,
+    edits: Option<OutfitDraftEdits>,
+) -> Result<PreparedOutfitPreview, AppearanceServiceError> {
     let snapshot = AreaSnapshot::load(vault, area_path)?;
     let draft = transient_draft(&snapshot, draft_id, edits)?;
-    let (_, motion, profile) = snapshot.workflow(draft.template_ref)?;
     let source = OutfitRenderSource::from_draft(&draft);
-    let sampled = AnimationSampler.sample(motion, direction, frame_index)?;
+    let (motion, profile) = {
+        let (_, motion, profile) = snapshot.workflow(draft.template_ref)?;
+        (motion.clone(), profile.clone())
+    };
+    Ok(PreparedOutfitPreview {
+        snapshot,
+        source,
+        motion,
+        profile,
+        direction,
+        frame_index,
+    })
+}
+
+pub(super) fn render_prepared_preview(
+    vault: &VaultRoot,
+    area_path: &Path,
+    prepared: PreparedOutfitPreview,
+    preview_cache: Option<&Mutex<PreviewCache>>,
+) -> Result<OutfitPreviewFrame, AppearanceServiceError> {
+    let PreparedOutfitPreview {
+        snapshot,
+        source,
+        motion,
+        profile,
+        direction,
+        frame_index,
+    } = prepared;
+    let sampled = AnimationSampler.sample(&motion, direction, frame_index)?;
     let request = render_request(
         OutfitRenderContext {
             vault,
             area_path,
             snapshot: &snapshot,
             source: &source,
-            motion,
-            profile,
+            motion: &motion,
+            profile: &profile,
             bitmaps: None,
+            preview_cache,
         },
         &sampled,
         true,
     )?;
-    let guides = preview_guides(&request, profile)?;
+    let guides = preview_guides(&request, &profile)?;
     let rendered = PixelCompositor.render(&request)?;
     Ok(OutfitPreviewFrame {
         direction,
@@ -205,6 +259,7 @@ pub(super) fn render_request(
         motion,
         profile,
         bitmaps,
+        preview_cache,
     } = context;
     if source.profile_ref != profile.reference() || motion.profile_ref != profile.reference() {
         return Err(AppearanceServiceError::InvalidState(
@@ -255,6 +310,7 @@ pub(super) fn render_request(
             motion,
             profile,
             bitmaps,
+            preview_cache,
         },
         resolution,
         &resolved.slots,
@@ -353,6 +409,7 @@ fn render_parts(
         snapshot,
         source,
         bitmaps,
+        preview_cache,
         ..
     } = context;
     let fittings = source
@@ -377,6 +434,7 @@ fn render_parts(
         snapshot,
         source,
         bitmaps,
+        preview_cache,
         direction_resolution,
         fittings,
         overrides,
@@ -417,7 +475,7 @@ fn render_parts(
             visible: true,
             layer: -1_000,
             mirror_bitmap_x: false,
-            bitmap: crate::editor::ground_shadow_bitmap(shadow),
+            bitmap: crate::editor::ground_shadow_bitmap(shadow).into(),
         });
     }
     Ok(parts)
@@ -676,7 +734,7 @@ fn fitting_render_data(
 ) -> Result<FittingRenderData, AppearanceServiceError> {
     let (Some(fit), Some(image)) = (fit, image) else {
         return Ok(FittingRenderData {
-            bitmap: RgbaImage::new(1, 1),
+            bitmap: RgbaImage::new(1, 1).into(),
             transform: RenderTransform::IDENTITY,
             pivot_px: (0.0, 0.0),
             visible: false,
@@ -761,7 +819,7 @@ fn hidden_equipment_part(slot_id: SlotId, source: EquipmentRenderSource<'_>) -> 
         visible: false,
         layer: 0,
         mirror_bitmap_x: false,
-        bitmap: RgbaImage::new(1, 1),
+        bitmap: RgbaImage::new(1, 1).into(),
     }
 }
 
@@ -823,7 +881,7 @@ fn equipment_fitting_render_data(
 fn load_bitmap(
     context: &PartContext<'_>,
     revision: &crate::domain::AssetRevision,
-) -> Result<RgbaImage, AppearanceServiceError> {
+) -> Result<Arc<RgbaImage>, AppearanceServiceError> {
     if let Some(bitmaps) = context.bitmaps {
         return bitmaps.get(&revision.reference()).cloned().ok_or_else(|| {
             AppearanceServiceError::InvalidState(format!(
@@ -835,14 +893,28 @@ fn load_bitmap(
     let path = context
         .vault
         .resolve(&context.area_path.join(revision.source_file.as_str()))?;
-    image::open(path.as_path())
-        .map_err(|error| AppearanceServiceError::Image(error.to_string()))
-        .map(|image| image.to_rgba8())
+    let load = || {
+        image::open(path.as_path())
+            .map_err(|error| error.to_string())
+            .map(|image| image.to_rgba8())
+    };
+    if let Some(cache) = context.preview_cache {
+        // Revision files are immutable. Combining their resolved vault path and
+        // declared digest prevents collisions between copied vaults/revisions.
+        let identity = format!(
+            "outfit:{}:{}",
+            path.as_path().to_string_lossy(),
+            revision.content_hash.as_str()
+        );
+        return PreviewCache::get_or_load_bitmap(cache, identity, load)
+            .map_err(AppearanceServiceError::Image);
+    }
+    load().map(Arc::new).map_err(AppearanceServiceError::Image)
 }
 
 fn missing_fitting_render_data() -> FittingRenderData {
     FittingRenderData {
-        bitmap: RgbaImage::new(1, 1),
+        bitmap: RgbaImage::new(1, 1).into(),
         transform: RenderTransform::IDENTITY,
         pivot_px: (0.0, 0.0),
         visible: false,

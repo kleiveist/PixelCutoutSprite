@@ -599,7 +599,7 @@ fn render_glove(
                 visible: hand.visible,
                 layer: hand.layer,
                 mirror_bitmap_x: chosen.bitmap_mirrored,
-                bitmap: glove_bitmap(),
+                bitmap: glove_bitmap().into(),
             }],
         })
         .unwrap();

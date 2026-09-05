@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AreaClient } from "../../api/area-client";
@@ -44,6 +44,20 @@ describe("area dashboard", () => {
       target: { value: "nw" },
     });
     expect(screen.getByRole("img", { name: "NW humanoid slot preview" })).toBeInTheDocument();
+    const areaFilters = within(screen.getByLabelText("Area filters"));
+    for (const name of [
+      "Object type",
+      "Profile revision",
+      "Reference height",
+      "Label match",
+      "Sort areas",
+    ]) {
+      expect(areaFilters.getByRole("combobox", { name })).toBeInTheDocument();
+    }
+    expect(areaFilters.getByRole("button", { name: /Labels Any/ })).toHaveAttribute(
+      "aria-haspopup",
+      "listbox",
+    );
   });
 
   it("creates an NPC area with a humanoid profile request", async () => {

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
+import { useModalFocus } from "../../components/useModalFocus";
 import type { AssetImportInspection, ImportDecision, SizeHandling } from "../../domain/inventory";
 import type { Direction } from "../../domain/common";
 
@@ -34,6 +35,12 @@ export function ImportReviewDialog({
     })),
   );
   const complete = decisions.every((item) => item.slot_id && item.direction);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const { dialogRef, onDialogKeyDown } = useModalFocus<HTMLDivElement>({
+    canDismiss: !busy,
+    initialFocus: cancelButton,
+    onEscape: onCancel,
+  });
 
   function update(index: number, patch: Partial<DraftDecision>): void {
     setDecisions((current) =>
@@ -44,13 +51,22 @@ export function ImportReviewDialog({
   }
 
   return (
-    <div className="inventory-import-dialog" role="dialog" aria-modal="true">
+    <div
+      ref={dialogRef}
+      className="inventory-import-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="inventory-import-title"
+      onKeyDown={onDialogKeyDown}
+    >
       <header>
         <div>
           <span>Review before copying</span>
-          <h2>Confirm {inspection.entries.length} import assignment(s)</h2>
+          <h2 id="inventory-import-title">
+            Confirm {inspection.entries.length} import assignment(s)
+          </h2>
         </div>
-        <button type="button" onClick={onCancel} disabled={busy}>
+        <button ref={cancelButton} type="button" onClick={onCancel} disabled={busy}>
           Cancel
         </button>
       </header>

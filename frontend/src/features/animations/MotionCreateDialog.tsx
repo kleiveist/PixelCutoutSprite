@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
+import { useModalFocus } from "../../components/useModalFocus";
 import type { CreateMotionRequest } from "../../domain/animations";
 import type { PixelPoint, PixelSize } from "../../domain/common";
 import type { LoopMode, MotionPresetKind } from "../../domain/motion";
@@ -49,10 +50,13 @@ export function MotionCreateDialog({
   const [groundY, setGroundY] = useState(defaultGroundOrigin[1]);
   const [busy, setBusy] = useState(false);
   const nameInput = useRef<HTMLInputElement>(null);
+  const { dialogRef, onDialogKeyDown } = useModalFocus<HTMLFormElement>({
+    canDismiss: !busy,
+    initialFocus: nameInput,
+    onEscape: onClose,
+    open,
+  });
 
-  useEffect(() => {
-    if (open) nameInput.current?.focus();
-  }, [open]);
   if (!open) return null;
 
   const valid =
@@ -72,10 +76,12 @@ export function MotionCreateDialog({
   return (
     <div className="motion-dialog-backdrop" role="presentation">
       <form
+        ref={dialogRef}
         className="motion-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-motion-title"
+        onKeyDown={onDialogKeyDown}
         onSubmit={(event) => {
           event.preventDefault();
           if (!valid || busy) return;
@@ -190,7 +196,7 @@ export function MotionCreateDialog({
           </p>
         )}
         <footer>
-          <button type="button" onClick={onClose}>
+          <button type="button" disabled={busy} onClick={onClose}>
             Cancel
           </button>
           <button className="primary-button" type="submit" disabled={!valid || busy}>

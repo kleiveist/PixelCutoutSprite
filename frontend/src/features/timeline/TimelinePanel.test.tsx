@@ -174,4 +174,43 @@ describe("TimelinePanel", () => {
       "Hide ground shadow",
     );
   });
+
+  it("lets focused gridcells edit the timeline while preserving native Space activation", () => {
+    const onFrameChange = vi.fn();
+    const onMotionChange = vi.fn();
+    const onPlayingChange = vi.fn();
+    const onSave = vi.fn();
+    const onUndo = vi.fn();
+    const onRedo = vi.fn();
+    render(
+      <TimelinePanel
+        motion={clip}
+        frame={4}
+        playing={false}
+        onFrameChange={onFrameChange}
+        onPlayingChange={onPlayingChange}
+        onMotionChange={onMotionChange}
+        onSave={onSave}
+        onUndo={onUndo}
+        onRedo={onRedo}
+      />,
+    );
+    const key = screen.getByRole("gridcell", { name: "head rotation_deg key at frame 0" });
+    fireEvent.click(key);
+    fireEvent.keyDown(key, { key: "ArrowRight" });
+    expect(onFrameChange).toHaveBeenCalledWith(5);
+    fireEvent.keyDown(key, { key: "s", ctrlKey: true });
+    fireEvent.keyDown(key, { key: "z", ctrlKey: true });
+    fireEvent.keyDown(key, { key: "y", ctrlKey: true });
+    expect(onSave).toHaveBeenCalledOnce();
+    expect(onUndo).toHaveBeenCalledOnce();
+    expect(onRedo).toHaveBeenCalledOnce();
+    fireEvent.keyDown(key, { key: " " });
+    expect(onPlayingChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(key, { key: "Delete" });
+    expect(onMotionChange).toHaveBeenCalledWith(
+      expect.objectContaining({ tracks: [expect.objectContaining({ keys: expect.any(Array) })] }),
+      "Delete keyframes",
+    );
+  });
 });

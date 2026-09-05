@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import type { OutfitEditorContext, OutfitPreviewFrame } from "../../api/outfit-client";
+import { PixelViewport } from "../../components/PixelViewport";
 import type { Direction } from "../../domain";
 import { directions, missingRequiredSlots } from "./outfit-state";
 
@@ -67,7 +68,12 @@ export function OutfitPreview({
           ))}
         </select>
       </div>
-      <div className="outfit-canvas" style={{ aspectRatio: `${width} / ${height}` }}>
+      <PixelViewport
+        className="outfit-canvas"
+        ariaLabel="Nearest-neighbour pixel viewport"
+        width={width}
+        height={height}
+      >
         <canvas ref={canvas} aria-label="Composed NPC frame" />
         <svg
           className="outfit-dummy-guide"
@@ -110,7 +116,7 @@ export function OutfitPreview({
             }}
           />
         )}
-      </div>
+      </PixelViewport>
       {previewError && <p role="alert">Preview: {previewError}</p>}
       {preview?.guides_included && (
         <p role="alert">Preview service incorrectly included editor guides.</p>

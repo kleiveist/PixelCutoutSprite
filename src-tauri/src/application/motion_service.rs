@@ -18,6 +18,8 @@ use crate::storage::{
     VaultLayout, VaultRoot, VersionStamp, AREA_ADMIN_DIR, PROJECT_ADMIN_DIR,
 };
 
+use super::project_service::{load_project_labels, scan_projects};
+use super::workspace_documents::LabelSummary;
 use super::{now, VaultOpenMode, VaultService};
 
 const TEMPLATE_DIRECTORY: &str = "templates";
@@ -164,6 +166,7 @@ pub struct MotionDashboard {
     pub area_id: ObjectId,
     pub motions: Vec<MotionCard>,
     pub profiles: Vec<RevisionRef>,
+    pub labels: Vec<LabelSummary>,
     pub writable: bool,
 }
 
@@ -218,8 +221,23 @@ impl MotionService {
         session_id: ObjectId,
         area_id: ObjectId,
     ) -> Result<MotionDashboard, StorageError> {
-        let (root, mode) = session(vaults, session_id)?;
+        let context = vaults.context(session_id)?;
+        let root = context.root.clone();
+        let mode = context.mode;
         let area = find_area(&root, area_id)?;
+        let project = scan_projects(&context)?
+            .into_iter()
+            .find(|project| project.project.id == area.area.project_id)
+            .ok_or_else(|| {
+                StorageError::InvalidVault(
+                    "area project disappeared while loading motion labels".to_owned(),
+                )
+            })?;
+        let labels = load_project_labels(&VaultLayout::new(root.clone()), &project)?
+            .labels
+            .iter()
+            .map(LabelSummary::from)
+            .collect();
         let mut motions = scan_motions(&root, &area)?
             .iter()
             .map(motion_card)
@@ -238,6 +256,7 @@ impl MotionService {
             area_id,
             motions,
             profiles,
+            labels,
             writable: mode == VaultOpenMode::ReadWrite,
         })
     }

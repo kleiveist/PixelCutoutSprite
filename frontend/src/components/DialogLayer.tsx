@@ -1,4 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
+
+import { useModalFocus } from "./useModalFocus";
 
 interface DialogLayerProps {
   open: boolean;
@@ -7,46 +9,23 @@ interface DialogLayerProps {
 
 export function DialogLayer({ open, onClose }: DialogLayerProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
-  const dialog = useRef<HTMLElement>(null);
-  const previousFocus = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    previousFocus.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    closeButton.current?.focus();
-
-    return () => previousFocus.current?.focus();
-  }, [open]);
-
-  function keepFocusInside(event: React.KeyboardEvent<HTMLElement>): void {
-    if (event.key !== "Tab") return;
-    const controls = dialog.current?.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    );
-    if (!controls || controls.length === 0) return;
-    const first = controls[0];
-    const last = controls[controls.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
+  const { dialogRef, onDialogKeyDown } = useModalFocus<HTMLElement>({
+    initialFocus: closeButton,
+    onEscape: onClose,
+    open,
+  });
 
   if (!open) return null;
 
   return (
     <div className="dialog-backdrop" role="presentation" onMouseDown={onClose}>
       <section
-        ref={dialog}
+        ref={dialogRef}
         aria-labelledby="shortcut-title"
         aria-modal="true"
         className="shortcut-dialog"
         onMouseDown={(event) => event.stopPropagation()}
-        onKeyDown={keepFocusInside}
+        onKeyDown={onDialogKeyDown}
         role="dialog"
       >
         <div className="dialog-heading">

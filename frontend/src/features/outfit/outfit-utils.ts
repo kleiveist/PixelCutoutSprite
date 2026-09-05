@@ -1,4 +1,5 @@
 import type { SlotRef, Transform2D } from "../../domain";
+import { isTextEditingKeyboardTarget } from "../../components/keyboard";
 
 export type EditorMode = "inventory" | "dress" | "fine_tune";
 export type EditScope = "appearance" | "binding";
@@ -37,8 +38,5 @@ export function messageOf(reason: unknown): string {
 }
 
 export function isTextEditing(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    Boolean(target.closest("input, textarea, select, [contenteditable='true']"))
-  );
+  return isTextEditingKeyboardTarget(target);
 }

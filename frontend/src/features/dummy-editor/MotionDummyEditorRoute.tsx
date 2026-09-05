@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { isInteractiveKeyboardTarget } from "../../components/keyboard";
 import { motionClient, type MotionClient } from "../../api/motion-client";
 import type { EditablePoseDto, MotionDraft, MotionEditorData } from "../../domain/animations";
 import type { Direction } from "../../domain/common";
@@ -308,7 +309,7 @@ export function MotionDummyEditorRoute({
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target)) return;
+      if (isInteractiveKeyboardTarget(event.target)) return;
       if (event.key === " ") {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -696,14 +697,6 @@ function saveRequest(draft: MotionDraft, expectedRevision: number, expectedSha25
     tracks: draft.tracks,
     semantics: draft.semantics,
   };
-}
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable ||
-      ["input", "textarea", "select"].includes(target.tagName.toLowerCase()))
-  );
 }
 
 function motionSaveStatus(state: SaveState, dirty: boolean, error: string | null): string {

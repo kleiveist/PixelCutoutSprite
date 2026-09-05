@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -73,10 +74,22 @@ pub struct RecoveryStatus {
     pub indexed_objects: usize,
 }
 
+#[derive(Debug)]
+struct BackgroundMutationPermit {
+    active: Arc<AtomicBool>,
+}
+
+impl Drop for BackgroundMutationPermit {
+    fn drop(&mut self) {
+        self.active.store(false, Ordering::Release);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct VaultWriteLease {
     root: VaultRoot,
     _writer_lock: Arc<VaultLock>,
+    _mutation: Arc<BackgroundMutationPermit>,
 }
 
 impl VaultWriteLease {
@@ -91,6 +104,7 @@ struct VaultSession {
     vault_id: ObjectId,
     mode: VaultOpenMode,
     writer_lock: Option<Arc<VaultLock>>,
+    background_mutation: Arc<AtomicBool>,
     recovery_required: bool,
     index: ObjectIndex,
 }
@@ -281,6 +295,7 @@ impl VaultService {
                 vault_id,
                 mode,
                 writer_lock,
+                background_mutation: Arc::new(AtomicBool::new(false)),
                 recovery_required: !result.recovery.is_empty(),
                 index,
             },
@@ -387,6 +402,11 @@ impl VaultService {
             .sessions
             .get(&session_id)
             .ok_or_else(|| StorageError::InvalidVault("unknown vault session".to_owned()))?;
+        if session.background_mutation.load(Ordering::Acquire) {
+            return Err(StorageError::InvalidVault(
+                "another background vault operation is already active".to_owned(),
+            ));
+        }
         if !TransactionService::<NoTransactionFault>::scan_open(&session.root)?.is_empty() {
             return Err(StorageError::RecoveryRequired(
                 "an interrupted transaction blocks new writer leases until recovery".to_owned(),
@@ -400,9 +420,20 @@ impl VaultService {
         let writer_lock = session.writer_lock.clone().ok_or_else(|| {
             StorageError::InvalidVault("this vault session is read-only".to_owned())
         })?;
+        session
+            .background_mutation
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map_err(|_| {
+                StorageError::InvalidVault(
+                    "another background vault operation is already active".to_owned(),
+                )
+            })?;
         Ok(VaultWriteLease {
             root: session.root.clone(),
             _writer_lock: writer_lock,
+            _mutation: Arc::new(BackgroundMutationPermit {
+                active: session.background_mutation.clone(),
+            }),
         })
     }
 
@@ -414,14 +445,24 @@ impl VaultService {
             .sessions
             .get(&session_id)
             .ok_or_else(|| StorageError::InvalidVault("unknown vault session".to_owned()))?;
-        if !TransactionService::<NoTransactionFault>::scan_open(&session.root)?.is_empty() {
+        let background_mutation = session.background_mutation.load(Ordering::Acquire);
+        if !background_mutation
+            && !TransactionService::<NoTransactionFault>::scan_open(&session.root)?.is_empty()
+        {
             return Err(StorageError::RecoveryRequired(
                 "an interrupted transaction blocks workspace access until recovery".to_owned(),
             ));
         }
         Ok(VaultSessionContext {
             root: session.root.clone(),
-            mode: session.mode,
+            // Background jobs retain the process writer lease after releasing the service
+            // mutex. Presenting their session as temporarily read-only lets ordinary reads
+            // continue while every existing service-level write guard fails closed.
+            mode: if background_mutation {
+                VaultOpenMode::ReadOnly
+            } else {
+                session.mode
+            },
         })
     }
 
@@ -435,6 +476,11 @@ impl VaultService {
             .get(&session_id)
             .ok_or_else(|| StorageError::InvalidVault("unknown vault session".to_owned()))?;
         if require_write {
+            if session.background_mutation.load(Ordering::Acquire) {
+                return Err(StorageError::InvalidVault(
+                    "another background vault operation is already active".to_owned(),
+                ));
+            }
             if !TransactionService::<NoTransactionFault>::scan_open(&session.root)?.is_empty() {
                 return Err(StorageError::RecoveryRequired(
                     "an interrupted transaction blocks further writes until recovery".to_owned(),

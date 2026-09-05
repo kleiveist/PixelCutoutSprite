@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use image::{Rgba, RgbaImage};
 use serde::Serialize;
@@ -42,7 +43,9 @@ pub struct RenderPart {
     pub visible: bool,
     pub layer: i32,
     pub mirror_bitmap_x: bool,
-    pub bitmap: RgbaImage,
+    /// Shared immutable sprite pixels. Cloning a render request or reusing a
+    /// verified source image across frames does not duplicate the RGBA buffer.
+    pub bitmap: Arc<RgbaImage>,
 }
 
 #[derive(Debug, Clone)]

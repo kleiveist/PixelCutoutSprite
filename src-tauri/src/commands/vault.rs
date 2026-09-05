@@ -4,8 +4,10 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, Runtime, State};
 
+use crate::animation::PreviewCache;
 use crate::application::{
-    ExportJobRegistry, OpenVault, RecoveryStatus, VaultInspection, VaultService,
+    AssetImportJobRegistry, AssetInspectionRegistry, ExportJobRegistry, OpenVault, RecoveryStatus,
+    VaultInspection, VaultService,
 };
 use crate::domain::{DomainError, ObjectId};
 use crate::storage::{DeviceSettingsStore, RecoveryChoice, StorageError};
@@ -111,10 +113,28 @@ pub fn close_vault(
     session_id: String,
     service: State<'_, Mutex<VaultService>>,
     jobs: State<'_, ExportJobRegistry>,
+    asset_import_jobs: State<'_, AssetImportJobRegistry>,
+    asset_inspections: State<'_, AssetInspectionRegistry>,
+    preview_cache: State<'_, Mutex<PreviewCache>>,
 ) -> Result<(), VaultCommandError> {
     let session_id = parse_id("session_id", &session_id)?;
-    let mut service = service.lock().map_err(|_| service_poisoned())?;
-    if jobs
+    {
+        let mut service = service.lock().map_err(|_| service_poisoned())?;
+        ensure_session_jobs_idle(session_id, &jobs, &asset_import_jobs)?;
+        asset_inspections
+            .cancel_session(session_id)
+            .map_err(|error| VaultCommandError::new("asset_inspection_error", error.to_string()))?;
+        service.close(session_id)?;
+    }
+    clear_preview_cache(&preview_cache)
+}
+
+fn ensure_session_jobs_idle(
+    session_id: ObjectId,
+    export_jobs: &ExportJobRegistry,
+    asset_import_jobs: &AssetImportJobRegistry,
+) -> Result<(), VaultCommandError> {
+    if export_jobs
         .has_active_session(session_id)
         .map_err(|error| VaultCommandError::new("export_job_error", error.to_string()))?
     {
@@ -123,7 +143,26 @@ pub fn close_vault(
             "cancel the active export before closing this vault",
         ));
     }
-    service.close(session_id).map_err(Into::into)
+    if asset_import_jobs
+        .has_active_session(session_id)
+        .map_err(|error| VaultCommandError::new("asset_import_job_error", error.to_string()))?
+    {
+        return Err(VaultCommandError::new(
+            "active_asset_import",
+            "cancel the active asset import before closing this vault",
+        ));
+    }
+    Ok(())
+}
+
+fn clear_preview_cache(cache: &Mutex<PreviewCache>) -> Result<(), VaultCommandError> {
+    cache
+        .lock()
+        .map_err(|_| {
+            VaultCommandError::new("preview_cache_error", "preview cache lock is poisoned")
+        })?
+        .clear();
+    Ok(())
 }
 
 #[tauri::command]
@@ -212,4 +251,56 @@ fn parse_id(field: &'static str, value: &str) -> Result<ObjectId, VaultCommandEr
 
 fn service_poisoned() -> VaultCommandError {
     VaultCommandError::new("internal_error", "vault service lock is poisoned")
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::*;
+
+    #[test]
+    fn closing_lifecycle_clear_releases_cached_image_payloads() {
+        let cache = Mutex::new(PreviewCache::new(64));
+        PreviewCache::get_or_load_bitmap(&cache, "fixture".to_owned(), || {
+            Ok(image::RgbaImage::new(2, 2))
+        })
+        .unwrap();
+        assert_eq!(cache.lock().unwrap().used_bytes(), 16);
+
+        clear_preview_cache(&cache).unwrap();
+
+        let cache = cache.lock().unwrap();
+        assert!(cache.is_empty());
+        assert_eq!(cache.used_bytes(), 0);
+    }
+
+    #[test]
+    fn closing_is_blocked_by_export_and_asset_import_jobs() {
+        let session_id = ObjectId::new();
+        let export_jobs = ExportJobRegistry::default();
+        let import_jobs = AssetImportJobRegistry::default();
+        assert!(ensure_session_jobs_idle(session_id, &export_jobs, &import_jobs).is_ok());
+
+        let (export, _) = export_jobs
+            .register(session_id, ObjectId::new(), Path::new("build"))
+            .unwrap();
+        assert_eq!(
+            ensure_session_jobs_idle(session_id, &export_jobs, &import_jobs)
+                .unwrap_err()
+                .code,
+            "active_export"
+        );
+        export_jobs.cancelled(export.job_id).unwrap();
+
+        let (import, _) = import_jobs.register(session_id, ObjectId::new()).unwrap();
+        assert_eq!(
+            ensure_session_jobs_idle(session_id, &export_jobs, &import_jobs)
+                .unwrap_err()
+                .code,
+            "active_asset_import"
+        );
+        import_jobs.cancelled(import.job_id).unwrap();
+        assert!(ensure_session_jobs_idle(session_id, &export_jobs, &import_jobs).is_ok());
+    }
 }

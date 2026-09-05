@@ -38,15 +38,24 @@ is surfaced by the existing editor warning and by card-preview clipping metadata
 ## Real card previews
 
 Animation cards request frames from the saved draft only after an `IntersectionObserver` reports
-that the card is in or near the viewport. The backend selects at most four stored sample indices,
+that the card is in or near the viewport. The backend selects at most three stored sample indices,
 runs the same sampler → direction resolver → pixel compositor path as the dummy editor, and encodes
 those frames as PNG data URLs. The UI advances them only on hover, keyboard focus or explicit
 activation. With reduced-motion preference it requests and displays one static frame.
 
-The native preview cache is a 32 MiB byte-limited LRU keyed by canonical effective motion content,
-renderer version, direction, sample and render options. Timestamps do not invalidate it; any
-effective timing, key, helper, shadow or direction change does. Cached and editor frames are tested
-as identical encoded pixels. No library-wide clock or permanent full render loop exists.
+P19 expands the native cache to the specified 256 MiB ceiling and makes it the shared LRU for
+decoded immutable source bitmaps and decoded/encoded motion-card previews. Its accounting includes
+RGBA buffers and encoded data URLs. Identical concurrent misses are coalesced while bitmap loading,
+rendering and PNG encoding happen outside the global cache mutex. Timestamps do not invalidate a
+motion key; any effective timing, key, helper, shadow or direction change does. Saving or removing a
+motion invalidates only that motion, and closing the Vault releases all cached image payloads.
+Oversized entries are not retained and least-recently-used payloads are evicted before the byte
+ceiling can be exceeded.
+
+Cached and editor frames remain tested as identical encoded pixels. The representative warm lookup
+and cold 128 × 128 compositor timings are recorded without an inferred FPS promise in the
+[P19 desktop acceptance](../acceptance/desktop-usability-and-performance.md). No library-wide clock,
+permanently running card loop or new accelerated renderer exists.
 
 Before publication, the release dialog summarizes the pinned profile, timing, preset/export
 semantics and all eight resolved directions. Missing coverage disables confirmation, while the

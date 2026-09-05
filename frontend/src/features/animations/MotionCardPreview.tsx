@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { useReducedMotion } from "../../components/useReducedMotion";
 import "./MotionCardPreview.css";
 import { shouldAnimatePreview } from "./preview-policy";
 
@@ -18,8 +19,10 @@ export function MotionCardPreview({
   fps,
   visible,
   activated = false,
-  reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
+  reducedMotion,
 }: MotionCardPreviewProps) {
+  const systemReducedMotion = useReducedMotion();
+  const reduceMotion = reducedMotion ?? systemReducedMotion;
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [frame, setFrame] = useState(0);
@@ -28,7 +31,7 @@ export function MotionCardPreview({
     hovered,
     focused,
     activated,
-    reducedMotion,
+    reducedMotion: reduceMotion,
   });
 
   useEffect(() => {
@@ -41,8 +44,8 @@ export function MotionCardPreview({
   }, [animate, fps, frameUrls.length]);
 
   useEffect(() => {
-    if (!visible || reducedMotion) setFrame(0);
-  }, [reducedMotion, visible]);
+    if (!visible || reduceMotion) setFrame(0);
+  }, [reduceMotion, visible]);
 
   return (
     <figure

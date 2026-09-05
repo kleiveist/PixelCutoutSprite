@@ -1,5 +1,7 @@
 use serde::Serialize;
 use std::sync::Mutex;
+#[cfg(debug_assertions)]
+use tauri::Manager;
 use tauri::{Builder, Runtime};
 
 pub mod animation;
@@ -32,8 +34,25 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     builder
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(application::VaultService::default()))
-        .manage(Mutex::new(animation::PreviewCache::new(32 * 1024 * 1024)))
+        .manage(Mutex::new(animation::PreviewCache::new(256 * 1024 * 1024)))
         .manage(application::ExportJobRegistry::default())
+        .manage(application::AssetImportJobRegistry::default())
+        .manage(application::AssetInspectionRegistry::default())
+        .setup(|_app| {
+            #[cfg(debug_assertions)]
+            if let Some((width, height)) =
+                native_acceptance_window_size().map_err(std::io::Error::other)?
+            {
+                let window = _app.get_webview_window("main").ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "native acceptance window `main` is missing",
+                    )
+                })?;
+                window.set_size(tauri::LogicalSize::new(width, height))?;
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             desktop_identity,
             commands::inspect_vault,
@@ -64,8 +83,13 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::create_area,
             commands::create_area_profile_revision,
             commands::get_asset_inventory,
+            commands::get_asset_thumbnail,
             commands::inspect_asset_sources,
+            commands::cancel_asset_inspection,
             commands::import_asset_sources,
+            commands::get_asset_import_job,
+            commands::list_active_asset_import_jobs,
+            commands::cancel_asset_import,
             commands::archive_asset,
             commands::get_motion_dashboard,
             commands::create_motion,
@@ -108,6 +132,34 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         ])
 }
 
+#[cfg(debug_assertions)]
+fn native_acceptance_window_size() -> Result<Option<(f64, f64)>, String> {
+    let Ok(value) = std::env::var("PIXELCUTOUTSPRITE_ACCEPTANCE_WINDOW") else {
+        return Ok(None);
+    };
+    parse_native_acceptance_window_size(&value).map(Some)
+}
+
+#[cfg(debug_assertions)]
+fn parse_native_acceptance_window_size(value: &str) -> Result<(f64, f64), String> {
+    let (width, height) = value
+        .split_once('x')
+        .ok_or_else(|| "acceptance window must use WIDTHxHEIGHT".to_owned())?;
+    let width = width
+        .parse::<u32>()
+        .map_err(|_| "acceptance window width is not an integer".to_owned())?;
+    let height = height
+        .parse::<u32>()
+        .map_err(|_| "acceptance window height is not an integer".to_owned())?;
+    if !(1280..=3840).contains(&width) || !(720..=2160).contains(&height) {
+        return Err(
+            "acceptance window must stay within 1280..=3840 by 720..=2160 logical pixels"
+                .to_owned(),
+        );
+    }
+    Ok((f64::from(width), f64::from(height)))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     compose(tauri::Builder::default())
@@ -135,5 +187,16 @@ mod tests {
         let _app = compose(tauri::test::mock_builder())
             .build(tauri::test::mock_context(tauri::test::noop_assets()))
             .expect("composition root should build");
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn native_acceptance_window_parser_is_strict_and_bounded() {
+        assert_eq!(
+            parse_native_acceptance_window_size("1280x720").unwrap(),
+            (1280.0, 720.0)
+        );
+        assert!(parse_native_acceptance_window_size("1279x720").is_err());
+        assert!(parse_native_acceptance_window_size("1280X720").is_err());
     }
 }

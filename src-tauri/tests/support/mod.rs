@@ -81,7 +81,8 @@ impl FrameSource for FixtureSource {
                     context.pose.sample_index,
                     self.color_bias,
                 )),
-            ),
+            )
+            .into(),
         };
         Ok(RenderRequest {
             direction: context.pose.requested_direction,

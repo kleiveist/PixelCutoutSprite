@@ -3,8 +3,8 @@ use std::path::Path;
 
 use image::{Rgba, RgbaImage};
 use pixel_cutout_sprite_studio_lib::application::{
-    AreaDetails, AreaService, AssetService, AssetServiceError, ConfirmAssetImportRequest,
-    CreateAreaRequest, ProjectService, VaultOpenMode, VaultService,
+    AreaDetails, AreaService, AssetImportJobStage, AssetService, AssetServiceError,
+    ConfirmAssetImportRequest, CreateAreaRequest, ProjectService, VaultOpenMode, VaultService,
 };
 use pixel_cutout_sprite_studio_lib::asset_io::{
     AssetRepositoryError, ImportDecision, SizeHandling,
@@ -13,6 +13,7 @@ use pixel_cutout_sprite_studio_lib::domain::{
     DocumentKind, DomainDocument, ObjectId, ObjectType, OutfitDraft, OutfitDraftStatus,
     RevisionRef, SlotId, SlotRef, UtcTimestamp, SCHEMA_VERSION,
 };
+use pixel_cutout_sprite_studio_lib::exports::CancellationFlag;
 use pixel_cutout_sprite_studio_lib::storage::{
     object_folder, InterruptAfterStep, JsonStore, RecoveryChoice, StorageError, TransactionPurpose,
     TransactionService, VaultRoot,
@@ -162,6 +163,7 @@ fn loose_png_review_import_reopen_usage_and_archive_follow_the_desktop_flow() {
 
     let request = ConfirmAssetImportRequest {
         area_id: fixture.area.area.id,
+        inspection_fingerprint: inspection.inspection_fingerprint,
         source: inspection.source,
         decisions: vec![ImportDecision {
             entry_index: 0,
@@ -181,7 +183,18 @@ fn loose_png_review_import_reopen_usage_and_archive_follow_the_desktop_flow() {
         .find(|slot| slot.id.as_str() == "hand_l")
         .unwrap();
     assert_eq!(imported.image_size_px, hand.size_px);
-    assert!(imported.thumbnail_url.starts_with("data:image/png;base64,"));
+    let thumbnail = AssetService::thumbnail(
+        &fixture.vaults,
+        fixture.session_id,
+        fixture.area.area.id,
+        imported.id,
+        imported.released_revision,
+        Some(48),
+    )
+    .unwrap();
+    assert!(thumbnail.width_px <= 48);
+    assert!(thumbnail.height_px <= 48);
+    assert!(thumbnail.data_url.starts_with("data:image/png;base64,"));
     assert_eq!(fs::read(&png).unwrap(), original);
 
     fixture.install_usage(
@@ -216,6 +229,105 @@ fn loose_png_review_import_reopen_usage_and_archive_follow_the_desktop_flow() {
 }
 
 #[test]
+fn confirm_rejects_sources_that_changed_after_review() {
+    let mut fixture = Fixture::new();
+    let external = TempDir::new().unwrap();
+    let png = external.path().join("head__s__base.png");
+    write_loose_png(&png);
+    let inspection = AssetService::inspect_sources(
+        &fixture.vaults,
+        fixture.session_id,
+        fixture.area.area.id,
+        vec![png.to_string_lossy().into_owned()],
+    )
+    .unwrap();
+    RgbaImage::from_pixel(4, 4, Rgba([7, 8, 9, 255]))
+        .save(&png)
+        .unwrap();
+
+    let error = AssetService::import(
+        &mut fixture.vaults,
+        fixture.session_id,
+        ConfirmAssetImportRequest {
+            area_id: fixture.area.area.id,
+            inspection_fingerprint: inspection.inspection_fingerprint,
+            source: inspection.source,
+            decisions: vec![ImportDecision {
+                entry_index: 0,
+                slot_id: SlotId::parse("head").unwrap(),
+                direction: pixel_cutout_sprite_studio_lib::domain::Direction::S,
+                size_handling: SizeHandling::KeepOriginal,
+            }],
+        },
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("changed after review"));
+    assert!(
+        AssetService::inventory(&fixture.vaults, fixture.session_id, fixture.area.area.id)
+            .unwrap()
+            .items
+            .is_empty()
+    );
+}
+
+#[test]
+fn import_job_cancels_between_bounded_entry_decodes() {
+    let fixture = Fixture::new();
+    let external = TempDir::new().unwrap();
+    let head = external.path().join("head__s__base.png");
+    let hand = external.path().join("hand_l__s__base.png");
+    write_loose_png(&head);
+    write_loose_png(&hand);
+    let inspection = AssetService::inspect_sources(
+        &fixture.vaults,
+        fixture.session_id,
+        fixture.area.area.id,
+        vec![
+            head.to_string_lossy().into_owned(),
+            hand.to_string_lossy().into_owned(),
+        ],
+    )
+    .unwrap();
+    let decisions = inspection
+        .entries
+        .iter()
+        .map(|entry| ImportDecision {
+            entry_index: entry.entry_index,
+            slot_id: entry.suggested_slot_id.clone().unwrap(),
+            direction: entry.suggested_direction.unwrap(),
+            size_handling: SizeHandling::KeepOriginal,
+        })
+        .collect();
+    let request = ConfirmAssetImportRequest {
+        area_id: fixture.area.area.id,
+        inspection_fingerprint: inspection.inspection_fingerprint,
+        source: inspection.source,
+        decisions,
+    };
+    let root = VaultRoot::open(fixture.temp.path()).unwrap();
+    let cancellation = CancellationFlag::default();
+    let progress_cancellation = cancellation.clone();
+    let error = AssetService::execute_import_job(&root, request, &cancellation, &mut |progress| {
+        if progress.stage == AssetImportJobStage::Decoding && progress.completed == 1 {
+            progress_cancellation.cancel();
+        }
+    })
+    .unwrap_err();
+    assert!(matches!(
+        error,
+        AssetServiceError::Import(
+            pixel_cutout_sprite_studio_lib::asset_io::AssetImportError::Cancelled
+        )
+    ));
+    assert!(
+        AssetService::inventory(&fixture.vaults, fixture.session_id, fixture.area.area.id)
+            .unwrap()
+            .items
+            .is_empty()
+    );
+}
+
+#[test]
 fn unconfirmed_and_mixed_source_assignments_are_rejected_without_copying() {
     let mut fixture = Fixture::new();
     let external = TempDir::new().unwrap();
@@ -234,6 +346,7 @@ fn unconfirmed_and_mixed_source_assignments_are_rejected_without_copying() {
         fixture.session_id,
         ConfirmAssetImportRequest {
             area_id: fixture.area.area.id,
+            inspection_fingerprint: inspection.inspection_fingerprint,
             source: inspection.source,
             decisions: Vec::new(),
         },
@@ -281,6 +394,7 @@ fn transparent_padding_aligns_the_source_and_profile_pivots_without_scaling() {
         fixture.session_id,
         ConfirmAssetImportRequest {
             area_id: fixture.area.area.id,
+            inspection_fingerprint: inspection.inspection_fingerprint,
             source: inspection.source,
             decisions: vec![ImportDecision {
                 entry_index: 0,
@@ -350,6 +464,7 @@ fn configured_desktop_import_resumes_or_rolls_back_after_reopen() {
             fixture.session_id,
             ConfirmAssetImportRequest {
                 area_id: fixture.area.area.id,
+                inspection_fingerprint: inspection.inspection_fingerprint,
                 source: inspection.source,
                 decisions,
             },

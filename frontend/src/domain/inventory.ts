@@ -30,15 +30,68 @@ export interface AssetInventoryItem {
   content_hash: string;
   archived: boolean;
   usage: AssetUsage[];
-  thumbnail_url: string;
 }
 
-export interface AssetInventory {
+export interface AssetInventoryPage {
   area_id: UUID;
   profile_ref: RevisionRef;
   writable: boolean;
   labels: InventoryLabel[];
+  facets: AssetInventoryFacets;
   items: AssetInventoryItem[];
+  total_items: number;
+  next_cursor: string | null;
+}
+
+export type AssetInventoryUsageFilter = "any" | "used" | "unused";
+export type AssetInventorySort = "name_asc" | "name_desc" | "updated_newest" | "updated_oldest";
+
+export interface AssetInventoryQuery {
+  search: string;
+  slot_id: string | null;
+  direction: Direction | null;
+  asset_kind: AssetKind | null;
+  profile_ref: RevisionRef | null;
+  label_id: UUID | null;
+  usage: AssetInventoryUsageFilter;
+  sort: AssetInventorySort;
+}
+
+export interface AssetInventoryFacets {
+  slot_ids: string[];
+  directions: Direction[];
+  asset_kinds: AssetKind[];
+  profile_refs: RevisionRef[];
+  label_ids: UUID[];
+  has_used: boolean;
+  has_unused: boolean;
+}
+
+export interface AssetThumbnail {
+  asset_id: UUID;
+  revision: number;
+  width_px: number;
+  height_px: number;
+  data_url: string;
+}
+
+export type AssetImportJobState = "queued" | "running" | "completed" | "cancelled" | "failed";
+
+export interface AssetImportProgress {
+  stage: string;
+  completed: number;
+  total: number;
+  message: string;
+}
+
+export interface AssetImportJobView {
+  job_id: UUID;
+  session_id: UUID;
+  area_id: UUID;
+  state: AssetImportJobState;
+  progress: AssetImportProgress;
+  result: { imported_assets: AssetInventoryItem[]; warning?: string } | null;
+  error: string | null;
 }
 
 export type AssetImportSource =
@@ -74,6 +127,7 @@ export interface AssetImportPreviewEntry {
 export interface AssetImportInspection {
   area_id: UUID;
   profile_ref: RevisionRef;
+  inspection_fingerprint: string;
   source: AssetImportSource;
   slots: ImportSlotOption[];
   entries: AssetImportPreviewEntry[];
@@ -88,6 +142,7 @@ export interface ImportDecision {
 
 export interface ConfirmAssetImportRequest {
   area_id: UUID;
+  inspection_fingerprint: string;
   source: AssetImportSource;
   decisions: ImportDecision[];
 }

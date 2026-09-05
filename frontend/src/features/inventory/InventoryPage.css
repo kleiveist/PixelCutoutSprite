@@ -71,12 +71,57 @@
   background: var(--surface-raised);
   gap: 7px;
 }
+.inventory-thumbnail {
+  display: grid;
+  height: 140px;
+  place-items: center;
+  background: #111015;
+}
+.inventory-thumbnail span {
+  padding: 10px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
 .inventory-card img {
   width: 100%;
-  height: 140px;
+  height: 100%;
   object-fit: contain;
   background: #111015;
   image-rendering: pixelated;
+}
+.inventory-pagination,
+.inventory-job {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+.inventory-pagination output,
+.inventory-job span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.inventory-pagination button,
+.inventory-job button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  color: var(--ink);
+}
+.inventory-job {
+  margin: 16px 30px 0;
+  padding: 12px;
+  border: 1px solid var(--accent);
+  background: var(--surface-raised);
+}
+.inventory-job > div {
+  display: grid;
+  margin-right: auto;
+}
+.inventory-job progress {
+  width: min(280px, 30vw);
 }
 .inventory-card h2,
 .inventory-card p {
@@ -120,6 +165,9 @@
   background: var(--surface-raised);
   box-shadow: 0 24px 90px #000b;
   gap: 12px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
 }
 .inventory-remove p {
   color: var(--muted);
@@ -148,6 +196,16 @@
   background: var(--panel-deep, #151a20);
   border: 2px solid var(--accent, #70c1a3);
   box-shadow: 0 0 0 100vmax rgb(0 0 0 / 70%);
+}
+
+@media (max-height: 760px) {
+  .inventory-page {
+    padding-block: 20px 32px;
+  }
+  .inventory-import-dialog {
+    inset: 1rem;
+    max-height: calc(100vh - 2rem);
+  }
 }
 
 .inventory-import-dialog header,

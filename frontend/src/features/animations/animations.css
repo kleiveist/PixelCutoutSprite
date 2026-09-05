@@ -35,7 +35,8 @@
 .motion-filters {
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(190px, 1.6fr) repeat(4, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  align-items: end;
 }
 .motion-grid {
   display: grid;

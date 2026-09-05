@@ -27,7 +27,7 @@ fn part(name: &str, layer: i32, bitmap: RgbaImage) -> RenderPart {
         visible: true,
         layer,
         mirror_bitmap_x: false,
-        bitmap,
+        bitmap: bitmap.into(),
     }
 }
 

@@ -70,7 +70,8 @@ Encoded files are limited to 32 MiB, decoded images to 64 MiB of RGBA pixels and
 4096 px per axis. Loose single assets remain within the 1024 px asset contract. Only actual PNG data
 with alpha is accepted. Absolute, traversal and symbolic-link package sources are rejected against
 the real filesystem; package entries cannot mix a slot without a direction. External originals are
-read-only inputs and are checked again when confirmation arrives.
+read-only inputs and are checked again when confirmation arrives. P19 additionally bounds a single
+job to 64 entries, 128 MiB of encoded source data and 256 MiB of decoded RGBA data in aggregate.
 
 ## Persistence and safe removal
 
@@ -84,10 +85,28 @@ direction, kind, profile, label and usage conditions are dropdowns and combine w
 text search. “Remove” is implemented as recoverable archive: the dialog lists saved uses and keeps
 their exact image revision available, so it never creates a hidden broken NPC reference.
 
+## P19 scale and cancellation
+
+The inventory command now returns deterministic metadata-only pages: 50 rows by default and no
+more than 100 per request. PNG bytes and data URLs are absent from those rows. A separate native
+command revalidates the requested released revision, source hash and dimensions before producing a
+nearest-neighbour thumbnail with at most a 48 px edge. The React workspace requests thumbnails only
+when their cards enter or approach the viewport, keeps at most 256 outstanding/cached request
+identities and exposes an explicit “Load more” action for the next metadata page.
+
+Confirmed imports run as native jobs with visible stage/progress state, polling fallback and an
+explicit cancel action in both Inventory and Outfit flows. A cancelled job reports its terminal
+native state; closing the Vault remains blocked while an import or export job is active. The
+100-project/1000-asset fixture proves stable ten-page traversal without embedded image payloads and
+requests only 16 visible thumbnails. Its release measurements, four-image import/reopen timings and
+15 cancellation samples are recorded in the
+[P19 desktop acceptance](../acceptance/desktop-usability-and-performance.md).
+
 Committed positive and path-traversal fixtures live under
 `src-tauri/tests/fixtures/import/`. `asset_import`, `asset_inventory`, and the inventory component
 tests cover package/crop validation, loose review, explicit resizing, unchanged originals, native
 drop handling, usage reporting, archive and full close/reopen persistence. P18 additionally runs
 the configured desktop import path with both Nearest-rescale and transparent-padding decisions,
 interrupts after the first of two real publications, closes the app, and verifies Resume and
-Rollback without altering either external source file.
+Rollback without altering either external source file. P19 adds page/cursor, bounded-thumbnail,
+aggregate-budget, asynchronous job, cancellation and large-fixture coverage.

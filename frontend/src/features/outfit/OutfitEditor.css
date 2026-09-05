@@ -58,6 +58,25 @@
   padding: 0.8rem;
 }
 
+.outfit-import-job {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #67c6ff;
+  background: #202f43;
+}
+
+.outfit-import-job > div {
+  display: grid;
+  margin-right: auto;
+}
+
+.outfit-import-job span {
+  color: #aebed2;
+  font-size: 0.75rem;
+}
+
 .outfit-mode-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -254,6 +273,9 @@
 }
 
 .outfit-canvas {
+  display: grid;
+  min-height: min(34vw, 30rem);
+  place-items: center;
   position: relative;
   overflow: hidden;
   border: 1px solid #52647d;
@@ -272,7 +294,14 @@
   image-rendering: pixelated;
 }
 
-.outfit-canvas canvas,
+.pixel-viewport__surface {
+  position: relative;
+  width: var(--pixel-surface-width);
+  height: var(--pixel-surface-height);
+  image-rendering: pixelated;
+}
+
+.outfit-canvas .pixel-viewport__surface canvas,
 .outfit-dummy-guide {
   position: absolute;
   inset: 0;
@@ -344,6 +373,8 @@
   z-index: 50;
   display: grid;
   place-items: center;
+  padding: 1rem;
+  overflow: auto;
   background: rgb(5 10 18 / 75%);
 }
 
@@ -355,6 +386,8 @@
   border-radius: 0.7rem;
   background: #182231;
   padding: 1.2rem;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
 }
 
 .outfit-dialog fieldset {
@@ -389,5 +422,14 @@
   .equipment-state-grid {
     align-items: stretch;
     flex-direction: column;
+  }
+}
+
+@media (max-height: 760px) {
+  .outfit-layout {
+    min-height: 28rem;
+  }
+  .outfit-canvas {
+    min-height: 22rem;
   }
 }

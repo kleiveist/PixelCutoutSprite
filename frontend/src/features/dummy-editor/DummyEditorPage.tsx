@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
+import { isTextEditingKeyboardTarget } from "../../components/keyboard";
+import {
+  dprSafePixelScale,
+  snapToDevicePixel,
+  useDevicePixelRatio,
+} from "../../components/PixelViewport";
 import type { Direction, PixelPoint, PixelSize } from "../../domain/common";
 import "./DummyEditorPage.css";
 import {
@@ -96,6 +102,8 @@ export function DummyEditorPage({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [saveState, setSaveState] = useState<SaveState>("clean");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const displayScale = useDevicePixelRatio();
+  const pixelScale = dprSafePixelScale(zoom, displayScale);
   const editVersion = useRef(0);
   const drag = useRef<{
     x: number;
@@ -209,7 +217,7 @@ export function DummyEditorPage({
       className="dummy-editor"
       aria-label={`Reusable motion template ${templateName}`}
       onKeyDown={(event) => {
-        if (isEditableTarget(event.target)) return;
+        if (isTextEditingKeyboardTarget(event.target)) return;
         if (!(event.ctrlKey || event.metaKey)) return;
         if (event.key.toLowerCase() === "z") {
           event.preventDefault();
@@ -335,33 +343,53 @@ export function DummyEditorPage({
           <button
             type="button"
             aria-label="Pan left"
-            onClick={() => setPan((value) => ({ ...value, x: value.x - 8 }))}
+            onClick={() =>
+              setPan((value) => ({
+                ...value,
+                x: snapToDevicePixel(value.x - 8, displayScale),
+              }))
+            }
           >
             ←
           </button>
           <button
             type="button"
             aria-label="Pan right"
-            onClick={() => setPan((value) => ({ ...value, x: value.x + 8 }))}
+            onClick={() =>
+              setPan((value) => ({
+                ...value,
+                x: snapToDevicePixel(value.x + 8, displayScale),
+              }))
+            }
           >
             →
           </button>
           <button
             type="button"
             aria-label="Pan up"
-            onClick={() => setPan((value) => ({ ...value, y: value.y - 8 }))}
+            onClick={() =>
+              setPan((value) => ({
+                ...value,
+                y: snapToDevicePixel(value.y - 8, displayScale),
+              }))
+            }
           >
             ↑
           </button>
           <button
             type="button"
             aria-label="Pan down"
-            onClick={() => setPan((value) => ({ ...value, y: value.y + 8 }))}
+            onClick={() =>
+              setPan((value) => ({
+                ...value,
+                y: snapToDevicePixel(value.y + 8, displayScale),
+              }))
+            }
           >
             ↓
           </button>
           <span>
-            {zoom}× · pan {pan.x},{pan.y}
+            {zoom}× zoom · {pixelScale.deviceScale} device px/source px · pan {pan.x},{pan.y}
           </span>
         </div>
         <div
@@ -382,7 +410,10 @@ export function DummyEditorPage({
             const deltaX = event.clientX - panDrag.current.x;
             const deltaY = event.clientY - panDrag.current.y;
             panDrag.current = { x: event.clientX, y: event.clientY };
-            setPan((value) => ({ x: value.x + deltaX, y: value.y + deltaY }));
+            setPan((value) => ({
+              x: snapToDevicePixel(value.x + deltaX, displayScale),
+              y: snapToDevicePixel(value.y + deltaY, displayScale),
+            }));
           }}
           onPointerUp={(event) => {
             if (event.button === 1) panDrag.current = null;
@@ -392,7 +423,7 @@ export function DummyEditorPage({
           }}
           style={
             {
-              "--editor-zoom": zoom,
+              "--editor-zoom": pixelScale.cssScale,
               "--pan-x": `${pan.x}px`,
               "--pan-y": `${pan.y}px`,
               "--frame-width": `${frameSize[0]}px`,
@@ -467,8 +498,8 @@ export function DummyEditorPage({
                     }}
                     onPointerMove={(event) => {
                       if (!drag.current) return;
-                      const deltaX = (event.clientX - drag.current.x) / zoom;
-                      const deltaY = (event.clientY - drag.current.y) / zoom;
+                      const deltaX = (event.clientX - drag.current.x) / pixelScale.cssScale;
+                      const deltaY = (event.clientY - drag.current.y) / pixelScale.cssScale;
                       setPreviewPose(
                         drag.current.mode === "rotate"
                           ? rotatePoseSelection(
@@ -611,10 +642,3 @@ export function DummyEditorPage({
 }
 
 const directions: Direction[] = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    Boolean(target.closest("input, textarea, select, [contenteditable='true']"))
-  );
-}

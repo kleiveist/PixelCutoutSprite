@@ -4,22 +4,48 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 import type {
   AssetImportInspection,
-  AssetInventory,
+  AssetImportJobView,
+  AssetInventoryQuery,
+  AssetInventoryItem,
+  AssetInventoryPage,
+  AssetThumbnail,
   ConfirmAssetImportRequest,
 } from "../domain/inventory";
 
 export interface AssetClient {
   chooseSources(): Promise<string[]>;
   listenForDrops(onPaths: (paths: string[]) => void): Promise<() => void>;
-  inventory(sessionId: string, areaId: string): Promise<AssetInventory>;
-  inspect(sessionId: string, areaId: string, paths: string[]): Promise<AssetImportInspection>;
-  import(sessionId: string, request: ConfirmAssetImportRequest): Promise<AssetInventory>;
+  inventory(
+    sessionId: string,
+    areaId: string,
+    cursor?: string | null,
+    limit?: number | null,
+    query?: AssetInventoryQuery | null,
+  ): Promise<AssetInventoryPage>;
+  thumbnail(
+    sessionId: string,
+    areaId: string,
+    assetId: string,
+    revision: number,
+    maxEdge?: number | null,
+  ): Promise<AssetThumbnail>;
+  inspect(
+    sessionId: string,
+    areaId: string,
+    paths: string[],
+    inspectionId?: string | null,
+  ): Promise<AssetImportInspection>;
+  cancelInspection?(sessionId: string, inspectionId: string): Promise<boolean>;
+  import(sessionId: string, request: ConfirmAssetImportRequest): Promise<AssetImportJobView>;
+  importJob(sessionId: string, jobId: string): Promise<AssetImportJobView>;
+  activeImportJobs?(sessionId: string): Promise<AssetImportJobView[]>;
+  cancelImport(sessionId: string, jobId: string): Promise<AssetImportJobView>;
   archive(
     sessionId: string,
     areaId: string,
     assetId: string,
     expectedRevision: number,
-  ): Promise<AssetInventory>;
+  ): Promise<AssetInventoryItem>;
 }
 
 export const assetClient: AssetClient = {
@@ -42,21 +68,49 @@ export const assetClient: AssetClient = {
       if (payload.type === "drop") onPaths(payload.paths);
     });
   },
-  inventory(sessionId, areaId) {
-    return invoke<AssetInventory>("get_asset_inventory", { sessionId, areaId });
+  inventory(sessionId, areaId, cursor = null, limit = 50, query = null) {
+    return invoke<AssetInventoryPage>("get_asset_inventory", {
+      sessionId,
+      areaId,
+      cursor,
+      limit,
+      query,
+    });
   },
-  inspect(sessionId, areaId, paths) {
+  thumbnail(sessionId, areaId, assetId, revision, maxEdge = 48) {
+    return invoke<AssetThumbnail>("get_asset_thumbnail", {
+      sessionId,
+      areaId,
+      assetId,
+      revision,
+      maxEdge,
+    });
+  },
+  inspect(sessionId, areaId, paths, inspectionId = null) {
     return invoke<AssetImportInspection>("inspect_asset_sources", {
       sessionId,
       areaId,
       paths,
+      inspectionId,
     });
   },
+  cancelInspection(sessionId, inspectionId) {
+    return invoke<boolean>("cancel_asset_inspection", { sessionId, inspectionId });
+  },
   import(sessionId, request) {
-    return invoke<AssetInventory>("import_asset_sources", { sessionId, request });
+    return invoke<AssetImportJobView>("import_asset_sources", { sessionId, request });
+  },
+  importJob(sessionId, jobId) {
+    return invoke<AssetImportJobView>("get_asset_import_job", { sessionId, jobId });
+  },
+  activeImportJobs(sessionId) {
+    return invoke<AssetImportJobView[]>("list_active_asset_import_jobs", { sessionId });
+  },
+  cancelImport(sessionId, jobId) {
+    return invoke<AssetImportJobView>("cancel_asset_import", { sessionId, jobId });
   },
   archive(sessionId, areaId, assetId, expectedRevision) {
-    return invoke<AssetInventory>("archive_asset", {
+    return invoke<AssetInventoryItem>("archive_asset", {
       sessionId,
       areaId,
       assetId,

@@ -36,6 +36,9 @@ struct ImageWriteOptions {
     target_pivot: Option<PixelPoint>,
 }
 
+type ResolvedImportContext<'a> = (ObjectId, &'a InspectedPackage, &'a [ResolvedImport]);
+type PackageImportControl<'a, C, P> = (&'a [ImportAssignment], &'a C, &'a mut P);
+
 #[derive(Debug)]
 pub struct ImportedAsset {
     pub asset: Asset,
@@ -52,6 +55,8 @@ pub enum AssetRepositoryError {
     Image { path: String, message: String },
     #[error("asset manifest does not contain the expected asset")]
     UnexpectedManifest,
+    #[error("asset import was cancelled before its transaction was committed")]
+    Cancelled,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -108,13 +113,54 @@ impl AssetRepository {
                 })
             })
             .collect::<Result<Vec<_>, AssetImportError>>()?;
-        self.import_resolved(
+        let is_cancelled = || false;
+        let mut progress = |_: usize, _: usize| {};
+        self.import_resolved_controlled(
             vault,
             area_path,
-            area_id,
-            inspected,
-            &resolved,
+            (area_id, inspected, &resolved),
             transactions,
+            (&is_cancelled, &mut progress),
+        )
+    }
+
+    #[doc(hidden)]
+    pub fn import_package_controlled<C, P>(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        area_id: ObjectId,
+        inspected: &InspectedPackage,
+        control: PackageImportControl<'_, C, P>,
+    ) -> Result<Vec<ImportedAsset>, AssetRepositoryError>
+    where
+        C: Fn() -> bool,
+        P: FnMut(usize, usize),
+    {
+        let (assignments, is_cancelled, progress) = control;
+        let resolved = inspected
+            .entries
+            .iter()
+            .map(|source| {
+                let (slot_id, direction) =
+                    resolve_assignment(inspected, source.entry_index, assignments)?;
+                Ok(ResolvedImport {
+                    entry_index: source.entry_index,
+                    slot_id,
+                    direction,
+                    size_handling: SizeHandling::KeepOriginal,
+                    target_size: None,
+                    target_pivot: None,
+                })
+            })
+            .collect::<Result<Vec<_>, AssetImportError>>()?;
+        let transactions = TransactionService::default();
+        self.import_resolved_controlled(
+            vault,
+            area_path,
+            (area_id, inspected, &resolved),
+            &transactions,
+            (is_cancelled, progress),
         )
     }
 
@@ -154,65 +200,65 @@ impl AssetRepository {
         F: TransactionFault,
     {
         let (decisions, profile) = configuration;
-        if inspected.package.profile_ref != profile.reference() || profile.area_id != area_id {
-            return Err(AssetRepositoryError::Import(
-                AssetImportError::InvalidPackage(
-                    "package profile does not match the selected area profile".to_owned(),
-                ),
-            ));
-        }
-        let mut resolved = Vec::with_capacity(inspected.entries.len());
-        for source in &inspected.entries {
-            let decision = decisions
-                .iter()
-                .find(|candidate| candidate.entry_index == source.entry_index);
-            let (slot_id, direction) = match decision {
-                Some(value) => (value.slot_id.clone(), value.direction),
-                None => resolve_assignment(inspected, source.entry_index, &[])?,
-            };
-            let slot = profile
-                .slots
-                .iter()
-                .find(|candidate| candidate.id == slot_id)
-                .ok_or_else(|| {
-                    AssetRepositoryError::Import(AssetImportError::InvalidEntry {
-                        entry: source.entry_index,
-                        message: "slot does not exist in the selected profile".to_owned(),
-                    })
-                })?;
-            resolved.push(ResolvedImport {
-                entry_index: source.entry_index,
-                slot_id,
-                direction,
-                size_handling: decision
-                    .map(|value| value.size_handling)
-                    .unwrap_or_default(),
-                target_size: Some(slot.size_px),
-                target_pivot: Some(slot.pivot_px),
-            });
-        }
-        self.import_resolved(
+        let resolved = resolve_configured(inspected, area_id, decisions, profile)?;
+        let is_cancelled = || false;
+        let mut progress = |_: usize, _: usize| {};
+        self.import_resolved_controlled(
             vault,
             area_path,
-            area_id,
-            inspected,
-            &resolved,
+            (area_id, inspected, &resolved),
             transactions,
+            (&is_cancelled, &mut progress),
         )
     }
 
-    fn import_resolved<F>(
+    /// Stages a configured import with cooperative cancellation. Cancellation is honored only
+    /// before the durable transaction journal is prepared; after that point execution completes
+    /// so the vault never observes a deliberately abandoned prepared transaction.
+    pub fn import_configured_package_controlled<C, P>(
         &self,
         vault: &VaultRoot,
         area_path: &Path,
         area_id: ObjectId,
         inspected: &InspectedPackage,
-        resolved: &[ResolvedImport],
+        configuration: (&[ImportDecision], &ProfileRevision),
+        control: (&C, &mut P),
+    ) -> Result<Vec<ImportedAsset>, AssetRepositoryError>
+    where
+        C: Fn() -> bool,
+        P: FnMut(usize, usize),
+    {
+        let (decisions, profile) = configuration;
+        let (is_cancelled, progress) = control;
+        let resolved = resolve_configured(inspected, area_id, decisions, profile)?;
+        let transactions = TransactionService::default();
+        self.import_resolved_controlled(
+            vault,
+            area_path,
+            (area_id, inspected, &resolved),
+            &transactions,
+            (is_cancelled, progress),
+        )
+    }
+
+    fn import_resolved_controlled<F, C, P>(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        import: ResolvedImportContext<'_>,
         transactions: &TransactionService<F>,
+        control: (&C, &mut P),
     ) -> Result<Vec<ImportedAsset>, AssetRepositoryError>
     where
         F: TransactionFault,
+        C: Fn() -> bool,
+        P: FnMut(usize, usize),
     {
+        let (area_id, inspected, resolved) = import;
+        let (is_cancelled, progress) = control;
+        if is_cancelled() {
+            return Err(AssetRepositoryError::Cancelled);
+        }
         let timestamp =
             UtcTimestamp::parse(&Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
                 .map_err(StorageError::InvalidDocument)?;
@@ -229,7 +275,10 @@ impl AssetRepository {
         let mut imported = Vec::with_capacity(inspected.entries.len());
         let staged_result = (|| {
             let mut steps = Vec::with_capacity(inspected.entries.len());
-            for source in &inspected.entries {
+            for (position, source) in inspected.entries.iter().enumerate() {
+                if is_cancelled() {
+                    return Err(AssetRepositoryError::Cancelled);
+                }
                 let entry = &inspected.package.entries[source.entry_index];
                 let selection = resolved
                     .iter()
@@ -311,6 +360,7 @@ impl AssetRepository {
                     expected_sha256: None,
                 });
                 imported.push(ImportedAsset { asset, revision });
+                progress(position + 1, inspected.entries.len());
             }
             Ok::<_, AssetRepositoryError>(steps)
         })();
@@ -321,6 +371,10 @@ impl AssetRepository {
                 return Err(error);
             }
         };
+        if is_cancelled() {
+            let _ = fs::remove_dir_all(vault.resolve(&stage_root)?.as_path());
+            return Err(AssetRepositoryError::Cancelled);
+        }
         if let Err(error) = transactions.prepare(
             vault,
             project_path,
@@ -471,6 +525,52 @@ impl AssetRepository {
     }
 }
 
+fn resolve_configured(
+    inspected: &InspectedPackage,
+    area_id: ObjectId,
+    decisions: &[ImportDecision],
+    profile: &ProfileRevision,
+) -> Result<Vec<ResolvedImport>, AssetRepositoryError> {
+    if inspected.package.profile_ref != profile.reference() || profile.area_id != area_id {
+        return Err(AssetRepositoryError::Import(
+            AssetImportError::InvalidPackage(
+                "package profile does not match the selected area profile".to_owned(),
+            ),
+        ));
+    }
+    let mut resolved = Vec::with_capacity(inspected.entries.len());
+    for source in &inspected.entries {
+        let decision = decisions
+            .iter()
+            .find(|candidate| candidate.entry_index == source.entry_index);
+        let (slot_id, direction) = match decision {
+            Some(value) => (value.slot_id.clone(), value.direction),
+            None => resolve_assignment(inspected, source.entry_index, &[])?,
+        };
+        let slot = profile
+            .slots
+            .iter()
+            .find(|candidate| candidate.id == slot_id)
+            .ok_or_else(|| {
+                AssetRepositoryError::Import(AssetImportError::InvalidEntry {
+                    entry: source.entry_index,
+                    message: "slot does not exist in the selected profile".to_owned(),
+                })
+            })?;
+        resolved.push(ResolvedImport {
+            entry_index: source.entry_index,
+            slot_id,
+            direction,
+            size_handling: decision
+                .map(|value| value.size_handling)
+                .unwrap_or_default(),
+            target_size: Some(slot.size_px),
+            target_pivot: Some(slot.pivot_px),
+        });
+    }
+    Ok(resolved)
+}
+
 pub fn asset_usage_count(catalog: &DomainCatalog, asset_id: ObjectId) -> usize {
     let appearance_uses = catalog
         .appearances
@@ -550,8 +650,26 @@ fn piece_uses_asset(
         })
 }
 
-fn copy_image(source: &Path, destination: &Path) -> Result<(), AssetRepositoryError> {
-    fs::copy(source, destination).map_err(|error| AssetRepositoryError::Image {
+fn verified_source_bytes(source: &InspectedEntry) -> Result<Vec<u8>, AssetRepositoryError> {
+    let bytes = fs::read(&source.source_path).map_err(|error| AssetRepositoryError::Image {
+        path: source.source_path.display().to_string(),
+        message: error.to_string(),
+    })?;
+    let actual = Sha256Digest::parse(format!("{:x}", Sha256::digest(&bytes)))
+        .expect("SHA-256 formatter is valid");
+    if actual != source.content_hash {
+        return Err(AssetRepositoryError::Import(
+            AssetImportError::InvalidEntry {
+                entry: source.entry_index,
+                message: "source PNG changed after inspection; inspect it again".to_owned(),
+            },
+        ));
+    }
+    Ok(bytes)
+}
+
+fn write_image_bytes(bytes: &[u8], destination: &Path) -> Result<(), AssetRepositoryError> {
+    fs::write(destination, bytes).map_err(|error| AssetRepositoryError::Image {
         path: destination.display().to_string(),
         message: error.to_string(),
     })?;
@@ -567,15 +685,18 @@ fn write_revision_images(
     entry: &PackageEntry,
     options: ImageWriteOptions,
 ) -> Result<(RelativePath, PixelSize, PixelPoint, Sha256Digest), AssetRepositoryError> {
+    // Re-read and hash immediately before staging. This closes the review/decode-to-copy
+    // interval without ever trusting a mutable source path for the committed bytes.
+    let source_bytes = verified_source_bytes(source)?;
     vault.ensure_directory(revision_dir)?;
     let original = vault.resolve(&revision_dir.join("original.png"))?;
-    copy_image(&source.source_path, original.as_path())?;
+    write_image_bytes(&source_bytes, original.as_path())?;
     let rendered = vault.resolve(&revision_dir.join("source.png"))?;
     let cropped = cropped_source(source, entry);
     let original_size = PixelSize(cropped.width() as u16, cropped.height() as u16);
     let (image_size_px, pivot_px) = match options.handling {
         SizeHandling::KeepOriginal if entry.sheet_rect_px.is_none() => {
-            copy_image(&source.source_path, rendered.as_path())?;
+            write_image_bytes(&source_bytes, rendered.as_path())?;
             (original_size, entry.pivot_px)
         }
         SizeHandling::KeepOriginal => {

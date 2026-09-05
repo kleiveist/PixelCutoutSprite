@@ -1,10 +1,12 @@
-import { SingleSelectFilter } from "../../components/DropdownFilter";
+import { MultiSelectFilter, SingleSelectFilter } from "../../components/DropdownFilter";
 import type { MotionFilters as MotionFiltersValue } from "../../domain/animations";
-import type { Direction } from "../../domain/common";
+import type { Direction, RevisionRef } from "../../domain/common";
 
 interface MotionFiltersProps {
   value: MotionFiltersValue;
-  profileIds: readonly string[];
+  profiles: readonly RevisionRef[];
+  actionKeys: readonly string[];
+  labels: readonly { id: string; name: string }[];
   onChange: (value: MotionFiltersValue) => void;
 }
 
@@ -16,7 +18,13 @@ const directions: readonly { value: "any" | Direction; label: string }[] = [
   })),
 ];
 
-export function MotionFilters({ value, profileIds, onChange }: MotionFiltersProps) {
+export function MotionFilters({
+  value,
+  profiles,
+  actionKeys,
+  labels,
+  onChange,
+}: MotionFiltersProps) {
   const set = <K extends keyof MotionFiltersValue>(key: K, next: MotionFiltersValue[K]) =>
     onChange({ ...value, [key]: next });
   return (
@@ -30,10 +38,30 @@ export function MotionFilters({ value, profileIds, onChange }: MotionFiltersProp
         />
       </label>
       <SingleSelectFilter
+        label="Movement / action"
+        value={value.action}
+        options={[
+          { value: "any", label: "Any movement / action" },
+          ...actionKeys.map((action) => ({ value: action, label: action })),
+        ]}
+        onChange={(next) => set("action", next)}
+      />
+      <SingleSelectFilter
         label="Direction"
         value={value.direction}
         options={directions}
         onChange={(next) => set("direction", next)}
+      />
+      <SingleSelectFilter
+        label="Direction coverage"
+        value={value.directionCoverage}
+        options={[
+          { value: "any", label: "Any coverage" },
+          { value: "complete", label: "All eight directions" },
+          { value: "partial", label: "Some directions" },
+          { value: "missing", label: "No directions" },
+        ]}
+        onChange={(next) => set("directionCoverage", next)}
       />
       <SingleSelectFilter
         label="Status"
@@ -48,13 +76,31 @@ export function MotionFilters({ value, profileIds, onChange }: MotionFiltersProp
         onChange={(next) => set("status", next)}
       />
       <SingleSelectFilter
-        label="Profile"
+        label="Profile revision"
         value={value.profile}
         options={[
-          { value: "any", label: "Any profile" },
-          ...profileIds.map((id, index) => ({ value: id, label: `Profile ${index + 1}` })),
+          { value: "any", label: "Any profile revision" },
+          ...profiles.map((profile) => ({
+            value: `${profile.id}@${profile.revision}`,
+            label: `${profile.id.slice(0, 8)} · r${profile.revision}`,
+          })),
         ]}
         onChange={(next) => set("profile", next)}
+      />
+      <MultiSelectFilter
+        label="Labels"
+        values={value.labelIds}
+        options={labels.map((label) => ({ value: label.id, label: label.name }))}
+        onChange={(next) => set("labelIds", next)}
+      />
+      <SingleSelectFilter
+        label="Label match"
+        value={value.labelMatch}
+        options={[
+          { value: "any", label: "At least one selected" },
+          { value: "all", label: "All selected" },
+        ]}
+        onChange={(next) => set("labelMatch", next)}
       />
       <SingleSelectFilter
         label="Sort"

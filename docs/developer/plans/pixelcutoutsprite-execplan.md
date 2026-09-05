@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P18 abgeschlossen; P19 ist der nächste Schritt
+**Implementierung:** P00–P19 abgeschlossen; P20 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -170,6 +170,16 @@ Outfit-Editor serialisieren Autosaves, bewahren Fehlerstände und Recovery-Kopie
 Navigation während ungesicherter oder laufender Mutationen. Schema-v0-Fixtures migrieren mit
 projektlokalem Backup; Zukunftsschemata und fremde, nicht verankerte Bäume bleiben unangetastet.
 
+P19 schließt die Linux-Desktopprüfung mit realen 1280×720- und 1440×900-WebView-Läufen bei DPR 2,
+AT-SPI-Aktionen/Fokus, DOM-geprüfter Tastaturbedienung und einem Offline-Lauf im isolierten
+Netznamespace ab. Gemeinsame Modalregeln, vollständige strukturierte Dropdownbedingungen,
+scrollbare Mindesthöhen und physisch ganzzahlige Pixelansichten beseitigen die gefundenen
+Bedienengpässe. Inventar-Metadaten sind seitenweise und von sichtbarkeitsgeladenen 48-px-
+Thumbnails getrennt; Import läuft als begrenzter abbrechbarer Job. Der gemeinsame Vorschau- und
+Quellbild-LRU zählt seine Payloads gegen 256 MiB und wird beim Vault-Schließen geleert.
+Hardwarebezogene Raster-, Export-, Öffnungs-, Inventar- und Importwerte sowie alle Einschränkungen
+stehen in der [P19-Desktop-Abnahme](../acceptance/desktop-usability-and-performance.md).
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -201,7 +211,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P16](../prompts/pixelcutoutsprite/16.md) | Generischer PNG-/JSON-Export | Abgeschlossen |
 | [P17](../prompts/pixelcutoutsprite/17.md) | Portables Godot-Paket und echter Importtest | Abgeschlossen |
 | [P18](../prompts/pixelcutoutsprite/18.md) | Recovery, Autosave und Datenintegrität härten | Abgeschlossen |
-| [P19](../prompts/pixelcutoutsprite/19.md) | Desktop-Usability und Leistung prüfen | Nicht begonnen |
+| [P19](../prompts/pixelcutoutsprite/19.md) | Desktop-Usability und Leistung prüfen | Abgeschlossen |
 | [P20](../prompts/pixelcutoutsprite/20.md) | Native Builds, Tooling und Codespaces | Nicht begonnen |
 | [P21](../prompts/pixelcutoutsprite/21.md) | Anleitung und nachvollziehbare Beispiel-Vault | Nicht begonnen |
 | [P22](../prompts/pixelcutoutsprite/22.md) | Gesamtabnahme und überprüfbarer Abschluss | Nicht begonnen |
@@ -233,6 +243,9 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P18: Recovery-UI, idempotente Resume-/Rollback-Journale, OS-Writer-Lock, CAS-Autosaves,
   Migrationen, Scope-/Eigentumsschutz und echte Unterbrechungstests über Bearbeitung, Import,
   Freigabe, Trash und Export erstellt und gegatet.
+- [x] P19: Desktop-Layout und DPI-Pixelpfad, Modal-/Tastaturbedienung, vollständige Dropdowns,
+  seitenweises Inventar, sichtbarkeitsgeladene Thumbnails, begrenzten gemeinsamen Bildcache,
+  abbrechbare Importjobs sowie Linux-/Offline-/Leistungsmessungen erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
 - [x] Meilenstein C: Figuren, P12–P15.
@@ -463,6 +476,21 @@ Stages und Backups der Projektdateien müssen trotzdem unter dem jeweiligen `.pr
 liegen. Dadurch bleibt `.pixelforge-studio` global-only, ohne eine halb entfernte Labelreferenz zu
 riskieren.
 
+**2026-09-05 / P19:** Ein global synthetisch injiziertes Tab-Ereignis ist unter der geprüften
+Wayland-/AT-SPI-Sitzung kein belastbarer Ende-zu-Ende-Nachweis. Der native Befund wird deshalb auf
+tatsächlich beobachtete AT-SPI-Aktionen, Namen, Flächen und Fokus begrenzt. Fokusfalle,
+Rückgabefokus, Escape, Shortcuts und Texteingabeschutz bleiben vollständig durch DOM-Tests belegt;
+ein globaler Tab-Lauf wird nicht erfunden.
+
+**2026-09-05 / P19:** Desktop-DPI und Pixelart-Skalierung brauchen getrennte Koordinatensysteme.
+Der native Linux-Lauf belegt DPR 2; DPR 1,25 belegt nur die reine Geometrie für ganzzahlige
+physische Pixel. Ohne einen zweiten nativen Lauf wäre eine weitergehende 125-%-Aussage falsch.
+
+**2026-09-05 / P19:** 1000 eingebettete Data-URL-Thumbnails würden den IPC- und React-Bestand
+unnötig aufblasen. Cursor-seitige Metadaten, getrennte hashgeprüfte 48-px-Thumbnails, sichtbare
+Anforderung und gemeinsam gezählte `Arc`-Bitmaps halten Übersicht und Vorschau begrenzt, ohne die
+RGBA-Golden-Semantik des Referenzcompositors zu verändern.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -488,6 +516,7 @@ riskieren.
 | ADR-020 | Generische Builds werden in einem inhaltsadressierten, verwalteten NPC-/Binding-Ziel veröffentlicht; nur ein validiertes `current.json` bezeichnet den aktuellen Stand. | Verhindert beliebige IPC-Schreibpfade, verwaiste Build-Auswahl und die Beschädigung des letzten guten Exports durch Abbruch oder einen fehlerhaften neuen Build. |
 | ADR-021 | Ein Godot-Job baut zuerst den unveränderlichen generischen Build und das vollständige abgeleitete Paket; erst danach darf derselbe Job `current.json` publizieren. | Ein fehlgeschlagenes oder abgebrochenes Engine-Paket darf keinen nur teilweise erfolgreichen Gesamtzustand als aktuell markieren; sichere inhaltsadressierte Orphans bleiben wiederverwendbar. |
 | ADR-022 | Mehrdatei-Mutationen verwenden einen eigentumsgeprüften, digest-versiegelten Journalplan; Writer-Exklusivität kommt aus einer OS-Dateisperre, nicht aus Alter oder Existenz der JSON-Metadaten. | Verhindert falsche Atomaritätszusagen, stille Übernahme aktiver Vaults und unprüfbare Recovery nach einem Rename-vor-Cursor-Crashfenster. |
+| ADR-023 | Große Inventare liefern cursorbasierte Metadatenseiten und getrennte sichtbarkeitsgeladene Thumbnails; Vorschau und Quellbitmaps teilen einen exakt gezählten 256-MiB-LRU, Importjobs besitzen harte Mengen-/Bytebudgets und einen nativen Abbruchzustand. | Verhindert unbegrenzte IPC-/React-Payloads und gleichzeitig dekodierte Bilder, ohne einen zweiten Rasterer oder eine neue Beschleunigungsabhängigkeit einzuführen. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -581,6 +610,11 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P18 | `cargo test --all-targets --locked`, `cargo check`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 212 Tests, 1 vorgesehener Godot-Test ignoriert, alle Compiler-/Formatgates | Sealed Plan-/Ergebnisdigests, idempotente Reconciliation, Scope-/Owner-Tampering, CAS, belegte Ziele, exakte Migrationsbackups, Zukunftsschema, fremde Bäume, Projektanlage-vor-Journal, Trash, Cache-Neuaufbau und verschobener kopierter Vault bleiben gemeinsam grün. |
 | 2026-09-05 / P18 | `npm test -- --run`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 150 Tests in 36 Dateien und alle Frontend-Gates | Exklusive Recovery-Ansicht, Opaque-ID-Aktionen, Orphan-Bestätigung, Live-Barriere, Recovery-Kopien, serialisierte Motion-/Outfit-Autosaves, Konflikt-Reload, Undo/Redo, Navigations-/Window-Gates und Freigabe-Blocking sind abgedeckt; der Build umfasst 112 Module. |
 | 2026-09-05 / P18 | `integrate --full-fix`, `integrate --check --json`, `docs check` und `quality architecture --format json` | Linux-Host, Python 3.13.15 | PASS | Das Desktopprofil ist ohne offene Operation integriert, die Navigation für 90 Dokumentseiten ist konsistent und die TypeScript-AST-Prüfung parst 132 Dateien. Das bekannte vollständige `quality`-Toolingproblem mit dem Scan von `.tooling-state` sowie historischen Formatterbefunden bleibt wie geplant Gegenstand von P20; die direkten Produktgates sind grün. |
+| 2026-09-05 / P19 | reale native Desktop-/AT-SPI-Durchläufe bei 1280×720 und 1440×900 sowie Offline-Wiederholung | Ryzen 7 3700X, 62 GiB, RX-9070-Klasse, KDE Wayland, DPR 2; `unshare`-Netznamespace nur mit Loopback | PASS im belegten Linux-Umfang | Pflichtaktionen und Status bleiben sichtbar, benannte AT-SPI-Aktionen/Fokus funktionieren und der lokale Kernworkflow benötigt kein Netzwerk. DPR 1,25 ist nur mathematisch getestet; globale synthetische Tab-Reihenfolge und Windows/macOS werden nicht behauptet. Der opt-in Frame-Probe fehlt im Default-Build. |
+| 2026-09-05 / P19 | `performance_acceptance` explizit als Rust-Release-Hardwarelauf | gleiches Referenzgerät | PASS | 128×128/20 Teile, 360 kalte Raster: p50 0,037 ms, p95 0,052 ms, max 0,322 ms; 360 warme Cachezugriffe: p50/p95 0,000 ms, max 0,001 ms; sieben vollständige 192-Frame-Exporte: p50 95,383 ms, p95/max 96,193 ms. Keine daraus abgeleitete FPS-Zusage. |
+| 2026-09-05 / P19 | `asset_scalability` mit 100 Projekten/1000 Assets explizit als Rust-Release-Hardwarelauf | gleiches Referenzgerät | PASS | Öffnen p50/p95 143,601/145,254 ms; zehn Inventarseiten 125,463/129,413 ms; 48-px-Thumbnails 5,315/5,668 ms; Viererimport 6,995/8,800 ms; Import plus Reopen/Index 155,080/180,829 ms; Abbruch 4,260/4,404 ms. |
+| 2026-09-05 / P19 | `cargo test --all-targets --locked` | Linux-Host, Rust 1.97.1 | PASS: 225 Tests, 4 vorgesehene Sonderläufe ignoriert | Zwei Hardwaremessungen, der gehaltene native Walkthrough-Fixturegenerator und der echte Godot-Test bleiben explizit separat; Cache-/Bytebudgets, Pagination, Jobabbruch, Pixel-Goldens und alle früheren Rust-Verträge sind in der normalen Suite grün. |
+| 2026-09-05 / P19 | `npm test -- --run`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 161 Tests in 40 Dateien und alle Frontend-Gates | Modalfokus, Shortcut-/Texteingabeschutz, Dropdownmodelle, Mindestlayout, Reduced Motion, DPR-Geometrie, Metadatenseiten, sichtbare Thumbnails sowie Importfortschritt/-abbruch sind abgedeckt. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -590,8 +624,9 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P19 für Desktop-Usability, repräsentative Last- und
-Speicherprofile sowie nachvollziehbare native Bediennachweise ausführen.
+**Nächster ausführbarer Schritt:** P20 für native Windows-/Linux-/macOS-Buildartefakte,
+Tooling-/CI-Integration, Plattform-Smokes sowie ehrlich dokumentierte Signierungs- und
+Codespaces-Grenzen ausführen.
 
 ## Outcomes & Retrospective
 
@@ -656,5 +691,10 @@ Resume-/Rollback-Aktionen an und hält fehlerhafte Editorstände als explizite R
 Produktionsproducer, ein konkurrierender Kindprozess, Migrations- und Zukunftsschemafixtures,
 projektlokale Sicherungen und ein an einen neuen Pfad kopierter Vault belegen die Grenze. Native
 Windows-/macOS-Dateisystemsemantik bleibt bewusst Bestandteil von P20.
+P19 belegt die vollständige Linux-Desktopbedienung in beiden Zielgrößen, trennt native
+AT-SPI-Evidenz sauber von DOM-Tastaturtests und hält die Pixeloberfläche bei DPR 2 auf dem
+physischen Raster. Repräsentative Release-Messungen, cursorbasierte 1000-Asset-Inventare,
+sichtbarkeitsgeladene Thumbnails, native Importabbrüche und ein gemeinsamer 256-MiB-LRU schließen
+die Performance- und Speicherziele ohne geänderte Golden-Pixel oder neue Beschleunigungsabhängigkeit.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

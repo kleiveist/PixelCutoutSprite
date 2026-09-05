@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import type { MotionCard, MotionOpenTarget } from "../../domain/animations";
 
 interface MotionCardViewProps {
+  labelNames?: Readonly<Record<string, string>>;
   motion: MotionCard;
   disabled: boolean;
   busy?: boolean;
@@ -17,6 +18,7 @@ interface MotionCardViewProps {
 }
 
 export function MotionCardView({
+  labelNames = {},
   motion,
   disabled,
   busy = false,
@@ -62,7 +64,7 @@ export function MotionCardView({
               ? "No labels"
               : motion.label_ids.map((labelId) => (
                   <span key={labelId} title={labelId}>
-                    #{labelId.slice(0, 8)}
+                    #{labelNames[labelId] ?? `Label ${labelId.slice(0, 8)}`}
                   </span>
                 ))}
           </span>

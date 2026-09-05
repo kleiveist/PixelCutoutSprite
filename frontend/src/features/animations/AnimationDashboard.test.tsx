@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { MotionClient } from "../../api/motion-client";
@@ -40,11 +40,18 @@ const dashboard: MotionDashboardData = {
   area_id: released.area_id,
   motions: [released, draft],
   profiles: [released.profile_ref],
+  labels: [
+    {
+      id: "88888888-8888-4888-8888-888888888888",
+      name: "Locomotion",
+      color: "#55aa77",
+    },
+  ],
   writable: true,
 };
 const selectedCharacterId = "99999999-9999-4999-8999-999999999999";
 
-function mockClient(): MotionClient {
+function mockClient(overrides: Partial<MotionClient> = {}): MotionClient {
   return {
     dashboard: vi.fn(async () => dashboard),
     create: vi.fn(async (_session, request) => ({
@@ -95,6 +102,7 @@ function mockClient(): MotionClient {
         "77777777-7777-4777-8777-777777777777",
       ],
     })),
+    ...overrides,
   };
 }
 
@@ -118,7 +126,7 @@ describe("AnimationDashboard", () => {
     await screen.findByRole("heading", { name: "Animations" });
     fireEvent.click(screen.getByRole("button", { name: "NPCs" }));
     expect(onOpenNpcs).toHaveBeenCalledTimes(1);
-    expect(screen.getByLabelText("Village walk labels")).toHaveTextContent("#88888888");
+    expect(screen.getByLabelText("Village walk labels")).toHaveTextContent("#Locomotion");
     fireEvent.click(screen.getByText("Village walk").closest("button")!);
     await waitFor(() =>
       expect(onOpen).toHaveBeenCalledWith(
@@ -150,14 +158,28 @@ describe("AnimationDashboard", () => {
       />,
     );
     await screen.findByText("Village walk");
-    for (const name of ["Direction", "Status", "Profile", "Sort"]) {
+    for (const name of [
+      "Movement / action",
+      "Direction",
+      "Direction coverage",
+      "Status",
+      "Profile revision",
+      "Label match",
+      "Sort",
+    ]) {
       expect(screen.getByRole("combobox", { name })).toBeInTheDocument();
     }
+    expect(screen.getByRole("button", { name: /Labels Any/ })).toHaveAttribute(
+      "aria-haspopup",
+      "listbox",
+    );
     fireEvent.change(screen.getByRole("combobox", { name: "Status" }), {
       target: { value: "draft" },
     });
     expect(screen.getByText("Jump")).toBeInTheDocument();
     expect(screen.queryByText("Village walk")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
+    expect(screen.getByText("Village walk")).toBeInTheDocument();
     const actions = screen.getByRole("group", { name: "Actions for Jump" });
     fireEvent.click(within(actions).getByRole("button", { name: "Duplicate" }));
     await waitFor(() => expect(client.duplicate).toHaveBeenCalledWith("session", draft.id));
@@ -189,6 +211,39 @@ describe("AnimationDashboard", () => {
       expect.objectContaining({ preset_kind: "walk" }),
     );
     expect(onOpen).toHaveBeenCalledWith({ kind: "dummy_editor", template_id: draft.id });
+  });
+
+  it("keeps the create dialog open while creation is in flight", async () => {
+    let finishCreate: ((motion: MotionCard) => void) | undefined;
+    const client = mockClient({
+      create: vi.fn(
+        () =>
+          new Promise<MotionCard>((resolve) => {
+            finishCreate = resolve;
+          }),
+      ),
+    });
+    render(
+      <AnimationDashboard
+        sessionId="session"
+        areaId={released.area_id}
+        defaultFrameSize={[128, 128]}
+        defaultGroundOrigin={[64, 108]}
+        client={client}
+        onOpen={vi.fn()}
+      />,
+    );
+    await screen.findByRole("heading", { name: "Animations" });
+    fireEvent.click(screen.getByRole("button", { name: "New animation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create and open dummy" }));
+    const dialog = screen.getByRole("dialog", { name: "Create animation" });
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await act(async () => finishCreate?.(draft));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Create animation" })).toBeNull(),
+    );
   });
 
   it("checks all direction coverage before creating an immutable release", async () => {
@@ -241,6 +296,9 @@ describe("AnimationDashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Release immutable revision" }));
 
     await waitFor(() => expect(client.publish).toHaveBeenCalledWith("session", draft.id));
+    const releaseDialog = screen.getByRole("dialog", { name: "Release Jump?" });
+    fireEvent.keyDown(releaseDialog, { key: "Escape" });
+    expect(releaseDialog).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "NPCs" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "New animation" })).toBeDisabled();
     expect(within(actions).getByRole("button", { name: "Edit Jump dummy" })).toBeDisabled();
@@ -287,5 +345,37 @@ describe("AnimationDashboard", () => {
     expect(screen.getByRole("button", { name: "Release immutable revision" })).toBeDisabled();
     expect(screen.getByRole("alert")).toHaveTextContent("resolve every direction");
     expect(client.publish).not.toHaveBeenCalled();
+  });
+
+  it("keeps the remove dialog locked while the native removal is in flight", async () => {
+    let finishRemove: (() => void) | undefined;
+    const client = mockClient({
+      remove: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishRemove = resolve;
+          }),
+      ),
+    });
+    render(
+      <AnimationDashboard
+        sessionId="session"
+        areaId={released.area_id}
+        defaultFrameSize={[128, 128]}
+        defaultGroundOrigin={[64, 108]}
+        client={client}
+        onOpen={vi.fn()}
+      />,
+    );
+    await screen.findByText("Jump");
+    const actions = screen.getByRole("group", { name: "Actions for Jump" });
+    fireEvent.click(within(actions).getByRole("button", { name: "Remove…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move to trash" }));
+    const dialog = screen.getByRole("dialog", { name: "Remove Jump?" });
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Moving…" })).toBeDisabled();
+    await act(async () => finishRemove?.());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Remove Jump?" })).toBeNull());
   });
 });

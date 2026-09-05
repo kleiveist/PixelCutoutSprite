@@ -16,6 +16,7 @@ import {
 import { AppHeader } from "../components/AppHeader";
 import { Breadcrumbs } from "../components/Breadcrumbs";
 import { DialogLayer } from "../components/DialogLayer";
+import { NativeAcceptanceProbe } from "../components/NativeAcceptanceProbe";
 import { PlaceholderView } from "../components/PlaceholderView";
 import { StatusBar } from "../components/StatusBar";
 import { WorkspaceNav } from "../components/WorkspaceNav";
@@ -23,6 +24,7 @@ import type { ProjectCard } from "../domain/projects";
 import type { AreaCard } from "../domain/areas";
 import type { MotionOpenTarget } from "../domain/animations";
 import type { RevisionRef } from "../domain/common";
+import type { AssetImportJobView } from "../domain/inventory";
 import { AnimationDashboard } from "../features/animations/AnimationDashboard";
 import { MotionDummyEditorRoute } from "../features/dummy-editor/MotionDummyEditorRoute";
 import { ExportWorkspace } from "../features/export";
@@ -79,6 +81,8 @@ export function App({
   const [npcMutationInFlight, setNpcMutationInFlight] = useState(false);
   const [releaseRunning, setReleaseRunning] = useState(false);
   const [exportRunning, setExportRunning] = useState(false);
+  const [assetImportJob, setAssetImportJob] = useState<AssetImportJobView | null>(null);
+  const [assetImportCancelling, setAssetImportCancelling] = useState(false);
   const [editorRecoveryCopy, setEditorRecoveryCopy] = useState<EditorRecoveryCopy | null>(null);
   const mainContent = useRef<HTMLElement>(null);
   const initialRoute = useRef(true);
@@ -86,6 +90,7 @@ export function App({
   const npcRecoveryCopy = useRef<EditorRecoveryCopy | null>(null);
   const vaultRef = useRef<OpenVault | null>(null);
   const recoveryRefreshInFlight = useRef<Promise<void> | null>(null);
+  const handledImportTerminal = useRef<string | null>(null);
   vaultRef.current = vault;
 
   const handleNativeRejection = useCallback(
@@ -262,6 +267,85 @@ export function App({
     [sessionId, vaultApi],
   );
 
+  const trackAssetImport = useCallback((job: AssetImportJobView): void => {
+    if (vaultRef.current?.session_id === job.session_id) setAssetImportJob(job);
+  }, []);
+
+  useEffect(() => {
+    setAssetImportJob(null);
+    handledImportTerminal.current = null;
+    if (!sessionId || typeof observedAssetsApi.activeImportJobs !== "function") return;
+    let disposed = false;
+    let retryTimer = 0;
+    const attach = (): void => {
+      void observedAssetsApi.activeImportJobs!(sessionId)
+        .then((jobs) => {
+          if (disposed || vaultRef.current?.session_id !== sessionId) return;
+          const attached = jobs.find(isActiveAssetImport) ?? null;
+          setAssetImportJob((current) =>
+            current?.session_id === sessionId && isActiveAssetImport(current) ? current : attached,
+          );
+        })
+        .catch(() => {
+          if (disposed) return;
+          // Opening a vault may race native startup; keep unrelated recovery/heartbeat status
+          // authoritative while the session-level import attachment retries quietly.
+          retryTimer = window.setTimeout(attach, 1_000);
+        });
+    };
+    attach();
+    return () => {
+      disposed = true;
+      window.clearTimeout(retryTimer);
+    };
+  }, [observedAssetsApi, sessionId]);
+
+  useEffect(() => {
+    if (!sessionId || !assetImportJob || !isActiveAssetImport(assetImportJob)) return;
+    let disposed = false;
+    let retryTimer = 0;
+    const poll = (): void => {
+      retryTimer = window.setTimeout(() => {
+        void observedAssetsApi
+          .importJob(sessionId, assetImportJob.job_id)
+          .then((job) => {
+            if (!disposed && vaultRef.current?.session_id === sessionId) {
+              setAssetImportJob(job);
+            }
+          })
+          .catch((reason: unknown) => {
+            if (disposed) return;
+            setStatus(`Import progress temporarily unavailable; retrying · ${message(reason)}`);
+            poll();
+          });
+      }, 250);
+    };
+    poll();
+    return () => {
+      disposed = true;
+      window.clearTimeout(retryTimer);
+    };
+  }, [assetImportJob, observedAssetsApi, sessionId]);
+
+  useEffect(() => {
+    if (!assetImportJob || isActiveAssetImport(assetImportJob)) return;
+    const key = `${assetImportJob.job_id}:${assetImportJob.state}`;
+    if (handledImportTerminal.current === key) return;
+    handledImportTerminal.current = key;
+    if (assetImportJob.state === "completed") {
+      const imported = assetImportJob.result?.imported_assets.length ?? 0;
+      setStatus(
+        assetImportJob.result?.warning
+          ? `${imported} asset image(s) committed · ${assetImportJob.result.warning}`
+          : `${imported} asset image(s) imported successfully`,
+      );
+    } else if (assetImportJob.state === "cancelled") {
+      setStatus("Asset import cancelled safely");
+    } else {
+      setStatus(`Asset import failed · ${assetImportJob.error ?? "unknown import failure"}`);
+    }
+  }, [assetImportJob]);
+
   useEffect(() => {
     if (!heartbeatSessionId || typeof vaultApi.heartbeat !== "function") return;
     let active = true;
@@ -279,14 +363,20 @@ export function App({
   }, [heartbeatSessionId, vaultApi]);
 
   useEffect(() => {
-    if (!npcMutationInFlight && !releaseRunning && !exportRunning) return;
+    if (
+      !npcMutationInFlight &&
+      !releaseRunning &&
+      !exportRunning &&
+      !isActiveAssetImport(assetImportJob)
+    )
+      return;
     const beforeUnload = (event: BeforeUnloadEvent): void => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", beforeUnload);
     return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [exportRunning, npcMutationInFlight, releaseRunning]);
+  }, [assetImportJob, exportRunning, npcMutationInFlight, releaseRunning]);
 
   function navigate(nextRoute: WorkspaceRoute): void {
     if (nextRoute !== route && (vault?.recovery?.length ?? 0) > 0) {
@@ -353,7 +443,31 @@ export function App({
     setStatus(`${routeDetails(nextRoute).label} selected`);
   }
 
+  async function cancelActiveAssetImport(): Promise<void> {
+    if (!sessionId || !assetImportJob || !isActiveAssetImport(assetImportJob)) return;
+    const jobId = assetImportJob.job_id;
+    setAssetImportCancelling(true);
+    try {
+      const cancelled = await observedAssetsApi.cancelImport(sessionId, jobId);
+      if (vaultRef.current?.session_id === sessionId) setAssetImportJob(cancelled);
+    } catch (reason) {
+      if (vaultRef.current?.session_id === sessionId) {
+        setStatus(`Asset import could not be cancelled · ${message(reason)}`);
+      }
+    } finally {
+      if (vaultRef.current?.session_id === sessionId) setAssetImportCancelling(false);
+    }
+  }
+
   function openVault(opened: OpenVault): void {
+    if (
+      vaultRef.current &&
+      vaultRef.current.session_id !== opened.session_id &&
+      isActiveAssetImport(assetImportJob)
+    ) {
+      setStatus("Vault switch blocked · cancel the active asset import first");
+      return;
+    }
     const normalized: OpenVault = {
       ...opened,
       recovery: opened.recovery ?? [],
@@ -413,6 +527,10 @@ export function App({
   }
 
   function closeCurrentVault(): void {
+    if (isActiveAssetImport(assetImportJob)) {
+      setStatus("Vault close blocked · cancel the active asset import first");
+      return;
+    }
     setVault(null);
     setSelectedProject(null);
     setSelectedArea(null);
@@ -502,9 +620,36 @@ export function App({
     <div className="app-frame">
       <AppHeader onHelp={() => setHelpOpen(true)} />
       <WorkspaceNav activeRoute={route} items={navigationItems} onNavigate={navigate} />
+      {assetImportJob && isActiveAssetImport(assetImportJob) && (
+        <section className="app-import-job" aria-label="Active asset import">
+          <div>
+            <strong>{assetImportJob.progress.message}</strong>
+            <span>
+              {assetImportJob.progress.completed} / {assetImportJob.progress.total} ·{" "}
+              {assetImportJob.progress.stage}
+            </span>
+          </div>
+          <progress
+            value={assetImportJob.progress.completed}
+            max={Math.max(1, assetImportJob.progress.total)}
+          />
+          <button
+            type="button"
+            disabled={assetImportCancelling}
+            onClick={() => void cancelActiveAssetImport()}
+          >
+            {assetImportCancelling ? "Cancelling…" : "Cancel import"}
+          </button>
+        </section>
+      )}
       <div className="content-frame">
         <Breadcrumbs items={breadcrumbs} />
-        <main ref={mainContent} className="main-content" tabIndex={-1}>
+        <main
+          ref={mainContent}
+          className="main-content"
+          tabIndex={-1}
+          aria-label={`${details.label} workspace`}
+        >
           {vault && (vault.recovery?.length ?? 0) > 0 ? (
             <RecoveryPanel
               client={vaultApi}
@@ -549,6 +694,8 @@ export function App({
               areaId={selectedArea.id}
               assetsClient={observedAssetsApi}
               client={observedOutfitsApi}
+              importJob={assetImportJob}
+              onImportJobChange={trackAssetImport}
               onEditorControllerChange={registerEditorController}
               onOpenDummy={(templateRef) => {
                 setSelectedTemplateId(templateRef.id);
@@ -567,6 +714,8 @@ export function App({
             <InventoryWorkspace
               areaId={selectedArea.id}
               client={observedAssetsApi}
+              importJob={assetImportJob}
+              onImportJobChange={trackAssetImport}
               onStatus={setStatus}
               sessionId={vault.session_id}
             />
@@ -626,8 +775,17 @@ export function App({
         </main>
       </div>
       <StatusBar message={status} playing={playing} />
+      {import.meta.env.VITE_P19_ACCEPTANCE_PROBE === "1" && <NativeAcceptanceProbe />}
       <span className="visually-hidden" data-selected-template={selectedTemplateId ?? undefined} />
       <DialogLayer open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
+}
+
+function isActiveAssetImport(job: AssetImportJobView | null | undefined): boolean {
+  return job?.state === "queued" || job?.state === "running";
+}
+
+function message(reason: unknown): string {
+  return reason instanceof Error ? reason.message : String(reason);
 }

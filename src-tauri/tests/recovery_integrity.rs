@@ -7,7 +7,7 @@ use std::thread;
 use std::time::Duration;
 
 use pixel_cutout_sprite_studio_lib::application::{
-    AreaService, VaultInspection, VaultOpenMode, VaultService,
+    AreaService, ProjectService, VaultInspection, VaultOpenMode, VaultService,
 };
 use pixel_cutout_sprite_studio_lib::domain::{
     DocumentKind, DomainDocument, ObjectId, Project, RecordStatus, RelativePath, UtcTimestamp,
@@ -628,6 +628,33 @@ fn os_lock_never_offers_active_writer_and_requires_exact_orphan_confirmation() {
         .is_some_and(|value| value.damaged));
     third.close(blocked.session_id).unwrap();
     VaultService::recover_orphaned_lock(temp.path(), &empty.confirmation_token).unwrap();
+}
+
+#[test]
+fn background_mutation_lease_blocks_all_session_writes_until_its_last_clone_drops() {
+    let temp = TempDir::new().unwrap();
+    let mut service = VaultService::default();
+    let opened = service.initialize(temp.path(), None).unwrap();
+    let lease = service.write_lease(opened.session_id).unwrap();
+    let worker_clone = lease.clone();
+
+    let second = service.write_lease(opened.session_id).unwrap_err();
+    assert!(second.to_string().contains("background vault operation"));
+    let synchronous = ProjectService::create(
+        &mut service,
+        opened.session_id,
+        "Blocked while import runs".to_owned(),
+        Vec::new(),
+    )
+    .unwrap_err();
+    assert!(synchronous.to_string().contains("read-only"));
+    assert!(service.session_root(opened.session_id, true).is_err());
+
+    drop(lease);
+    assert!(service.write_lease(opened.session_id).is_err());
+    drop(worker_clone);
+    assert!(service.session_root(opened.session_id, true).is_ok());
+    assert!(service.write_lease(opened.session_id).is_ok());
 }
 
 #[test]

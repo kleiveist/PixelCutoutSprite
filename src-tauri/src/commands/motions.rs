@@ -4,7 +4,7 @@ use std::sync::{Mutex, MutexGuard};
 use serde::Serialize;
 use tauri::State;
 
-use crate::animation::{bake_helper_channel, PreviewCache, PreviewCacheKey};
+use crate::animation::{bake_helper_channel, CachedPreviewFrame, PreviewCache, PreviewCacheKey};
 use crate::application::{
     CreateMotionRequest, MotionCard, MotionDashboard, MotionDraft, MotionEditorData,
     MotionOpenTarget, MotionService, SaveMotionDraftRequest, VaultService,
@@ -12,8 +12,8 @@ use crate::application::{
 use crate::directions::{detach_to_explicit, DirectionResolver};
 use crate::domain::{Direction, MotionRevision, ObjectId};
 use crate::editor::{
-    compile_sampled_dummy, encode_dummy_preview, render_dummy, render_sampled_dummy, DummyPreview,
-    EditablePose, SampledDummyPreview,
+    compile_sampled_dummy, encode_dummy_preview, encode_dummy_preview_data_url, render_dummy,
+    render_sampled_dummy, DummyPreview, EditablePose, SampledDummyPreview,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -104,13 +104,15 @@ pub fn render_motion_dummy(
     pose: EditablePose,
     service: State<'_, Mutex<VaultService>>,
 ) -> Result<DummyPreview, String> {
-    let service = lock(&service)?;
-    let editor = MotionService::editor_data(
-        &service,
-        parse_id("session_id", &session_id)?,
-        parse_id("template_id", &template_id)?,
-    )
-    .map_err(|error| error.to_string())?;
+    let editor = {
+        let service = lock(&service)?;
+        MotionService::editor_data(
+            &service,
+            parse_id("session_id", &session_id)?,
+            parse_id("template_id", &template_id)?,
+        )
+        .map_err(|error| error.to_string())?
+    };
     encode_dummy_preview(
         render_dummy(
             &editor.profile,
@@ -133,13 +135,15 @@ pub fn render_motion_sample(
     sample_index: u16,
     service: State<'_, Mutex<VaultService>>,
 ) -> Result<SampledDummyPreview, String> {
-    let service = lock(&service)?;
-    let editor = MotionService::editor_data(
-        &service,
-        parse_id("session_id", &session_id)?,
-        parse_id("template_id", &template_id)?,
-    )
-    .map_err(|error| error.to_string())?;
+    let editor = {
+        let service = lock(&service)?;
+        MotionService::editor_data(
+            &service,
+            parse_id("session_id", &session_id)?,
+            parse_id("template_id", &template_id)?,
+        )
+        .map_err(|error| error.to_string())?
+    };
     if draft.template_id != editor.draft.template_id
         || draft.revision != editor.draft.revision
         || draft.profile_ref != editor.draft.profile_ref
@@ -273,29 +277,16 @@ pub fn get_motion_card_preview(
         let key =
             PreviewCacheKey::for_motion(&motion, direction, *sample_index, "stored-dummy-card-v1")
                 .map_err(|error| error.to_string())?;
-        let cached = cache
-            .lock()
-            .map_err(|_| "motion preview cache lock is poisoned".to_owned())?
-            .get(&key)
-            .cloned();
-        let frame = if let Some(frame) = cached {
-            frame
-        } else {
+        let preview = PreviewCache::get_or_render(cache.inner(), key, || {
             let frame = compile_sampled_dummy(&editor.profile, &motion, direction, *sample_index)
                 .map_err(|error| error.to_string())?
                 .frame;
-            cache
-                .lock()
-                .map_err(|_| "motion preview cache lock is poisoned".to_owned())?
-                .insert(key, frame.clone());
-            frame
-        };
-        clipping_count += frame.clipping.len();
-        frame_urls.push(
-            encode_dummy_preview(frame)
-                .map_err(|error| error.to_string())?
-                .data_url,
-        );
+            let data_url =
+                encode_dummy_preview_data_url(&frame.image).map_err(|error| error.to_string())?;
+            Ok(CachedPreviewFrame::new(frame, data_url))
+        })?;
+        clipping_count += preview.frame.clipping.len();
+        frame_urls.push(preview.data_url.clone());
     }
     let fps = ((u32::try_from(sample_indices.len()).unwrap_or(1) * u32::from(motion.fps))
         / u32::from(motion.frame_count))
@@ -314,13 +305,21 @@ pub fn save_motion_draft(
     session_id: String,
     request: SaveMotionDraftRequest,
     service: State<'_, Mutex<VaultService>>,
+    cache: State<'_, Mutex<PreviewCache>>,
 ) -> Result<MotionEditorData, String> {
-    let mut service = lock(&service)?;
     let session_id = parse_id("session_id", &session_id)?;
     let template_id = request.template_id;
-    MotionService::save_draft(&mut service, session_id, request)
-        .and_then(|_| MotionService::editor_data(&service, session_id, template_id))
-        .map_err(|error| error.to_string())
+    let editor = {
+        let mut service = lock(&service)?;
+        MotionService::save_draft(&mut service, session_id, request)
+            .and_then(|_| MotionService::editor_data(&service, session_id, template_id))
+            .map_err(|error| error.to_string())?
+    };
+    cache
+        .lock()
+        .map_err(|_| "motion preview cache lock is poisoned".to_owned())?
+        .invalidate_motion(template_id);
+    Ok(editor)
 }
 
 #[tauri::command]
@@ -363,15 +362,20 @@ pub fn remove_motion(
     template_id: String,
     expected_revision: u32,
     service: State<'_, Mutex<VaultService>>,
+    cache: State<'_, Mutex<PreviewCache>>,
 ) -> Result<(), String> {
-    let mut service = lock(&service)?;
-    MotionService::remove(
-        &mut service,
-        parse_id("session_id", &session_id)?,
-        parse_id("template_id", &template_id)?,
-        expected_revision,
-    )
-    .map_err(|error| error.to_string())
+    let session_id = parse_id("session_id", &session_id)?;
+    let template_id = parse_id("template_id", &template_id)?;
+    {
+        let mut service = lock(&service)?;
+        MotionService::remove(&mut service, session_id, template_id, expected_revision)
+            .map_err(|error| error.to_string())?;
+    }
+    cache
+        .lock()
+        .map_err(|_| "motion preview cache lock is poisoned".to_owned())?
+        .invalidate_motion(template_id);
+    Ok(())
 }
 
 #[tauri::command]
@@ -410,8 +414,8 @@ fn preview_sample_indices(frame_count: u16, reduced_motion: bool) -> Vec<u16> {
         return vec![0];
     }
     let last = frame_count - 1;
-    let mut frames = (0..4)
-        .map(|step| (u32::from(last) * step / 3) as u16)
+    let mut frames = (0..3)
+        .map(|step| (u32::from(last) * step / 2) as u16)
         .collect::<Vec<_>>();
     frames.dedup();
     frames
@@ -425,7 +429,12 @@ mod tests {
     fn card_preview_sampling_is_bounded_and_reduced_motion_is_static() {
         assert_eq!(preview_sample_indices(1, false), vec![0]);
         assert_eq!(preview_sample_indices(2, false), vec![0, 1]);
-        assert_eq!(preview_sample_indices(12, false), vec![0, 3, 7, 11]);
+        assert_eq!(preview_sample_indices(12, false), vec![0, 5, 11]);
         assert_eq!(preview_sample_indices(12, true), vec![0]);
+        for frame_count in 1..=1_024 {
+            let animated = preview_sample_indices(frame_count, false);
+            assert!(animated.len() <= 3);
+            assert_eq!(preview_sample_indices(frame_count, true), vec![0]);
+        }
     }
 }

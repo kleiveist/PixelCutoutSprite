@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ProjectClient } from "../../api/project-client";
@@ -195,4 +195,62 @@ describe("ProjectDashboard", () => {
     expect(screen.getByRole("button", { name: /New project/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /My RPG/ })).toBeEnabled();
   });
+
+  it("keeps project mutation dialogs locked until their native operations settle", async () => {
+    const create = deferred<(typeof data.projects)[number]>();
+    const createLabel = deferred<(typeof data.labels)[number]>();
+    const remove = deferred<void>();
+    const client = mockClient({
+      createProject: vi.fn(() => create.promise),
+      createLabel: vi.fn(() => createLabel.promise),
+      removeProject: vi.fn(() => remove.promise),
+    });
+    render(<ProjectDashboard sessionId="session" client={client} onOpen={vi.fn()} />);
+    await screen.findByRole("heading", { name: "Projects" });
+
+    fireEvent.click(screen.getByRole("button", { name: /New project/ }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Project name" }), {
+      target: { value: "Locked create" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create project" }));
+    const createDialog = screen.getByRole("dialog", { name: "Create project" });
+    fireEvent.keyDown(createDialog, { key: "Escape" });
+    expect(createDialog).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel create project" })).toBeDisabled();
+    await act(async () => create.resolve(data.projects[0]));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Create project" })).toBeNull(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Manage labels" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "New label name" }), {
+      target: { value: "Locked label" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+    const labelsDialog = screen.getByRole("dialog", { name: "Manage labels" });
+    fireEvent.keyDown(labelsDialog, { key: "Escape" });
+    expect(labelsDialog).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Done" })).toBeDisabled();
+    await act(async () => createLabel.resolve(data.labels[0]));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());
+    fireEvent.keyDown(labelsDialog, { key: "Escape" });
+
+    const actions = screen.getByRole("group", { name: "Actions for My RPG" });
+    fireEvent.click(within(actions).getByRole("button", { name: "Remove…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move to trash" }));
+    const removeDialog = screen.getByRole("dialog", { name: /Remove My RPG/ });
+    fireEvent.keyDown(removeDialog, { key: "Escape" });
+    expect(removeDialog).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Moving…" })).toBeDisabled();
+    await act(async () => remove.resolve());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /Remove My RPG/ })).toBeNull());
+  });
 });
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}

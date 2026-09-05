@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use image::{Rgb, RgbImage, Rgba, RgbaImage};
 use pixel_cutout_sprite_studio_lib::asset_io::{
@@ -213,6 +214,36 @@ fn a_described_png_package_imports_reproducibly_without_touching_the_external_so
 }
 
 #[test]
+fn repository_rehashes_the_source_immediately_before_staging() {
+    let source = TempDir::new().unwrap();
+    let png = source.path().join("hand_l__s__base.png");
+    write_rgba(&png, 4, 4);
+    let package_path = write_package(source.path(), &package(vec![entry("hand_l__s__base.png")]));
+    let inspected = PngImporter::default()
+        .inspect_package(&package_path, &allowed())
+        .unwrap();
+
+    RgbaImage::from_pixel(4, 4, Rgba([255, 0, 0, 255]))
+        .save(&png)
+        .unwrap();
+    let vault = TempDir::new().unwrap();
+    let area_path = Path::new("game/characters");
+    let area_id = ObjectId::new();
+    let root = test_vault(&vault, area_path, area_id, inspected.package.profile_ref);
+    let error = AssetRepository
+        .import_package(&root, area_path, area_id, &inspected, &[])
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        pixel_cutout_sprite_studio_lib::asset_io::AssetRepositoryError::Import(
+            AssetImportError::InvalidEntry { entry: 0, message }
+        ) if message.contains("changed after inspection")
+    ));
+    let assets = root.resolve(&area_path.join(".area/assets")).unwrap();
+    assert!(!assets.as_path().exists());
+}
+
+#[test]
 fn interrupted_multi_asset_import_resumes_after_reopen() {
     let source = TempDir::new().unwrap();
     let inspected = two_entry_package(source.path());
@@ -289,6 +320,44 @@ fn interrupted_multi_asset_import_resumes_after_reopen() {
         assert!(asset.path().join("r0001/revision.json").is_file());
         assert!(asset.path().join("r0001/source.png").is_file());
     }
+}
+
+#[test]
+fn cancelled_import_removes_staging_before_a_journal_is_prepared() {
+    let source = TempDir::new().unwrap();
+    let inspected = two_entry_package(source.path());
+    let vault = TempDir::new().unwrap();
+    let area_path = Path::new("game/characters");
+    let area_id = ObjectId::new();
+    let root = test_vault(&vault, area_path, area_id, inspected.package.profile_ref);
+    let cancelled = AtomicBool::new(false);
+    let is_cancelled = || cancelled.load(Ordering::Acquire);
+    let mut progress = |completed: usize, _total: usize| {
+        if completed == 1 {
+            cancelled.store(true, Ordering::Release);
+        }
+    };
+
+    let result = AssetRepository.import_package_controlled(
+        &root,
+        area_path,
+        area_id,
+        &inspected,
+        (&[], &is_cancelled, &mut progress),
+    );
+
+    assert!(matches!(
+        result,
+        Err(pixel_cutout_sprite_studio_lib::asset_io::AssetRepositoryError::Cancelled)
+    ));
+    assert!(TransactionService::<NoTransactionFault>::scan_open(&root)
+        .unwrap()
+        .is_empty());
+    let assets = root.resolve(&area_path.join(".area/assets")).unwrap();
+    assert!(
+        !assets.as_path().exists() || fs::read_dir(assets.as_path()).unwrap().next().is_none(),
+        "cancelled staging must not publish a partial asset"
+    );
 }
 
 #[test]
@@ -489,6 +558,50 @@ fn invalid_dimensions_rectangles_size_and_alpha_are_rejected() {
     assert!(PngImporter::default()
         .inspect_package(&path, &allowed())
         .is_err());
+}
+
+#[test]
+fn final_importer_snapshot_enforces_aggregate_budgets_and_entry_count() {
+    let source = TempDir::new().unwrap();
+    write_rgba(&source.path().join("first.png"), 4, 4);
+    write_rgba(&source.path().join("second.png"), 4, 4);
+    let mut first = entry("first.png");
+    first.name = "First image".to_owned();
+    let mut second = entry("second.png");
+    second.name = "Second image".to_owned();
+    let package_path = write_package(source.path(), &package(vec![first, second]));
+    let one_encoded = fs::metadata(source.path().join("first.png")).unwrap().len();
+    let encoded_error = PngImporter::default()
+        .with_aggregate_limits(one_encoded * 2 - 1, u64::MAX)
+        .inspect_package(&package_path, &allowed())
+        .unwrap_err();
+    assert!(matches!(
+        encoded_error,
+        AssetImportError::InvalidPackage(message)
+            if message.contains("aggregate encoded PNG data budget")
+    ));
+    let importer = PngImporter::default().with_aggregate_limits(u64::MAX, 127);
+    let error = importer
+        .inspect_package(&package_path, &allowed())
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        AssetImportError::InvalidPackage(message)
+            if message.contains("aggregate decoded RGBA data budget")
+    ));
+
+    let too_many = write_package(
+        source.path(),
+        &package((0..65).map(|_| entry("first.png")).collect()),
+    );
+    let error = PngImporter::default()
+        .with_maximum_entries(64)
+        .inspect_package(&too_many, &allowed())
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        AssetImportError::InvalidPackage(message) if message.contains("1..=64")
+    ));
 }
 
 #[test]

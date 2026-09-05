@@ -28,4 +28,25 @@ describe("editor shortcuts", () => {
     expect(resolveShortcut(input(" ", { target: field }))).toBeNull();
     expect(resolveShortcut(input("Escape", { target: field }))).toBe("dismiss");
   });
+
+  it("leaves Space with native and ARIA controls but keeps command shortcuts available", () => {
+    const button = document.createElement("button");
+    const icon = document.createElement("span");
+    button.append(icon);
+    const link = document.createElement("a");
+    link.href = "#target";
+    const slider = document.createElement("div");
+    slider.setAttribute("role", "slider");
+    for (const target of [button, icon, link, slider]) {
+      expect(resolveShortcut(input(" ", { target }))).toBeNull();
+      expect(resolveShortcut(input("s", { ctrlKey: true, target }))).toBe("save");
+    }
+  });
+
+  it("treats non-text inputs as controls rather than text editors", () => {
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    expect(resolveShortcut(input("s", { ctrlKey: true, target: checkbox }))).toBe("save");
+    expect(resolveShortcut(input(" ", { target: checkbox }))).toBeNull();
+  });
 });

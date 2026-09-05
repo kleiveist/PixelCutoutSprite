@@ -6,6 +6,7 @@ export interface FilterOption<T extends string> {
 }
 
 interface SingleSelectFilterProps<T extends string> {
+  disabled?: boolean;
   label: string;
   value: T;
   options: readonly FilterOption<T>[];
@@ -13,6 +14,7 @@ interface SingleSelectFilterProps<T extends string> {
 }
 
 export function SingleSelectFilter<T extends string>({
+  disabled = false,
   label,
   value,
   options,
@@ -22,7 +24,12 @@ export function SingleSelectFilter<T extends string>({
   return (
     <label className="filter-field" htmlFor={id}>
       <span>{label}</span>
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value as T)}>
+      <select
+        id={id}
+        disabled={disabled}
+        value={value}
+        onChange={(event) => onChange(event.target.value as T)}
+      >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -35,6 +42,7 @@ export function SingleSelectFilter<T extends string>({
 
 interface MultiSelectFilterProps<T extends string> {
   autoFocus?: boolean;
+  disabled?: boolean;
   label: string;
   values: readonly T[];
   options: readonly FilterOption<T>[];
@@ -43,6 +51,7 @@ interface MultiSelectFilterProps<T extends string> {
 
 export function MultiSelectFilter<T extends string>({
   autoFocus = false,
+  disabled = false,
   label,
   values,
   options,
@@ -75,6 +84,7 @@ export function MultiSelectFilter<T extends string>({
       <span id={`${id}-label`}>{label}</span>
       <button
         autoFocus={autoFocus}
+        disabled={disabled}
         ref={button}
         type="button"
         aria-expanded={open}
@@ -94,6 +104,7 @@ export function MultiSelectFilter<T extends string>({
               <label key={option.value}>
                 <input
                   ref={index === 0 ? firstOption : undefined}
+                  disabled={disabled}
                   type="checkbox"
                   checked={values.includes(option.value)}
                   onChange={() => toggle(option.value)}
@@ -103,7 +114,12 @@ export function MultiSelectFilter<T extends string>({
             ))
           )}
           {values.length > 0 && (
-            <button type="button" className="filter-clear" onClick={() => onChange([])}>
+            <button
+              type="button"
+              className="filter-clear"
+              disabled={disabled}
+              onClick={() => onChange([])}
+            >
               Clear selection
             </button>
           )}

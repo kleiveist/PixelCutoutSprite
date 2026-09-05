@@ -4,6 +4,7 @@ import type { Direction } from "../../domain/common";
 export interface InventoryItem {
   id: string;
   revision: number;
+  thumbnailRevision: number;
   name: string;
   slotId: string;
   direction: Direction;
@@ -12,7 +13,7 @@ export interface InventoryItem {
   labels: string[];
   usageCount: number;
   usageDescriptions: string[];
-  thumbnailUrl: string;
+  thumbnailUrl?: string;
   archived: boolean;
 }
 
@@ -24,6 +25,7 @@ export interface InventoryFilter {
   profile: string;
   label: string;
   usage: "all" | "used" | "unused";
+  sort: "name_asc" | "name_desc" | "updated_newest" | "updated_oldest";
 }
 
 export const emptyInventoryFilter = (): InventoryFilter => ({
@@ -34,6 +36,7 @@ export const emptyInventoryFilter = (): InventoryFilter => ({
   profile: "all",
   label: "all",
   usage: "all",
+  sort: "name_asc",
 });
 
 export function filterInventory(

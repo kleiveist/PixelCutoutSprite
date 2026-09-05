@@ -3,6 +3,12 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import "./TimelinePanel.css";
 
+import {
+  isInteractiveKeyboardTarget,
+  isTextEditingKeyboardTarget,
+  ownsNativeSpaceKey,
+} from "../../components/keyboard";
+import { useModalFocus } from "../../components/useModalFocus";
 import type { Direction } from "../../domain/common";
 import type {
   Interpolation,
@@ -146,8 +152,8 @@ export function TimelinePanel<T extends PlayableMotion>({
   }
 
   function handleKeys(event: ReactKeyboardEvent<HTMLElement>): void {
-    if (isEditable(event.target)) return;
     const command = event.ctrlKey || event.metaKey;
+    if (command && isTextEditingKeyboardTarget(event.target)) return;
     if (command && event.key.toLowerCase() === "z") {
       event.preventDefault();
       event.nativeEvent.stopImmediatePropagation();
@@ -164,10 +170,12 @@ export function TimelinePanel<T extends PlayableMotion>({
       event.nativeEvent.stopImmediatePropagation();
       onSave?.();
     } else if (event.key === " ") {
+      if (ownsNativeSpaceKey(event.target)) return;
       event.preventDefault();
       event.nativeEvent.stopImmediatePropagation();
       onPlayingChange(!playing);
     } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      if (isInteractiveKeyboardTarget(event.target) && !isTimelineGridCell(event.target)) return;
       event.preventDefault();
       const delta = event.key === "ArrowLeft" ? -1 : 1;
       onFrameChange(Math.max(0, Math.min(motion.frame_count - 1, frame + delta)));
@@ -176,6 +184,7 @@ export function TimelinePanel<T extends PlayableMotion>({
       (event.key === "Delete" || event.key === "Backspace") &&
       selected.size > 0
     ) {
+      if (isInteractiveKeyboardTarget(event.target) && !isTimelineGridCell(event.target)) return;
       event.preventDefault();
       onMotionChange(deleteKeys(motion, selected), "Delete keyframes");
       setSelected(new Set());
@@ -733,12 +742,25 @@ function RetimeDialog({
   onApply,
   onCancel,
 }: RetimeDialogProps) {
+  const framesInput = useRef<HTMLInputElement>(null);
+  const { dialogRef, onDialogKeyDown } = useModalFocus<HTMLDivElement>({
+    initialFocus: framesInput,
+    onEscape: onCancel,
+  });
   return (
-    <div className="timeline-retime" role="dialog" aria-modal="true" aria-labelledby="retime-title">
+    <div
+      ref={dialogRef}
+      className="timeline-retime"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="retime-title"
+      onKeyDown={onDialogKeyDown}
+    >
       <strong id="retime-title">Change animation length</strong>
       <label>
         Frames{" "}
         <input
+          ref={framesInput}
           type="number"
           min={1}
           max={1024}
@@ -818,9 +840,7 @@ function toggleNumber(values: ReadonlySet<number>, value: number): Set<number> {
   else next.add(value);
   return next;
 }
-function isEditable(target: EventTarget): boolean {
-  return (
-    target instanceof HTMLElement &&
-    Boolean(target.closest("input, textarea, select, [contenteditable='true']"))
-  );
+
+function isTimelineGridCell(target: EventTarget): boolean {
+  return target instanceof Element && target.closest("[role='gridcell']") !== null;
 }

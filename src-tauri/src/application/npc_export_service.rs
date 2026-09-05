@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
@@ -29,6 +30,7 @@ use crate::storage::{
 use super::npc_dashboard::{validate_compatibility, validate_export_compatibility};
 use super::outfit_render::{
     persisted_render_source, render_request, OutfitRenderContext, OutfitRenderSource,
+    SharedBitmapMap,
 };
 use super::outfit_snapshot::AreaSnapshot;
 use super::AppearanceServiceError;
@@ -693,7 +695,7 @@ pub(crate) struct PersistedNpcFrameSource {
     snapshot: AreaSnapshot,
     profile: ProfileRevision,
     actions: HashMap<ActionKey, ActionRenderSource>,
-    bitmaps: HashMap<RevisionRef, RgbaImage>,
+    bitmaps: SharedBitmapMap,
 }
 
 struct ActionRenderSource {
@@ -720,6 +722,7 @@ impl FrameSource for PersistedNpcFrameSource {
                 motion: context.motion,
                 profile: &self.profile,
                 bitmaps: Some(&self.bitmaps),
+                preview_cache: None,
             },
             context.pose,
             context.include_shadow,
@@ -854,7 +857,7 @@ fn load_verified_bitmaps(
     area_path: &Path,
     revisions: &[AssetRevision],
     allow_incomplete_test: bool,
-) -> Result<(HashMap<RevisionRef, RgbaImage>, Vec<String>), NpcExportError> {
+) -> Result<VerifiedBitmapLoad, NpcExportError> {
     let mut result = HashMap::new();
     let mut missing = Vec::new();
     for revision in revisions {
@@ -869,7 +872,7 @@ fn load_verified_bitmaps(
                 ));
                 // Only an absent file receives a transparent stand-in. Existing bytes must pass
                 // every integrity and decode check below and are never hidden by test mode.
-                result.insert(revision.reference(), RgbaImage::new(1, 1));
+                result.insert(revision.reference(), Arc::new(RgbaImage::new(1, 1)));
                 continue;
             }
             Err(error) => {
@@ -904,10 +907,12 @@ fn load_verified_bitmaps(
                 revision.reference()
             )));
         }
-        result.insert(revision.reference(), image);
+        result.insert(revision.reference(), Arc::new(image));
     }
     Ok((result, missing))
 }
+
+type VerifiedBitmapLoad = (SharedBitmapMap, Vec<String>);
 
 fn effective_sources(
     profile: &ProfileRevision,

@@ -10,7 +10,11 @@ import type {
   SavedNpc,
 } from "../../api/outfit-client";
 import type { Direction, OutfitFitting, SlotRef } from "../../domain";
-import type { AssetImportInspection, AssetInventory } from "../../domain/inventory";
+import type {
+  AssetImportInspection,
+  AssetImportJobView,
+  AssetInventoryPage,
+} from "../../domain/inventory";
 import { guardEditorNavigation, type EditorController } from "../editing";
 import { OutfitEditor } from "./OutfitEditor";
 
@@ -246,6 +250,7 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 const importInspection: AssetImportInspection = {
   area_id: ids.area,
   profile_ref: { id: ids.profile, revision: 1 },
+  inspection_fingerprint: "inspection-fingerprint",
   source: { kind: "loose_pngs", paths: ["/tmp/hand_l__s__imported.png"] },
   slots: [{ id: "hand_l", size_px: [2, 2], pivot_px: [1, 1] }],
   entries: [
@@ -270,11 +275,20 @@ const importInspection: AssetImportInspection = {
   ],
 };
 
-const importedInventory: AssetInventory = {
+const importedInventory: AssetInventoryPage = {
   area_id: ids.area,
   profile_ref: { id: ids.profile, revision: 1 },
   writable: true,
   labels: [],
+  facets: {
+    slot_ids: ["hand_l"],
+    directions: ["s"],
+    asset_kinds: ["body"],
+    profile_refs: [{ id: ids.profile, revision: 1 }],
+    label_ids: [],
+    has_used: false,
+    has_unused: true,
+  },
   items: [
     {
       id: ids.importedAsset,
@@ -293,9 +307,20 @@ const importedInventory: AssetInventory = {
       content_hash: "e".repeat(64),
       archived: false,
       usage: [],
-      thumbnail_url: "data:image/png;base64,cG5n",
     },
   ],
+  total_items: 1,
+  next_cursor: null,
+};
+
+const completedAssetImport: AssetImportJobView = {
+  job_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  session_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  area_id: ids.area,
+  state: "completed",
+  progress: { stage: "complete", completed: 1, total: 1, message: "Import complete" },
+  result: { imported_assets: importedInventory.items },
+  error: null,
 };
 
 function mockAssetsClient(overrides: Partial<AssetClient> = {}): AssetClient {
@@ -303,9 +328,21 @@ function mockAssetsClient(overrides: Partial<AssetClient> = {}): AssetClient {
     chooseSources: vi.fn(async () => ["/tmp/hand_l__s__imported.png"]),
     listenForDrops: vi.fn(async () => () => undefined),
     inventory: vi.fn(async () => importedInventory),
+    thumbnail: vi.fn(async (_session, _area, assetId, revision) => ({
+      asset_id: assetId,
+      revision,
+      width_px: 1,
+      height_px: 1,
+      data_url: "data:image/png;base64,cG5n",
+    })),
     inspect: vi.fn(async () => importInspection),
-    import: vi.fn(async () => importedInventory),
-    archive: vi.fn(async () => importedInventory),
+    import: vi.fn(async () => completedAssetImport),
+    importJob: vi.fn(async () => completedAssetImport),
+    cancelImport: vi.fn(async (): Promise<AssetImportJobView> => ({
+      ...completedAssetImport,
+      state: "cancelled",
+    })),
+    archive: vi.fn(async () => importedInventory.items[0]),
     ...overrides,
   };
 }
@@ -828,6 +865,9 @@ describe("OutfitEditor", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Create NPC" }));
     expect(client.saveAsNpc).not.toHaveBeenCalled();
+    const saveDialog = screen.getByRole("dialog", { name: "Save outfit as NPC" });
+    fireEvent.keyDown(saveDialog, { key: "Escape" });
+    expect(saveDialog).toBeInTheDocument();
 
     await act(async () => firstSave.resolve(undefined));
     await waitFor(() => expect(client.autosave).toHaveBeenCalledTimes(2));

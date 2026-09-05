@@ -22,6 +22,7 @@ WebView gebündelt und nicht als eigenständiges Webprodukt ausgeliefert.
 |---|---|
 | [Produktspezifikation](docs/developer/features/pixelcutoutsprite-studio.md) | Vollständige Anforderungen, Bedienung, Datenstruktur, Exporte, Architektur und Abnahmen. |
 | [Lebender ExecPlan](docs/developer/plans/pixelcutoutsprite-execplan.md) | Tatsächlicher Fortschritt, Entscheidungen und Tests während der Umsetzung. |
+| [P19-Desktop-Abnahme](docs/developer/acceptance/desktop-usability-and-performance.md) | Ehrlich abgegrenzte Linux-Usability-, Offline-, DPI- und Leistungsevidenz. |
 | [Phasenindex](docs/developer/prompts/pixelcutoutsprite/README.md) | 23 Phasen P00–P22 in der erforderlichen Reihenfolge. |
 | [Masterauftrag](docs/developer/prompts/pixelcutoutsprite/MASTERPROMPT.md) | Übergeordneter Arbeitsauftrag einschließlich Serienmodus. |
 | [Fortsetzungsauftrag](docs/developer/prompts/pixelcutoutsprite/FORTSETZEN.md) | Wiederaufnahme in einer neuen Arbeitssitzung. |
@@ -32,7 +33,7 @@ Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository 
 
 ## Aktueller Arbeitsauftrag
 
-P00 bis P18 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
+P00 bis P19 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
 Projekt-Dashboard über ein exakt skaliertes humanoides Gebiet in die Animationsbibliothek.
 Vorlagen, mutable `draft.json`-Arbeitsstände und unveränderliche Freigaben liegen als gewöhnliche
 Dateien in ihrem Bereich. Karten besitzen Dropdown-Filter und explizite Wege zum Dummy sowie zum
@@ -85,7 +86,16 @@ Betriebssystem-Lock verhindert den zweiten Writer; verwaiste Metadaten benötige
 und ein exaktes Bestätigungstoken. Motion- und Outfit-Editor bewahren fehlgeschlagene Autosaves,
 blockieren unsichere Navigation und bieten eine Recovery-Kopie. Projektlokale Migrationsbackups,
 Zukunftsschemaschutz und ein verschobener kopierter Vault sind durch temporäre Fixtures belegt.
-Der nächste Schritt ist P19 für Desktop-Usability und repräsentative Leistungsnachweise.
+P19 rundet den Linux-Desktoppfad mit gemeinsamen Modal-Fokusregeln, geschützten Tastaturkürzeln,
+vollständigen Dropdownbedingungen, scrollbaren Mindesthöhen und physisch ganzzahlig skalierten
+Pixelansichten ab. Große Inventare liefern reine Metadaten in Seiten und laden nur sichtbare
+48-px-Thumbnails; Import erhält nativen Fortschritt und Abbruch. Der gemeinsame Vorschau-/Bildcache
+ist auf 256 MiB begrenzt und wird beim Schließen einer Vault geleert. Der reale Tauri-/WebView-Lauf
+bestand 1280 × 720 sowie 1440 × 900 bei DPR 2 und den Kernworkflow in einem isolierten
+Linux-Netznamespace mit nur Loopback. DPR 1,25 ist ausschließlich mathematisch getestet, und die
+AT-SPI-Evidenz umfasst Aktionen und Fokus, nicht einen behaupteten global synthetischen Tab-Lauf.
+Messwerte und Grenzen stehen in der P19-Desktop-Abnahme. Der nächste Schritt ist P20 für native
+Buildartefakte, Tooling-/CI-Integration und die ehrliche Plattformmatrix.
 
 ## Leitentscheidungen
 

@@ -3,14 +3,14 @@ use std::path::{Path, PathBuf};
 
 use pixel_cutout_sprite_studio_lib::animation::{AnimationSampler, PresetKind};
 use pixel_cutout_sprite_studio_lib::application::{
-    AreaDetails, AreaService, CreateAreaRequest, CreateMotionRequest, MotionCardStatus,
-    MotionEditorData, MotionOpenTarget, MotionService, ProjectCard, ProjectService,
-    ReviseAreaProfileRequest, SaveMotionDraftRequest, VaultOpenMode, VaultService,
+    AreaDetails, AreaService, CreateAreaRequest, CreateMotionRequest, LabelService,
+    MotionCardStatus, MotionEditorData, MotionOpenTarget, MotionService, ProjectCard,
+    ProjectService, ReviseAreaProfileRequest, SaveMotionDraftRequest, VaultOpenMode, VaultService,
 };
 use pixel_cutout_sprite_studio_lib::domain::{
     ActionKey, AnimationBinding, Character, CharacterStatus, Direction, DirectionMode,
-    DocumentKind, DomainDocument, Interpolation, Keyframe, LoopMode, MotionTrack, ObjectId,
-    ObjectType, ReviewState, TrackProperty, TrackValue, UtcTimestamp, SCHEMA_VERSION,
+    DocumentKind, DomainDocument, Interpolation, Keyframe, LabelScope, LoopMode, MotionTrack,
+    ObjectId, ObjectType, ReviewState, TrackProperty, TrackValue, UtcTimestamp, SCHEMA_VERSION,
 };
 use pixel_cutout_sprite_studio_lib::storage::{
     object_folder, InterruptAfterStep, JsonStore, NoTransactionFault, RecoveryChoice, StorageError,
@@ -211,6 +211,29 @@ fn preset_creation_persists_editable_semantics_and_releases_the_same_motion() {
         MotionService::publish(&mut fixture.service, fixture.session_id, card.id).unwrap();
     assert_eq!(release.semantics, draft.semantics);
     assert_eq!(release.tracks, draft.tracks);
+}
+
+#[test]
+fn motion_dashboard_includes_project_label_display_names() {
+    let mut fixture = Fixture::new();
+    let label = LabelService::create(
+        &mut fixture.service,
+        fixture.session_id,
+        LabelScope::Project,
+        Some(fixture.project.id),
+        "Locomotion".to_owned(),
+        "#55aa77".to_owned(),
+    )
+    .unwrap();
+    let mut request = fixture.request("Village walk", "walk");
+    request.label_ids = vec![label.id];
+    MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
+
+    let dashboard =
+        MotionService::dashboard(&fixture.service, fixture.session_id, fixture.area.area.id)
+            .unwrap();
+    assert_eq!(dashboard.labels, vec![label]);
+    assert_eq!(dashboard.motions[0].label_ids, vec![dashboard.labels[0].id]);
 }
 
 #[test]

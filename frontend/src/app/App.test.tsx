@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { describe, expect, it, vi } from "vitest";
 
 import type { AreaClient } from "../api/area-client";
+import type { AssetClient } from "../api/asset-client";
 import {
   ExportCancelledError,
   type ExportClient,
@@ -11,7 +12,13 @@ import type { MotionClient } from "../api/motion-client";
 import type { NpcClient } from "../api/npc-client";
 import type { OutfitClient } from "../api/outfit-client";
 import type { ProjectClient } from "../api/project-client";
-import type { OpenVault, VaultClient, VaultInspection } from "../api/vault-client";
+import type {
+  OpenVault,
+  RecoveryCandidate,
+  VaultClient,
+  VaultInspection,
+} from "../api/vault-client";
+import type { AssetImportJobView } from "../domain/inventory";
 import { App } from "./App";
 
 describe("desktop shell", () => {
@@ -21,7 +28,9 @@ describe("desktop shell", () => {
     expect(screen.getByRole("banner")).toHaveTextContent("PixelCutoutSprite");
     expect(screen.getByRole("navigation", { name: "Studio sections" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toBeInTheDocument();
-    expect(screen.getByRole("main")).toHaveTextContent("Cutout animation");
+    expect(screen.getByRole("main", { name: "Studio home workspace" })).toHaveTextContent(
+      "Cutout animation",
+    );
     expect(screen.getByRole("contentinfo")).toHaveTextContent("Ready");
   });
 
@@ -593,4 +602,179 @@ describe("desktop shell", () => {
       });
     });
   });
+
+  it("reattaches a session import, keeps it visible after navigation, and cancels it globally", async () => {
+    const queued: AssetImportJobView = {
+      job_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      session_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      area_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      state: "running",
+      progress: { stage: "decoding", completed: 3, total: 10, message: "Decoding PNGs" },
+      result: null,
+      error: null,
+    };
+    const cancelled = { ...queued, state: "cancelled" as const };
+    const assetsApi = {
+      activeImportJobs: vi.fn(async () => [queued]),
+      importJob: vi.fn(() => new Promise<AssetImportJobView>(() => undefined)),
+      cancelImport: vi.fn(async () => cancelled),
+    } as unknown as AssetClient;
+    const vaultApi = appVaultClient(queued.session_id);
+    const projectsApi = emptyProjectsClient();
+
+    render(<App assetsApi={assetsApi} projectsApi={projectsApi} vaultApi={vaultApi} />);
+    fireEvent.click(screen.getByRole("button", { name: /Choose vault/ }));
+    expect(await screen.findByRole("region", { name: "Active asset import" })).toHaveTextContent(
+      "Decoding PNGs",
+    );
+
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Areas" }));
+    expect(screen.getByRole("region", { name: "Active asset import" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel import" }));
+    await waitFor(() =>
+      expect(assetsApi.cancelImport).toHaveBeenCalledWith(queued.session_id, queued.job_id),
+    );
+    expect(screen.queryByRole("region", { name: "Active asset import" })).toBeNull();
+  });
+
+  it("retries transient import polling failures instead of losing the active job", async () => {
+    const queued: AssetImportJobView = {
+      job_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      session_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      area_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      state: "running",
+      progress: { stage: "decoding", completed: 1, total: 2, message: "Still importing" },
+      result: null,
+      error: null,
+    };
+    const importJob = vi
+      .fn<AssetClient["importJob"]>()
+      .mockRejectedValueOnce(new Error("temporary IPC loss"))
+      .mockResolvedValueOnce({ ...queued, state: "cancelled" });
+    const assetsApi = {
+      activeImportJobs: vi.fn(async () => [queued]),
+      importJob,
+      cancelImport: vi.fn(),
+    } as unknown as AssetClient;
+    render(
+      <App
+        assetsApi={assetsApi}
+        projectsApi={emptyProjectsClient()}
+        vaultApi={appVaultClient(queued.session_id)}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Choose vault/ }));
+    await screen.findByRole("region", { name: "Active asset import" });
+    await waitFor(() => expect(importJob).toHaveBeenCalledTimes(2), { timeout: 2_000 });
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("cancelled safely");
+  });
+
+  it("does not close or switch away from a vault with an active import", async () => {
+    const sessionId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const queued: AssetImportJobView = {
+      job_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      session_id: sessionId,
+      area_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      state: "running",
+      progress: { stage: "staging", completed: 1, total: 2, message: "Staging assets" },
+      result: null,
+      error: null,
+    };
+    const recovery: RecoveryCandidate = {
+      transaction_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      project: "demo--dddddddd",
+      journal: "demo--dddddddd/.project/transactions/dddddddd.json",
+      purpose: "asset_import",
+      state: "prepared",
+      completed_steps: 0,
+      total_steps: 1,
+      can_resume: true,
+      can_rollback: true,
+      issue: null,
+    };
+    const vaultApi = appVaultClient(sessionId);
+    vi.mocked(vaultApi.open).mockResolvedValue({
+      session_id: sessionId,
+      vault_id: "vault",
+      path: "/vault",
+      mode: "read_write",
+      indexed_objects: 0,
+      notice: null,
+      recovery: [recovery],
+      recovery_writable: true,
+      lock_recovery: null,
+    });
+    const assetsApi = {
+      activeImportJobs: vi.fn(async () => [queued]),
+      importJob: vi.fn(() => new Promise<AssetImportJobView>(() => undefined)),
+    } as unknown as AssetClient;
+    render(<App assetsApi={assetsApi} vaultApi={vaultApi} />);
+    fireEvent.click(screen.getByRole("button", { name: /Choose vault/ }));
+    await screen.findByRole("region", { name: "Active asset import" });
+    fireEvent.click(screen.getByRole("button", { name: "Close vault" }));
+    expect(screen.getByRole("heading", { name: /Interrupted file operations/ })).toBeVisible();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("close blocked");
+    expect(vaultApi.close).not.toHaveBeenCalled();
+  });
 });
+
+function appVaultClient(sessionId: string): VaultClient {
+  return {
+    chooseDirectory: vi.fn(async () => "/vault"),
+    inspect: vi.fn(async (): Promise<VaultInspection> => ({
+      state: "valid",
+      path: "/vault",
+      vault_id: "vault",
+      writer_present: false,
+      lock_recovery: null,
+    })),
+    initialize: vi.fn(),
+    open: vi.fn(async (): Promise<OpenVault> => ({
+      session_id: sessionId,
+      vault_id: "vault",
+      path: "/vault",
+      mode: "read_write",
+      indexed_objects: 0,
+      notice: null,
+      recovery: [],
+      recovery_writable: true,
+      lock_recovery: null,
+    })),
+    close: vi.fn(async () => undefined),
+    recent: vi.fn(async () => []),
+    recover: vi.fn(),
+    listRecovery: vi.fn(async () => ({
+      recovery: [],
+      mode: "read_write" as const,
+      recovery_writable: true,
+      indexed_objects: 0,
+    })),
+    recoverOrphanedLock: vi.fn(async () => undefined),
+    heartbeat: vi.fn(async () => undefined),
+  };
+}
+
+function emptyProjectsClient(): ProjectClient {
+  return {
+    dashboard: vi.fn(async () => ({
+      projects: [],
+      labels: [],
+      writable: true,
+      view: {
+        schema_version: 1,
+        kind: "project_view",
+        revision: 1,
+        search: "",
+        label_ids: [],
+        label_match: "any",
+        status: "any",
+        sort: "updated_desc",
+        updated_at: "2026-09-05T12:00:00Z",
+      },
+    })),
+  } as unknown as ProjectClient;
+}

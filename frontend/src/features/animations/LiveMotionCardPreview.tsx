@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { MotionClient } from "../../api/motion-client";
+import { useReducedMotion } from "../../components/useReducedMotion";
 import type { MotionCard, MotionCardPreviewData } from "../../domain/animations";
 import { MotionCardPreview } from "./MotionCardPreview";
 
@@ -15,10 +16,7 @@ export function LiveMotionCardPreview({ client, sessionId, motion }: LiveMotionC
   const [visible, setVisible] = useState(() => typeof IntersectionObserver === "undefined");
   const [preview, setPreview] = useState<MotionCardPreviewData | null>(null);
   const [failed, setFailed] = useState(false);
-  const reducedMotion =
-    typeof window !== "undefined" && typeof window.matchMedia === "function"
-      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      : false;
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (typeof IntersectionObserver === "undefined") {

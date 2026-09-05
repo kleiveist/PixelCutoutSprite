@@ -240,6 +240,7 @@ function DashboardDialogs(props: DashboardDialogsProps) {
     <>
       {props.editor && (
         <ProjectEditorDialog
+          busy={model.busy}
           mode={props.editor.mode}
           project={"project" in props.editor ? props.editor.project : undefined}
           labels={model.data.labels}
@@ -259,6 +260,7 @@ function DashboardDialogs(props: DashboardDialogsProps) {
       )}
       {props.labelManagerOpen && (
         <LabelManagerDialog
+          busy={model.busy}
           labels={model.data.labels}
           onClose={props.closeLabels}
           onCreate={(name, color) =>
@@ -278,6 +280,7 @@ function DashboardDialogs(props: DashboardDialogsProps) {
       )}
       {props.removeTarget && (
         <ConfirmRemoveDialog
+          busy={model.busy}
           project={props.removeTarget}
           onCancel={props.closeRemove}
           onConfirm={() =>

@@ -7,6 +7,7 @@ import {
   type NpcExportInspection,
   type StartNpcExportRequest,
 } from "../../api/export-client";
+import { useModalFocus } from "../../components/useModalFocus";
 import type { Direction } from "../../domain";
 import {
   cloneExportProfile,
@@ -82,7 +83,6 @@ export function ExportDialog({
   const controller = useRef<AbortController | null>(null);
   const generation = useRef(0);
   const mounted = useRef(true);
-  const dialog = useRef<HTMLElement>(null);
   const initialFocus = useRef<HTMLSelectElement>(null);
   const runningChange = useRef(onRunningChange);
   runningChange.current = onRunningChange;
@@ -128,6 +128,10 @@ export function ExportDialog({
     matchingInspection !== null &&
     selectedBindings.length > 0 &&
     issues.length === 0;
+  const modalFocus = useModalFocus<HTMLElement>({
+    initialFocus,
+    onEscape: active ? cancel : onClose,
+  });
 
   useEffect(() => {
     const next = preferredCharacterId(characters, characterId || initialCharacterId);
@@ -148,15 +152,6 @@ export function ExportDialog({
   }, [bindingId, characterId, onSelectionChange]);
 
   useEffect(() => runningChange.current?.(active), [active]);
-
-  useEffect(() => {
-    const previousFocus =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    initialFocus.current?.focus();
-    return () => {
-      if (previousFocus?.isConnected) previousFocus.focus();
-    };
-  }, []);
 
   useEffect(
     () => () => {
@@ -266,43 +261,17 @@ export function ExportDialog({
     }
   }
 
-  function handleDialogKey(event: React.KeyboardEvent<HTMLElement>): void {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      if (active) cancel();
-      else onClose();
-      return;
-    }
-    if (event.key !== "Tab") return;
-    const focusable = Array.from(
-      dialog.current?.querySelectorAll<HTMLElement>(
-        'button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])',
-      ) ?? [],
-    );
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable.at(-1)!;
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
-
   return (
     <div className="export-dialog-backdrop" role="presentation">
       <section
-        ref={dialog}
+        ref={modalFocus.dialogRef}
         aria-busy={active}
         aria-describedby={readOnly ? "export-read-only" : undefined}
         aria-labelledby="export-dialog-title"
         aria-modal="true"
         className="export-dialog"
         role="dialog"
-        onKeyDown={handleDialogKey}
+        onKeyDown={modalFocus.onDialogKeyDown}
       >
         <header>
           <div>

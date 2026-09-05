@@ -1,27 +1,43 @@
+mod budget;
+mod inventory;
+mod jobs;
+
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use base64::engine::general_purpose::STANDARD as BASE64;
-use base64::Engine;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::asset_io::{
     AssetImportError, AssetRepository, AssetRepositoryError, ImportDecision, InspectedPackage,
     PngImporter, SheetRect, SizeHandling,
 };
 use crate::domain::{
-    parse_document, Area, Asset, AssetKind, AssetRevision, Direction, DomainDocument, ObjectId,
-    PixelPoint, PixelSize, ProfileRevision, RevisionRef, Sha256Digest, SlotId, UtcTimestamp,
+    canonical_json_bytes, Area, Asset, AssetKind, AssetRevision, Direction, DomainDocument,
+    ObjectId, PixelPoint, PixelSize, ProfileRevision, RevisionRef, Sha256Digest, SlotId,
+    UtcTimestamp,
 };
+use crate::exports::{CancellationFlag, CancellationToken};
 use crate::storage::{
     JsonStore, StorageError, TransactionFault, TransactionService, VaultLayout, VaultRoot,
     AREA_ADMIN_DIR,
 };
 
-use super::project_service::{load_project_labels, require_writable, scan_projects};
+use super::project_service::{require_writable, scan_projects};
 use super::{VaultOpenMode, VaultService, VaultSessionContext};
+
+pub use inventory::{
+    AssetInventory, AssetInventoryFacets, AssetInventoryItem, AssetInventoryPage,
+    AssetInventoryQuery, AssetInventorySort, AssetInventoryUsageFilter, AssetThumbnail, AssetUsage,
+    InventoryLabel,
+};
+pub use jobs::{
+    AssetImportJobError, AssetImportJobProgress, AssetImportJobRegistry, AssetImportJobResult,
+    AssetImportJobStage, AssetImportJobStatus, AssetImportJobView, AssetInspectionRegistry,
+    AssetInspectionRegistryError,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AssetServiceError {
@@ -31,50 +47,6 @@ pub enum AssetServiceError {
     Import(#[from] AssetImportError),
     #[error(transparent)]
     Repository(#[from] AssetRepositoryError),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct AssetInventory {
-    pub area_id: ObjectId,
-    pub profile_ref: RevisionRef,
-    pub writable: bool,
-    pub labels: Vec<InventoryLabel>,
-    pub items: Vec<AssetInventoryItem>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct InventoryLabel {
-    pub id: ObjectId,
-    pub name: String,
-    pub color: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct AssetInventoryItem {
-    pub id: ObjectId,
-    pub revision: u32,
-    pub name: String,
-    pub original_name: String,
-    pub asset_kind: AssetKind,
-    pub label_ids: Vec<ObjectId>,
-    pub released_revision: u32,
-    pub profile_ref: RevisionRef,
-    pub slot_id: SlotId,
-    pub direction: Direction,
-    pub variant: String,
-    pub image_size_px: PixelSize,
-    pub pivot_px: PixelPoint,
-    pub content_hash: Sha256Digest,
-    pub archived: bool,
-    pub usage: Vec<AssetUsage>,
-    pub thumbnail_url: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct AssetUsage {
-    pub kind: String,
-    pub id: ObjectId,
-    pub description: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -88,6 +60,7 @@ pub enum AssetImportSource {
 pub struct AssetImportInspection {
     pub area_id: ObjectId,
     pub profile_ref: RevisionRef,
+    pub inspection_fingerprint: Sha256Digest,
     pub source: AssetImportSource,
     pub slots: Vec<ImportSlotOption>,
     pub entries: Vec<AssetImportPreviewEntry>,
@@ -124,28 +97,31 @@ pub struct AssetImportPreviewEntry {
 #[serde(deny_unknown_fields)]
 pub struct ConfirmAssetImportRequest {
     pub area_id: ObjectId,
+    pub inspection_fingerprint: Sha256Digest,
     pub source: AssetImportSource,
     pub decisions: Vec<ImportDecision>,
 }
 
 #[derive(Debug)]
-struct AreaAssetContext {
-    folder: PathBuf,
-    area: Area,
-    profile: ProfileRevision,
+pub(super) struct AreaAssetContext {
+    pub(super) folder: PathBuf,
+    pub(super) area: Area,
+    pub(super) profile: ProfileRevision,
 }
 
 #[derive(Debug, Clone)]
-struct StoredAsset {
-    folder: PathBuf,
-    asset: Asset,
-    revision: AssetRevision,
+pub(super) struct StoredAsset {
+    pub(super) folder: PathBuf,
+    pub(super) asset: Asset,
+    pub(super) revision: AssetRevision,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct AssetService;
 
 impl AssetService {
+    /// Compatibility helper for in-process callers that need the complete metadata inventory.
+    /// Desktop list views use [`Self::inventory_page`] so response size remains bounded.
     pub fn inventory(
         vaults: &VaultService,
         session_id: ObjectId,
@@ -153,7 +129,72 @@ impl AssetService {
     ) -> Result<AssetInventory, AssetServiceError> {
         let session = vaults.context(session_id)?;
         let area = find_area_context(&session, area_id)?;
-        build_inventory(&session, &area)
+        inventory::build_inventory(&session, &area)
+    }
+
+    pub fn inventory_page(
+        vaults: &VaultService,
+        session_id: ObjectId,
+        area_id: ObjectId,
+        cursor: Option<&str>,
+        limit: Option<usize>,
+    ) -> Result<AssetInventoryPage, AssetServiceError> {
+        Self::inventory_page_query(
+            vaults,
+            session_id,
+            area_id,
+            &AssetInventoryQuery::default(),
+            cursor,
+            limit,
+        )
+    }
+
+    pub fn inventory_page_query(
+        vaults: &VaultService,
+        session_id: ObjectId,
+        area_id: ObjectId,
+        query: &AssetInventoryQuery,
+        cursor: Option<&str>,
+        limit: Option<usize>,
+    ) -> Result<AssetInventoryPage, AssetServiceError> {
+        let session = vaults.context(session_id)?;
+        let area = find_area_context(&session, area_id)?;
+        inventory::build_inventory_page(&session, &area, query, cursor, limit)
+    }
+
+    pub(crate) fn inventory_page_in_context(
+        session: &VaultSessionContext,
+        area_id: ObjectId,
+        query: &AssetInventoryQuery,
+        cursor: Option<&str>,
+        limit: Option<usize>,
+    ) -> Result<AssetInventoryPage, AssetServiceError> {
+        let area = find_area_context(session, area_id)?;
+        inventory::build_inventory_page(session, &area, query, cursor, limit)
+    }
+
+    pub fn thumbnail(
+        vaults: &VaultService,
+        session_id: ObjectId,
+        area_id: ObjectId,
+        asset_id: ObjectId,
+        revision: u32,
+        max_edge: Option<u16>,
+    ) -> Result<AssetThumbnail, AssetServiceError> {
+        let session = vaults.context(session_id)?;
+        let area = find_area_context(&session, area_id)?;
+        inventory::build_thumbnail(&session.root, &area, asset_id, revision, max_edge)
+    }
+
+    pub(crate) fn thumbnail_in_context(
+        session: &VaultSessionContext,
+        area_id: ObjectId,
+        asset_id: ObjectId,
+        revision: u32,
+        max_edge: Option<u16>,
+    ) -> Result<AssetThumbnail, AssetServiceError> {
+        let area = find_area_context(session, area_id)?;
+        inventory::build_thumbnail(&session.root, &area, asset_id, revision, max_edge)
     }
 
     pub fn inspect_sources(
@@ -165,7 +206,30 @@ impl AssetService {
         let session = vaults.context(session_id)?;
         let area = find_area_context(&session, area_id)?;
         let source = classify_source(paths)?;
+        budget::validate_import_budget(&source)?;
         let inspected = inspect_source(&source, &area)?;
+        preview_inspection(&session.root, &area, source, &inspected)
+    }
+
+    pub(crate) fn inspect_sources_in_context_controlled<C>(
+        session: &VaultSessionContext,
+        area_id: ObjectId,
+        paths: Vec<String>,
+        is_cancelled: &C,
+    ) -> Result<AssetImportInspection, AssetServiceError>
+    where
+        C: Fn() -> bool,
+    {
+        let area = find_area_context(session, area_id)?;
+        let source = classify_source(paths)?;
+        let mut budget_progress = |_: usize, _: usize| {};
+        budget::validate_import_budget_controlled(&source, is_cancelled, &mut budget_progress)?;
+        let mut inspect_progress = |_: usize, _: usize| {};
+        let inspected =
+            inspect_source_controlled(&source, &area, is_cancelled, &mut inspect_progress)?;
+        if is_cancelled() {
+            return Err(AssetImportError::Cancelled.into());
+        }
         preview_inspection(&session.root, &area, source, &inspected)
     }
 
@@ -189,7 +253,9 @@ impl AssetService {
     ) -> Result<AssetInventory, AssetServiceError> {
         let session = require_writable(vaults, session_id)?;
         let area = find_area_context(&session, request.area_id)?;
+        budget::validate_import_budget(&request.source)?;
         let inspected = inspect_source(&request.source, &area)?;
+        require_matching_inspection(&area, &request, &inspected)?;
         validate_decisions(&inspected, &request.decisions)?;
         AssetRepository.import_configured_package_with_transactions(
             &session.root,
@@ -201,7 +267,93 @@ impl AssetService {
         )?;
         vaults.refresh_index(session_id)?;
         let refreshed = vaults.context(session_id)?;
-        build_inventory(&refreshed, &area)
+        inventory::build_inventory(&refreshed, &area)
+    }
+
+    #[doc(hidden)]
+    pub fn execute_import_job<P>(
+        root: &VaultRoot,
+        request: ConfirmAssetImportRequest,
+        cancellation: &CancellationFlag,
+        report: &mut P,
+    ) -> Result<Vec<AssetInventoryItem>, AssetServiceError>
+    where
+        P: FnMut(AssetImportJobProgress),
+    {
+        let session = VaultSessionContext {
+            root: root.clone(),
+            mode: VaultOpenMode::ReadWrite,
+        };
+        let area = find_area_context(&session, request.area_id)?;
+        let is_cancelled = || cancellation.is_cancelled();
+        let mut preflight_progress = |completed: usize, total: usize| {
+            report(AssetImportJobProgress {
+                stage: AssetImportJobStage::Preflight,
+                completed,
+                total,
+                message: format!("Validated {completed} of {total} source images"),
+            });
+        };
+        let budget = budget::validate_import_budget_controlled(
+            &request.source,
+            &is_cancelled,
+            &mut preflight_progress,
+        )?;
+        report(AssetImportJobProgress {
+            stage: AssetImportJobStage::Decoding,
+            completed: 0,
+            total: budget.entries,
+            message: "Decoding bounded PNG sources".to_owned(),
+        });
+        let mut decode_progress = |completed: usize, total: usize| {
+            report(AssetImportJobProgress {
+                stage: AssetImportJobStage::Decoding,
+                completed,
+                total,
+                message: format!("Decoded {completed} of {total} PNG sources"),
+            });
+        };
+        let inspected =
+            inspect_source_controlled(&request.source, &area, &is_cancelled, &mut decode_progress)?;
+        require_matching_inspection(&area, &request, &inspected)?;
+        validate_decisions(&inspected, &request.decisions)?;
+        report(AssetImportJobProgress {
+            stage: AssetImportJobStage::Staging,
+            completed: 0,
+            total: budget.entries,
+            message: "Staging imported assets".to_owned(),
+        });
+        let mut stage_progress = |completed: usize, total: usize| {
+            report(AssetImportJobProgress {
+                stage: if completed == total {
+                    AssetImportJobStage::Committing
+                } else {
+                    AssetImportJobStage::Staging
+                },
+                completed: if completed == total { 0 } else { completed },
+                total: if completed == total { 1 } else { total },
+                message: if completed == total {
+                    "Committing the import transaction".to_owned()
+                } else {
+                    format!("Staged {completed} of {total} assets")
+                },
+            });
+        };
+        let imported = AssetRepository.import_configured_package_controlled(
+            root,
+            &area.folder,
+            area.area.id,
+            &inspected,
+            (&request.decisions, &area.profile),
+            (&is_cancelled, &mut stage_progress),
+        )?;
+        report(AssetImportJobProgress {
+            stage: AssetImportJobStage::Committing,
+            completed: 1,
+            total: 1,
+            message: "Import transaction committed".to_owned(),
+        });
+        Ok(imported.into_iter().map(inventory::imported_item).collect())
     }
 
     pub fn archive(
@@ -239,15 +391,16 @@ impl AssetService {
         store.compare_and_swap(&manifest, &loaded.stamp, &DomainDocument::Asset(asset))?;
         vaults.refresh_index(session_id)?;
         let refreshed = vaults.context(session_id)?;
-        build_inventory(&refreshed, &area)
+        inventory::build_inventory(&refreshed, &area)
     }
 }
 
 fn classify_source(paths: Vec<String>) -> Result<AssetImportSource, AssetServiceError> {
-    if paths.is_empty() || paths.len() > 512 {
-        return Err(AssetImportError::InvalidPackage(
-            "select between 1 and 512 PNG files or one package JSON".to_owned(),
-        )
+    if paths.is_empty() || paths.len() > budget::MAXIMUM_IMPORT_ENTRIES {
+        return Err(AssetImportError::InvalidPackage(format!(
+            "select between 1 and {} PNG files or one package JSON",
+            budget::MAXIMUM_IMPORT_ENTRIES
+        ))
         .into());
     }
     let json = paths
@@ -296,7 +449,7 @@ fn extension(path: &str) -> Option<&str> {
         })
 }
 
-fn validate_selected_file(path: &Path, kind: &str) -> Result<(), AssetServiceError> {
+pub(super) fn validate_selected_file(path: &Path, kind: &str) -> Result<(), AssetServiceError> {
     if !path.is_absolute() {
         return Err(AssetImportError::InvalidPackage(format!(
             "selected {kind} path must be absolute"
@@ -318,21 +471,47 @@ fn inspect_source(
     source: &AssetImportSource,
     area: &AreaAssetContext,
 ) -> Result<InspectedPackage, AssetServiceError> {
+    inspect_source_controlled(source, area, &|| false, &mut |_, _| {})
+}
+
+fn inspect_source_controlled<C, P>(
+    source: &AssetImportSource,
+    area: &AreaAssetContext,
+    is_cancelled: &C,
+    progress: &mut P,
+) -> Result<InspectedPackage, AssetServiceError>
+where
+    C: Fn() -> bool,
+    P: FnMut(usize, usize),
+{
     let allowed_slots = area
         .profile
         .slots
         .iter()
         .map(|slot| slot.id.clone())
         .collect::<HashSet<_>>();
-    let importer = PngImporter::default();
+    // Repeat the service's entry bound in the final, actually decoded snapshot. The package
+    // path is mutable external input and may have changed since the budget preflight.
+    let importer = PngImporter::default().with_maximum_entries(budget::MAXIMUM_IMPORT_ENTRIES);
     let inspected = match source {
         AssetImportSource::Package { path } => {
             validate_selected_file(Path::new(path), "package JSON")?;
-            importer.inspect_package(Path::new(path), &allowed_slots)?
+            importer.inspect_package_controlled(
+                Path::new(path),
+                &allowed_slots,
+                is_cancelled,
+                progress,
+            )?
         }
         AssetImportSource::LoosePngs { paths } => {
             let paths = paths.iter().map(PathBuf::from).collect::<Vec<_>>();
-            importer.inspect_loose_pngs(&paths, area.profile.reference(), &allowed_slots)?
+            importer.inspect_loose_pngs_controlled(
+                &paths,
+                area.profile.reference(),
+                &allowed_slots,
+                is_cancelled,
+                progress,
+            )?
         }
     };
     if inspected.package.profile_ref != area.profile.reference() {
@@ -342,6 +521,51 @@ fn inspect_source(
         .into());
     }
     Ok(inspected)
+}
+
+fn require_matching_inspection(
+    area: &AreaAssetContext,
+    request: &ConfirmAssetImportRequest,
+    inspected: &InspectedPackage,
+) -> Result<(), AssetServiceError> {
+    let actual = inspection_fingerprint(area, &request.source, inspected)?;
+    if actual != request.inspection_fingerprint {
+        return Err(AssetImportError::InvalidPackage(
+            "asset sources changed after review; inspect them again before importing".to_owned(),
+        )
+        .into());
+    }
+    Ok(())
+}
+
+fn inspection_fingerprint(
+    area: &AreaAssetContext,
+    source: &AssetImportSource,
+    inspected: &InspectedPackage,
+) -> Result<Sha256Digest, AssetServiceError> {
+    let entries = inspected
+        .entries
+        .iter()
+        .map(|entry| {
+            serde_json::json!({
+                "entry_index": entry.entry_index,
+                "source_path": entry.source_path.to_string_lossy(),
+                "content_hash": entry.content_hash,
+            })
+        })
+        .collect::<Vec<_>>();
+    let payload = serde_json::json!({
+        "format": "pixel-cutout-sprite-asset-inspection-v1",
+        "area_id": area.area.id,
+        "profile_ref": area.profile.reference(),
+        "source": source,
+        "package_content_hash": inspected.package_content_hash,
+        "package": inspected.package,
+        "entries": entries,
+    });
+    let bytes = canonical_json_bytes(&payload).map_err(StorageError::InvalidDocument)?;
+    Ok(Sha256Digest::parse(format!("{:x}", Sha256::digest(bytes)))
+        .expect("SHA-256 formatter is valid"))
 }
 
 fn validate_decisions(
@@ -402,6 +626,7 @@ fn preview_inspection(
     source: AssetImportSource,
     inspected: &InspectedPackage,
 ) -> Result<AssetImportInspection, AssetServiceError> {
+    let inspection_fingerprint = inspection_fingerprint(area, &source, inspected)?;
     let hashes = scan_assets(root, &area.folder)?
         .into_iter()
         .map(|asset| (asset.revision.content_hash, asset.asset.id))
@@ -469,6 +694,7 @@ fn preview_inspection(
     Ok(AssetImportInspection {
         area_id: area.area.id,
         profile_ref: area.profile.reference(),
+        inspection_fingerprint,
         source,
         slots: area
             .profile
@@ -490,154 +716,6 @@ fn effective_size(entry: &crate::asset_io::PackageEntry) -> PixelSize {
         .map_or(entry.image_size_px, |SheetRect(_, _, width, height)| {
             PixelSize(width as u16, height as u16)
         })
-}
-
-fn build_inventory(
-    session: &VaultSessionContext,
-    area: &AreaAssetContext,
-) -> Result<AssetInventory, AssetServiceError> {
-    let projects = scan_projects(session)?;
-    let project = projects
-        .iter()
-        .find(|project| project.project.id == area.area.project_id)
-        .ok_or_else(|| {
-            StorageError::InvalidVault(
-                "area project disappeared while loading inventory".to_owned(),
-            )
-        })?;
-    let labels = load_project_labels(&VaultLayout::new(session.root.clone()), project)?
-        .labels
-        .into_iter()
-        .map(|label| InventoryLabel {
-            id: label.id,
-            name: label.name,
-            color: label.color,
-        })
-        .collect();
-    let documents = collect_area_documents(&session.root, &area.folder)?;
-    let mut items = scan_assets(&session.root, &area.folder)?
-        .into_iter()
-        .map(|stored| inventory_item(&session.root, &area.folder, stored, &documents))
-        .collect::<Result<Vec<_>, AssetServiceError>>()?;
-    items.sort_by(|left, right| {
-        left.name
-            .to_lowercase()
-            .cmp(&right.name.to_lowercase())
-            .then_with(|| left.id.to_string().cmp(&right.id.to_string()))
-    });
-    Ok(AssetInventory {
-        area_id: area.area.id,
-        profile_ref: area.profile.reference(),
-        writable: session.mode == VaultOpenMode::ReadWrite,
-        labels,
-        items,
-    })
-}
-
-fn inventory_item(
-    root: &VaultRoot,
-    area_folder: &Path,
-    stored: StoredAsset,
-    documents: &[DomainDocument],
-) -> Result<AssetInventoryItem, AssetServiceError> {
-    let image = root.resolve(&area_folder.join(stored.revision.source_file.as_str()))?;
-    let bytes = fs::read(image.as_path())
-        .map_err(|error| StorageError::io("read inventory thumbnail", image.relative(), error))?;
-    let usage = asset_usage(documents, stored.asset.id);
-    Ok(AssetInventoryItem {
-        id: stored.asset.id,
-        revision: stored.asset.revision,
-        name: stored.asset.name,
-        original_name: stored.asset.original_name,
-        asset_kind: stored.asset.asset_kind,
-        label_ids: stored.asset.label_ids,
-        released_revision: stored.revision.revision,
-        profile_ref: stored.revision.profile_ref,
-        slot_id: stored.revision.slot_id,
-        direction: stored.revision.direction,
-        variant: stored.revision.variant,
-        image_size_px: stored.revision.image_size_px,
-        pivot_px: stored.revision.pivot_px,
-        content_hash: stored.revision.content_hash,
-        archived: stored.asset.archived,
-        usage,
-        thumbnail_url: format!("data:image/png;base64,{}", BASE64.encode(bytes)),
-    })
-}
-
-fn asset_usage(documents: &[DomainDocument], asset_id: ObjectId) -> Vec<AssetUsage> {
-    let mut usage = Vec::new();
-    for document in documents {
-        match document {
-            DomainDocument::Appearance(appearance) => {
-                for slot in appearance.slots.iter().filter(|slot| {
-                    slot.asset.asset_id == asset_id
-                        || slot.fit_by_direction.iter().any(|fit| {
-                            fit.asset
-                                .as_ref()
-                                .is_some_and(|asset| asset.asset_id == asset_id)
-                                || fit
-                                    .variant_fittings
-                                    .iter()
-                                    .any(|variant| variant.asset.asset_id == asset_id)
-                        })
-                }) {
-                    usage.push(AssetUsage {
-                        kind: "appearance_slot".to_owned(),
-                        id: appearance.id,
-                        description: format!("{} · slot {}", appearance.name, slot.slot_id),
-                    });
-                }
-                for equipment in appearance.equipment.iter().filter(|item| {
-                    item.asset.asset_id == asset_id
-                        || item.fit_by_direction.iter().any(|fit| {
-                            fit.asset
-                                .as_ref()
-                                .is_some_and(|asset| asset.asset_id == asset_id)
-                                || fit
-                                    .variant_fittings
-                                    .iter()
-                                    .any(|variant| variant.asset.asset_id == asset_id)
-                        })
-                }) {
-                    usage.push(AssetUsage {
-                        kind: "appearance_equipment".to_owned(),
-                        id: appearance.id,
-                        description: format!("{} · equipment {}", appearance.name, equipment.name),
-                    });
-                }
-            }
-            DomainDocument::OutfitDraft(draft) => {
-                let mut used_slots = draft
-                    .selected_assets
-                    .iter()
-                    .filter(|slot| slot.asset_id == asset_id)
-                    .map(|slot| slot.slot_id.clone())
-                    .collect::<HashSet<_>>();
-                for fitting in &draft.fittings {
-                    if fitting.asset.asset_id == asset_id
-                        || fitting
-                            .variant_fittings
-                            .iter()
-                            .any(|variant| variant.asset.asset_id == asset_id)
-                    {
-                        used_slots.insert(fitting.slot_id.clone());
-                    }
-                }
-                let mut used_slots = used_slots.into_iter().collect::<Vec<_>>();
-                used_slots.sort_by_key(ToString::to_string);
-                for slot_id in used_slots {
-                    usage.push(AssetUsage {
-                        kind: "outfit_draft".to_owned(),
-                        id: draft.id,
-                        description: format!("Outfit draft · slot {slot_id}"),
-                    });
-                }
-            }
-            _ => {}
-        }
-    }
-    usage
 }
 
 fn find_area_context(
@@ -709,15 +787,25 @@ fn find_area_context(
     Err(StorageError::InvalidVault(format!("area {area_id} does not exist")).into())
 }
 
-fn scan_assets(
+pub(super) fn scan_assets(
     root: &VaultRoot,
     area_folder: &Path,
 ) -> Result<Vec<StoredAsset>, AssetServiceError> {
+    scan_asset_folders(root, area_folder)?
+        .into_iter()
+        .map(|folder| load_stored_asset(root, folder))
+        .collect()
+}
+
+pub(super) fn scan_asset_folders(
+    root: &VaultRoot,
+    area_folder: &Path,
+) -> Result<Vec<PathBuf>, AssetServiceError> {
     let directory = root.resolve(&area_folder.join(AREA_ADMIN_DIR).join("assets"))?;
     if !directory.as_path().exists() {
         return Ok(Vec::new());
     }
-    let mut assets = Vec::new();
+    let mut folders = Vec::new();
     for entry in fs::read_dir(directory.as_path())
         .map_err(|error| StorageError::io("scan area assets", directory.relative(), error))?
     {
@@ -729,92 +817,54 @@ fn scan_assets(
         if file_type.is_symlink() || !file_type.is_dir() {
             continue;
         }
-        let folder = directory.relative().join(entry.file_name());
-        let loaded = JsonStore::default().load(&root.resolve(&folder.join("asset.json"))?)?;
-        let DomainDocument::Asset(asset) = loaded.value else {
-            return Err(StorageError::InvalidVault(
-                "asset manifest has the wrong document kind".to_owned(),
-            )
-            .into());
-        };
-        let revision_number = asset
-            .released_revisions
-            .iter()
-            .copied()
-            .max()
-            .ok_or_else(|| StorageError::InvalidVault("asset has no release".to_owned()))?;
-        let revision_path = folder
-            .join(format!("r{revision_number:04}"))
-            .join("revision.json");
-        let loaded = JsonStore::default().load(&root.resolve(&revision_path)?)?;
-        let DomainDocument::AssetRevision(revision) = loaded.value else {
-            return Err(StorageError::InvalidVault(
-                "asset revision has the wrong document kind".to_owned(),
-            )
-            .into());
-        };
-        if asset.id != revision.asset_id {
-            return Err(StorageError::InvalidVault(
-                "asset and latest revision identities do not agree".to_owned(),
-            )
-            .into());
-        }
-        assets.push(StoredAsset {
-            folder,
-            asset,
-            revision,
-        });
+        folders.push(directory.relative().join(entry.file_name()));
     }
-    Ok(assets)
+    folders.sort_by(|left, right| {
+        left.file_name()
+            .map(|name| name.to_string_lossy())
+            .cmp(&right.file_name().map(|name| name.to_string_lossy()))
+    });
+    Ok(folders)
 }
 
-fn collect_area_documents(
+pub(super) fn load_stored_asset(
     root: &VaultRoot,
-    area_folder: &Path,
-) -> Result<Vec<DomainDocument>, AssetServiceError> {
-    let directory = root.resolve(area_folder)?;
-    let mut paths = Vec::new();
-    collect_json_paths(directory.as_path(), 0, &mut paths)?;
-    let mut documents = Vec::new();
-    for path in paths {
-        let bytes = fs::read(&path)
-            .map_err(|error| StorageError::io("read area document for usage", &path, error))?;
-        if let Ok(document) = parse_document(&bytes) {
-            documents.push(document);
-        }
-    }
-    Ok(documents)
-}
-
-fn collect_json_paths(
-    directory: &Path,
-    depth: u8,
-    output: &mut Vec<PathBuf>,
-) -> Result<(), AssetServiceError> {
-    if depth > 16 {
+    folder: PathBuf,
+) -> Result<StoredAsset, AssetServiceError> {
+    let loaded = JsonStore::default().load(&root.resolve(&folder.join("asset.json"))?)?;
+    let DomainDocument::Asset(asset) = loaded.value else {
         return Err(StorageError::InvalidVault(
-            "area nesting exceeds the supported inventory depth".to_owned(),
+            "asset manifest has the wrong document kind".to_owned(),
+        )
+        .into());
+    };
+    let revision_number = asset
+        .released_revisions
+        .iter()
+        .copied()
+        .max()
+        .ok_or_else(|| StorageError::InvalidVault("asset has no release".to_owned()))?;
+    let revision_path = folder
+        .join(format!("r{revision_number:04}"))
+        .join("revision.json");
+    let loaded = JsonStore::default().load(&root.resolve(&revision_path)?)?;
+    let DomainDocument::AssetRevision(revision) = loaded.value else {
+        return Err(StorageError::InvalidVault(
+            "asset revision has the wrong document kind".to_owned(),
+        )
+        .into());
+    };
+    if asset.id != revision.asset_id {
+        return Err(StorageError::InvalidVault(
+            "asset and latest revision identities do not agree".to_owned(),
         )
         .into());
     }
-    for entry in fs::read_dir(directory)
-        .map_err(|error| StorageError::io("scan area usage", directory, error))?
-    {
-        let entry =
-            entry.map_err(|error| StorageError::io("scan area usage entry", directory, error))?;
-        let file_type = entry
-            .file_type()
-            .map_err(|error| StorageError::io("inspect area usage entry", &entry.path(), error))?;
-        if file_type.is_symlink() {
-            continue;
-        }
-        if file_type.is_dir() {
-            collect_json_paths(&entry.path(), depth + 1, output)?;
-        } else if file_type.is_file() && entry.path().extension().is_some_and(|ext| ext == "json") {
-            output.push(entry.path());
-        }
-    }
-    Ok(())
+    Ok(StoredAsset {
+        folder,
+        asset,
+        revision,
+    })
 }
 
 fn now() -> Result<UtcTimestamp, StorageError> {

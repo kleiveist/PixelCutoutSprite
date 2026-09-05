@@ -67,6 +67,7 @@ export interface MotionDashboardData {
   area_id: UUID;
   motions: MotionCard[];
   profiles: RevisionRef[];
+  labels: Array<{ id: UUID; name: string; color: string }>;
   writable: boolean;
 }
 
@@ -135,17 +136,25 @@ export type MotionOpenTarget =
 
 export interface MotionFilters {
   search: string;
+  action: "any" | string;
   direction: "any" | Direction;
+  directionCoverage: "any" | "complete" | "partial" | "missing";
   status: MotionStatusFilter;
   profile: "any" | string;
+  labelIds: string[];
+  labelMatch: "any" | "all";
   sort: MotionSort;
 }
 
 export const emptyMotionFilters = (): MotionFilters => ({
   search: "",
+  action: "any",
   direction: "any",
+  directionCoverage: "any",
   status: "any",
   profile: "any",
+  labelIds: [],
+  labelMatch: "any",
   sort: "updated_desc",
 });
 
@@ -161,13 +170,35 @@ export function filterMotionCards(
       card.action_key.toLocaleLowerCase().includes(search);
     const directionMatches =
       filters.direction === "any" || card.direction_coverage.includes(filters.direction);
+    const coverageMatches =
+      filters.directionCoverage === "any" ||
+      (filters.directionCoverage === "complete" && card.direction_coverage.length === 8) ||
+      (filters.directionCoverage === "partial" &&
+        card.direction_coverage.length > 0 &&
+        card.direction_coverage.length < 8) ||
+      (filters.directionCoverage === "missing" && card.direction_coverage.length === 0);
     const statusMatches =
       filters.status === "any" ||
       (filters.status === "draft" && card.status === "new") ||
       (filters.status === "changes" && card.status === "unpublished_changes") ||
       card.status === filters.status;
-    const profileMatches = filters.profile === "any" || card.profile_ref.id === filters.profile;
-    return textMatches && directionMatches && statusMatches && profileMatches;
+    const profileMatches =
+      filters.profile === "any" ||
+      `${card.profile_ref.id}@${card.profile_ref.revision}` === filters.profile;
+    const labelsMatch =
+      filters.labelIds.length === 0 ||
+      (filters.labelMatch === "all"
+        ? filters.labelIds.every((id) => card.label_ids.includes(id))
+        : filters.labelIds.some((id) => card.label_ids.includes(id)));
+    return (
+      textMatches &&
+      (filters.action === "any" || card.action_key === filters.action) &&
+      directionMatches &&
+      coverageMatches &&
+      statusMatches &&
+      profileMatches &&
+      labelsMatch
+    );
   });
   result.sort((left, right) => {
     switch (filters.sort) {

@@ -121,6 +121,8 @@ pub fn start_npc_export<R: Runtime>(
                 &mut report,
             )
         }));
+        // Do not advertise a terminal job while this worker still excludes other vault writes.
+        drop(writer_lease);
         let registry = app.state::<ExportJobRegistry>();
         let terminal = match result {
             Ok(Ok(outcome)) => registry.complete(job_id, outcome),

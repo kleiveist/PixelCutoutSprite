@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 import type { OutfitEditorContext, SaveNpcRequest } from "../../api/outfit-client";
+import { useModalFocus } from "../../components/useModalFocus";
 import { messageOf, toggleSet } from "./outfit-utils";
 
 interface SaveNpcDialogProps {
@@ -15,7 +16,14 @@ export function SaveNpcDialog({ labels, busy, onCancel, onSave }: SaveNpcDialogP
   const [description, setDescription] = useState("");
   const [selectedLabels, setSelectedLabels] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(busy);
+  const [submitting, setSubmitting] = useState(false);
+  const locked = busy || submitting;
+  const nameInput = useRef<HTMLInputElement>(null);
+  const { dialogRef, onDialogKeyDown } = useModalFocus<HTMLFormElement>({
+    canDismiss: !locked,
+    initialFocus: nameInput,
+    onEscape: onCancel,
+  });
 
   async function submit(event: FormEvent): Promise<void> {
     event.preventDefault();
@@ -32,17 +40,19 @@ export function SaveNpcDialog({ labels, busy, onCancel, onSave }: SaveNpcDialogP
   return (
     <div className="outfit-dialog-backdrop">
       <form
+        ref={dialogRef}
         className="outfit-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="save-npc-title"
+        onKeyDown={onDialogKeyDown}
         onSubmit={(event) => void submit(event)}
       >
         <h2 id="save-npc-title">Save outfit as NPC</h2>
         <label>
           Name
           <input
-            autoFocus
+            ref={nameInput}
             required
             maxLength={120}
             value={name}
@@ -77,13 +87,13 @@ export function SaveNpcDialog({ labels, busy, onCancel, onSave }: SaveNpcDialogP
         </fieldset>
         {error && <p role="alert">{error}</p>}
         <div>
-          <button type="button" disabled={submitting} onClick={onCancel}>
+          <button type="button" disabled={locked} onClick={onCancel}>
             Cancel
           </button>
           <button
             type="submit"
             className="primary-button"
-            disabled={submitting || name.trim() !== name || !name}
+            disabled={locked || name.trim() !== name || !name}
           >
             Create NPC
           </button>

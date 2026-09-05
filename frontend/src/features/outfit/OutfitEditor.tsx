@@ -12,7 +12,12 @@ import {
   type OutfitTarget,
   type SavedNpc,
 } from "../../api/outfit-client";
-import type { AssetImportInspection, AssetInventory, ImportDecision } from "../../domain/inventory";
+import type {
+  AssetImportInspection,
+  AssetImportJobView,
+  AssetInventoryItem,
+  ImportDecision,
+} from "../../domain/inventory";
 import type {
   AssetFallbackApproval,
   Direction,
@@ -69,6 +74,8 @@ export interface OutfitEditorProps {
   assetsClient?: AssetClient;
   autosaveDelayMs?: number;
   writable?: boolean;
+  importJob?: AssetImportJobView | null;
+  onImportJobChange?: (job: AssetImportJobView) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onEditorControllerChange?: EditorControllerChange;
   onPlaybackChange?: (playing: boolean) => void;
@@ -146,7 +153,7 @@ function horizontalMirror(direction: Direction): Direction {
 }
 
 function importedOutfitRefs(
-  imported: AssetInventory,
+  imported: readonly AssetInventoryItem[],
   before: OutfitEditorContext["inventory"],
   inspection: AssetImportInspection,
   decisions: ImportDecision[],
@@ -159,7 +166,7 @@ function importedOutfitRefs(
     variant: inspection.entries.find((entry) => entry.entry_index === decision.entry_index)
       ?.variant,
   }));
-  const candidates = imported.items.filter((item) => {
+  const candidates = imported.filter((item) => {
     if (item.archived) return false;
     const reference = {
       asset_id: item.id,
@@ -196,6 +203,8 @@ export function OutfitEditor({
   assetsClient = assetClient,
   autosaveDelayMs = 2_000,
   writable = true,
+  importJob,
+  onImportJobChange,
   onDirtyChange,
   onEditorControllerChange,
   onPlaybackChange,
@@ -315,6 +324,8 @@ export function OutfitEditor({
       assetsClient={assetsClient}
       autosaveDelayMs={autosaveDelayMs}
       writable={writable}
+      importJob={importJob}
+      onImportJobChange={onImportJobChange}
       onDirtyChange={onDirtyChange}
       onEditorControllerChange={bridgeEditorController}
       onPlaybackChange={onPlaybackChange}
@@ -334,6 +345,8 @@ function ActiveOutfitEditor({
   assetsClient,
   autosaveDelayMs,
   writable,
+  importJob: managedImportJob,
+  onImportJobChange,
   onDirtyChange,
   onEditorControllerChange,
   onPlaybackChange,
@@ -349,6 +362,8 @@ function ActiveOutfitEditor({
   assetsClient: AssetClient;
   autosaveDelayMs: number;
   writable: boolean;
+  importJob?: AssetImportJobView | null;
+  onImportJobChange?: (job: AssetImportJobView) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onEditorControllerChange?: EditorControllerChange;
   onPlaybackChange?: (playing: boolean) => void;
@@ -379,6 +394,8 @@ function ActiveOutfitEditor({
   const [applying, setApplying] = useState(false);
   const [commandBusy, setCommandBusy] = useState(false);
   const [inspection, setInspection] = useState<AssetImportInspection | null>(null);
+  const [inspectionRunningId, setInspectionRunningId] = useState<string | null>(null);
+  const [localAssetImportJob, setLocalAssetImportJob] = useState<AssetImportJobView | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const historyRef = useRef(history);
   historyRef.current = history;
@@ -392,6 +409,20 @@ function ActiveOutfitEditor({
   } | null>(null);
   const previewRunningRef = useRef(false);
   const mountedRef = useRef(true);
+  const activeInspectionId = useRef<string | null>(null);
+  const editorContextKey = `${sessionId}\u0000${areaId}\u0000${context.draft.id}`;
+  const activeEditorContext = useRef(editorContextKey);
+  activeEditorContext.current = editorContextKey;
+  const trackedAssetImportJob =
+    managedImportJob === undefined ? localAssetImportJob : managedImportJob;
+  const assetImportJob = trackedAssetImportJob?.area_id === areaId ? trackedAssetImportJob : null;
+  const updateAssetImportJob = useCallback(
+    (job: AssetImportJobView): void => {
+      if (managedImportJob === undefined && mountedRef.current) setLocalAssetImportJob(job);
+      onImportJobChange?.(job);
+    },
+    [managedImportJob, onImportJobChange],
+  );
   const dispatch = useCallback((action: Parameters<typeof outfitHistoryReducer>[1]) => {
     historyRef.current = outfitHistoryReducer(historyRef.current, action);
     rawDispatch(action);
@@ -576,6 +607,17 @@ function ActiveOutfitEditor({
     };
   }, []);
 
+  useEffect(
+    () => () => {
+      const inspectionId = activeInspectionId.current;
+      activeInspectionId.current = null;
+      if (inspectionId && typeof assetsClient.cancelInspection === "function") {
+        void assetsClient.cancelInspection(sessionId, inspectionId).catch(() => undefined);
+      }
+    },
+    [areaId, assetsClient, context.draft.id, sessionId],
+  );
+
   const togglePlayback = useCallback((): void => {
     if (
       !playing &&
@@ -669,21 +711,44 @@ function ActiveOutfitEditor({
 
   const inspectPaths = useCallback(
     async (paths: string[]): Promise<void> => {
-      if (!writable || paths.length === 0 || !beginCommand()) return;
+      if (!writable || paths.length === 0 || activeInspectionId.current || !beginCommand()) return;
+      const requestContext = `${sessionId}\u0000${areaId}\u0000${context.draft.id}`;
+      const inspectionId = globalThis.crypto.randomUUID();
+      activeInspectionId.current = inspectionId;
+      setInspectionRunningId(inspectionId);
       setActionError(null);
       try {
         await persistLatest();
-        const result = await assetsClient.inspect(sessionId, areaId, paths);
+        if (!mountedRef.current || activeEditorContext.current !== requestContext) return;
+        const result = await assetsClient.inspect(sessionId, areaId, paths, inspectionId);
+        if (!mountedRef.current || activeEditorContext.current !== requestContext) return;
         setInspection(result);
         onStatus?.(`${result.entries.length} outfit import assignment(s) ready for review`);
       } catch (reason) {
+        if (!mountedRef.current || activeEditorContext.current !== requestContext) return;
         setActionError(messageOf(reason));
         onStatus?.("Outfit asset inspection failed; no source was copied");
       } finally {
-        endCommand();
+        if (activeInspectionId.current === inspectionId) {
+          activeInspectionId.current = null;
+          if (mountedRef.current && activeEditorContext.current === requestContext) {
+            setInspectionRunningId(null);
+          }
+        }
+        if (mountedRef.current && activeEditorContext.current === requestContext) endCommand();
       }
     },
-    [areaId, assetsClient, beginCommand, endCommand, onStatus, persistLatest, sessionId, writable],
+    [
+      areaId,
+      assetsClient,
+      beginCommand,
+      context.draft.id,
+      endCommand,
+      onStatus,
+      persistLatest,
+      sessionId,
+      writable,
+    ],
   );
 
   useEffect(() => {
@@ -705,27 +770,64 @@ function ActiveOutfitEditor({
 
   async function chooseImportSources(): Promise<void> {
     if (!writable) return;
+    const requestContext = editorContextKey;
     onImportAssets?.();
     try {
-      await inspectPaths(await assetsClient.chooseSources());
+      const paths = await assetsClient.chooseSources();
+      if (!mountedRef.current || activeEditorContext.current !== requestContext) return;
+      await inspectPaths(paths);
     } catch (reason) {
-      setActionError(messageOf(reason));
+      if (mountedRef.current && activeEditorContext.current === requestContext) {
+        setActionError(messageOf(reason));
+      }
     }
   }
 
   async function confirmImport(decisions: ImportDecision[]): Promise<void> {
     if (!writable || !inspection || !beginCommand()) return;
+    const requestContext = editorContextKey;
+    const selectedInspection = inspection;
     setActionError(null);
     try {
       const revision = await persistLatest();
-      const imported = await assetsClient.import(sessionId, {
+      if (!mountedRef.current || activeEditorContext.current !== requestContext) return;
+      let importJob = await assetsClient.import(sessionId, {
         area_id: areaId,
-        source: inspection.source,
+        inspection_fingerprint: selectedInspection.inspection_fingerprint,
+        source: selectedInspection.source,
         decisions,
       });
-      const importedRefs = importedOutfitRefs(imported, inventory, inspection, decisions);
+      updateAssetImportJob(importJob);
+      if (!mountedRef.current || activeEditorContext.current !== requestContext) return;
       setInspection(null);
+      while (importJob.state === "queued" || importJob.state === "running") {
+        await waitForImportPoll();
+        if (!mountedRef.current || activeEditorContext.current !== requestContext) return;
+        try {
+          importJob = await assetsClient.importJob(sessionId, importJob.job_id);
+          updateAssetImportJob(importJob);
+          setActionError(null);
+        } catch (reason) {
+          setActionError(
+            `Import progress temporarily unavailable; retrying · ${messageOf(reason)}`,
+          );
+        }
+      }
+      if (importJob.state === "cancelled") {
+        onStatus?.("Outfit asset import cancelled safely");
+        return;
+      }
+      if (importJob.state !== "completed" || !importJob.result) {
+        throw new Error(importJob.error ?? "Outfit asset import failed");
+      }
+      const importedRefs = importedOutfitRefs(
+        importJob.result.imported_assets,
+        inventory,
+        selectedInspection,
+        decisions,
+      );
       const refreshed = await client.resume(sessionId, areaId, context.draft.id);
+      if (!mountedRef.current || activeEditorContext.current !== requestContext) return;
       persistedSha256Ref.current = refreshed.draft_sha256;
       setInventory(refreshed.inventory);
       setSelectedAssets(new Set(importedRefs.map(assetKey)));
@@ -738,18 +840,50 @@ function ActiveOutfitEditor({
           importedRefs,
           persistedSha256Ref.current,
         );
+        if (!mountedRef.current || activeEditorContext.current !== requestContext) return;
         persistedSha256Ref.current = assigned.draft_sha256;
         dispatch({ type: "command_applied", draft: assigned.draft });
         setSelectedAssets(new Set());
-        onStatus?.(`${importedRefs.length} imported outfit image(s) assigned by slot metadata`);
+        onStatus?.(
+          importJob.result.warning
+            ? `${importedRefs.length} imported outfit image(s) assigned · ${importJob.result.warning}`
+            : `${importedRefs.length} imported outfit image(s) assigned by slot metadata`,
+        );
       } else {
         onStatus?.("Assets imported; choose ambiguous or already-existing images explicitly");
       }
     } catch (reason) {
+      if (!mountedRef.current || activeEditorContext.current !== requestContext) return;
       setActionError(messageOf(reason));
       onStatus?.("Outfit asset import or automatic assignment failed");
     } finally {
-      endCommand();
+      if (mountedRef.current && activeEditorContext.current === requestContext) endCommand();
+    }
+  }
+
+  async function cancelAssetImport(): Promise<void> {
+    if (!assetImportJob || !["queued", "running"].includes(assetImportJob.state)) return;
+    try {
+      updateAssetImportJob(await assetsClient.cancelImport(sessionId, assetImportJob.job_id));
+    } catch (reason) {
+      setActionError(messageOf(reason));
+    }
+  }
+
+  async function cancelAssetInspection(): Promise<void> {
+    const inspectionId = activeInspectionId.current;
+    if (!inspectionId || typeof assetsClient.cancelInspection !== "function") return;
+    try {
+      const accepted = await assetsClient.cancelInspection(sessionId, inspectionId);
+      if (activeInspectionId.current === inspectionId) {
+        onStatus?.(
+          accepted
+            ? "Cancelling outfit asset inspection…"
+            : "Outfit asset inspection already finished; awaiting its result",
+        );
+      }
+    } catch (reason) {
+      if (activeInspectionId.current === inspectionId) setActionError(messageOf(reason));
     }
   }
 
@@ -1002,6 +1136,36 @@ function ActiveOutfitEditor({
           {actionError} Current in-memory edits are retained.
         </p>
       )}
+      {inspectionRunningId && (
+        <section className="outfit-import-job" aria-label="Outfit asset inspection progress">
+          <div>
+            <strong>Inspecting outfit source images…</strong>
+            <span>No files have been copied yet.</span>
+          </div>
+          <progress aria-label="Outfit asset inspection in progress" />
+          <button type="button" onClick={() => void cancelAssetInspection()}>
+            Cancel inspection
+          </button>
+        </section>
+      )}
+      {assetImportJob && ["queued", "running"].includes(assetImportJob.state) && (
+        <section className="outfit-import-job" aria-label="Outfit asset import progress">
+          <div>
+            <strong>{assetImportJob.progress.message}</strong>
+            <span>
+              {assetImportJob.progress.completed} / {assetImportJob.progress.total} ·{" "}
+              {assetImportJob.progress.stage}
+            </span>
+          </div>
+          <progress
+            value={assetImportJob.progress.completed}
+            max={Math.max(1, assetImportJob.progress.total)}
+          />
+          <button type="button" onClick={() => void cancelAssetImport()}>
+            Cancel import
+          </button>
+        </section>
+      )}
       {!writable && (
         <p role="status" className="outfit-read-only">
           Read-only inspection: editing, imports, autosave, and NPC writes are disabled.
@@ -1250,4 +1414,8 @@ function ActiveOutfitEditor({
       )}
     </section>
   );
+}
+
+function waitForImportPoll(): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, 150));
 }

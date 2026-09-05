@@ -682,6 +682,40 @@ impl AppearanceService {
         )
     }
 
+    pub(crate) fn prepare_preview(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        draft_id: ObjectId,
+        direction: Direction,
+        frame_index: u16,
+        edits: Option<OutfitDraftEdits>,
+    ) -> Result<super::outfit_render::PreparedOutfitPreview, AppearanceServiceError> {
+        super::outfit_render::prepare_preview(
+            vault,
+            area_path,
+            draft_id,
+            direction,
+            frame_index,
+            edits,
+        )
+    }
+
+    pub(crate) fn render_prepared_preview(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        prepared: super::outfit_render::PreparedOutfitPreview,
+        preview_cache: &std::sync::Mutex<crate::animation::PreviewCache>,
+    ) -> Result<OutfitPreviewFrame, AppearanceServiceError> {
+        super::outfit_render::render_prepared_preview(
+            vault,
+            area_path,
+            prepared,
+            Some(preview_cache),
+        )
+    }
+
     pub fn save_as_npc(
         &self,
         vault: &VaultRoot,

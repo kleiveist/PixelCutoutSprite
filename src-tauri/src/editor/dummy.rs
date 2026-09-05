@@ -146,7 +146,7 @@ fn render_dummy_with_shadow(
             visible: true,
             layer: -1_000,
             mirror_bitmap_x: false,
-            bitmap: ground_shadow_bitmap(shadow),
+            bitmap: ground_shadow_bitmap(shadow).into(),
         });
     }
     for (index, slot) in profile.slots.iter().enumerate() {
@@ -172,7 +172,8 @@ fn render_dummy_with_shadow(
                 u32::from(slot.size_px.0),
                 u32::from(slot.size_px.1),
                 color,
-            ),
+            )
+            .into(),
         });
     }
     PixelCompositor
@@ -281,17 +282,24 @@ pub fn compile_sampled_dummy(
 }
 
 pub fn encode_dummy_preview(frame: RenderedFrame) -> Result<DummyPreview, DummyCompileError> {
-    let mut png = Vec::new();
-    PngEncoder::new(&mut png).write_image(
-        frame.image.as_raw(),
-        frame.image.width(),
-        frame.image.height(),
-        ExtendedColorType::Rgba8,
-    )?;
+    let data_url = encode_dummy_preview_data_url(&frame.image)?;
     Ok(DummyPreview {
-        data_url: format!("data:image/png;base64,{}", BASE64.encode(png)),
+        data_url,
         clipping: frame.clipping,
     })
+}
+
+/// Encodes the image payload without taking ownership of the decoded frame.
+/// This lets the bounded preview cache retain the original RGBA allocation.
+pub fn encode_dummy_preview_data_url(image: &RgbaImage) -> Result<String, DummyCompileError> {
+    let mut png = Vec::new();
+    PngEncoder::new(&mut png).write_image(
+        image.as_raw(),
+        image.width(),
+        image.height(),
+        ExtendedColorType::Rgba8,
+    )?;
+    Ok(format!("data:image/png;base64,{}", BASE64.encode(png)))
 }
 
 fn dummy_color(index: usize, optional: bool) -> Rgba<u8> {

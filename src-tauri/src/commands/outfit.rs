@@ -3,6 +3,7 @@ use std::sync::{Mutex, MutexGuard};
 
 use tauri::State;
 
+use crate::animation::PreviewCache;
 use crate::application::{
     AppearanceService, AreaService, OutfitDraftEdits, OutfitEditorContext, OutfitLaunchContext,
     OutfitPreviewFrame, OutfitTarget, SaveNpcRequest, SavedNpc, VaultService,
@@ -111,6 +112,7 @@ pub fn auto_assign_outfit(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn render_outfit_preview(
     session_id: String,
     area_id: String,
@@ -119,12 +121,19 @@ pub fn render_outfit_preview(
     frame_index: u16,
     edits: Option<OutfitDraftEdits>,
     service: State<'_, Mutex<VaultService>>,
+    cache: State<'_, Mutex<PreviewCache>>,
 ) -> Result<OutfitPreviewFrame, String> {
     let draft_id = parse_id("draft_id", &draft_id)?;
-    let (_service, _, root, area_path) =
+    let (service_guard, _, root, area_path) =
         locked_area_session(&service, &session_id, &area_id, false)?;
+    let prepared = AppearanceService
+        .prepare_preview(&root, &area_path, draft_id, direction, frame_index, edits)
+        .map_err(|error| error.to_string())?;
+    // Preparation captured a validated, owned metadata snapshot. Image decoding
+    // and compositing can now run without serializing unrelated vault commands.
+    drop(service_guard);
     AppearanceService
-        .render_preview(&root, &area_path, draft_id, direction, frame_index, edits)
+        .render_prepared_preview(&root, &area_path, prepared, cache.inner())
         .map_err(|error| error.to_string())
 }
 

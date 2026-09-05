@@ -46,7 +46,10 @@ export function NpcDetail({
   onExport,
 }: NpcDetailProps) {
   const [selectedMotion, setSelectedMotion] = useState("");
-  const [selectedDirection, setSelectedDirection] = useState<Direction>("s");
+  const [directionSelection, setDirectionSelection] = useState<{
+    contextKey: string | null;
+    direction: Direction;
+  }>({ contextKey: null, direction: "s" });
   const [variantKey, setVariantKey] = useState("");
   const [rename, setRename] = useState("");
   const [duplicate, setDuplicate] = useState("");
@@ -69,7 +72,10 @@ export function NpcDetail({
       null,
     [npc, selectedBindingId],
   );
-  useEffect(() => setSelectedDirection("s"), [activeBinding?.binding.id, npc?.character.id]);
+  const directionContextKey =
+    npc && activeBinding ? `${npc.character.id}\u0000${activeBinding.binding.id}` : null;
+  const selectedDirection =
+    directionSelection.contextKey === directionContextKey ? directionSelection.direction : "s";
 
   if (!npc) {
     return (
@@ -236,7 +242,12 @@ export function NpcDetail({
                 aria-label="Active direction"
                 disabled={busy}
                 value={selectedDirection}
-                onChange={(event) => setSelectedDirection(event.target.value as Direction)}
+                onChange={(event) =>
+                  setDirectionSelection({
+                    contextKey: directionContextKey,
+                    direction: event.target.value as Direction,
+                  })
+                }
               >
                 {directions.map((direction) => (
                   <option value={direction} key={direction}>

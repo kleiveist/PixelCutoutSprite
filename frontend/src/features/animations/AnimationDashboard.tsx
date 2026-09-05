@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { motionClient, type MotionClient } from "../../api/motion-client";
+import { useModalFocus } from "../../components/useModalFocus";
 import {
   emptyMotionFilters,
   filterMotionCards,
@@ -46,9 +47,15 @@ export function AnimationDashboard({
   const [filters, setFilters] = useState(emptyMotionFilters);
   const [creating, setCreating] = useState(false);
   const [removing, setRemoving] = useState<MotionCard | null>(null);
+  const [removingBusy, setRemovingBusy] = useState(false);
   const [releasing, setReleasing] = useState<MotionCard | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const removeModal = useModalFocus<HTMLDivElement>({
+    canDismiss: !removingBusy,
+    onEscape: () => setRemoving(null),
+    open: removing !== null,
+  });
 
   const load = useCallback(async () => {
     try {
@@ -68,6 +75,10 @@ export function AnimationDashboard({
   const cards = useMemo(
     () => filterMotionCards(dashboard?.motions ?? [], filters),
     [dashboard?.motions, filters],
+  );
+  const labelNames = useMemo(
+    () => Object.fromEntries((dashboard?.labels ?? []).map((label) => [label.id, label.name])),
+    [dashboard?.labels],
   );
 
   async function duplicate(motion: MotionCard): Promise<void> {
@@ -125,7 +136,9 @@ export function AnimationDashboard({
       )}
       <MotionFilters
         value={filters}
-        profileIds={(dashboard?.profiles ?? []).map((profile) => profile.id)}
+        profiles={dashboard?.profiles ?? []}
+        actionKeys={[...new Set((dashboard?.motions ?? []).map((motion) => motion.action_key))]}
+        labels={motionLabels(dashboard)}
         onChange={setFilters}
       />
       <button
@@ -138,6 +151,7 @@ export function AnimationDashboard({
       <div className="motion-grid">
         {cards.map((motion) => (
           <MotionCardView
+            labelNames={labelNames}
             key={motion.id}
             motion={motion}
             disabled={!dashboard?.writable || publishing}
@@ -174,32 +188,37 @@ export function AnimationDashboard({
       {removing && (
         <div className="motion-dialog-backdrop" role="presentation">
           <div
+            ref={removeModal.dialogRef}
             className="motion-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="remove-motion-title"
+            onKeyDown={removeModal.onDialogKeyDown}
           >
             <h2 id="remove-motion-title">Remove {removing.name}?</h2>
             <p>
               The template moves to project trash. Released revisions are not silently reassigned.
             </p>
             <footer>
-              <button type="button" onClick={() => setRemoving(null)}>
+              <button type="button" disabled={removingBusy} onClick={() => setRemoving(null)}>
                 Cancel
               </button>
               <button
                 type="button"
+                disabled={removingBusy}
                 onClick={() => {
+                  setRemovingBusy(true);
                   void client
                     .remove(sessionId, removing.id, removing.revision)
                     .then(async () => {
                       setRemoving(null);
                       await load();
                     })
-                    .catch((reason) => setError(message(reason)));
+                    .catch((reason) => setError(message(reason)))
+                    .finally(() => setRemovingBusy(false));
                 }}
               >
-                Move to trash
+                {removingBusy ? "Moving…" : "Move to trash"}
               </button>
             </footer>
           </div>
@@ -219,4 +238,16 @@ export function AnimationDashboard({
 
 function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
+}
+
+function motionLabels(
+  dashboard: Awaited<ReturnType<MotionClient["dashboard"]>> | null,
+): Array<{ id: string; name: string }> {
+  const names = new Map((dashboard?.labels ?? []).map((label) => [label.id, label.name]));
+  return [...new Set((dashboard?.motions ?? []).flatMap((motion) => motion.label_ids))].map(
+    (id) => ({
+      id,
+      name: names.get(id) ?? `Label ${id.slice(0, 8)}`,
+    }),
+  );
 }

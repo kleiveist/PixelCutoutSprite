@@ -28,8 +28,17 @@ assertions cover layer overlap, half alpha, hierarchy plus fitting, a non-zero r
 negative coordinates, clipping, exact mirroring and double mirroring. Repeated renders compare
 byte-for-byte.
 
-The focused debug-build measurement rendered two simple 128×128 reference frames in about
-0.33 ms on the Linux development host on 5 September 2026. This is diagnostic evidence for that
-fixture only, not a general performance promise; P19 performs the representative workload audit.
-The `image` dependency disables default codecs and enables PNG only, preserving the product's
-PNG/JSON boundary.
+P19 retains the same raster semantics while sharing immutable `RgbaImage` storage between prepared
+frames instead of cloning each source buffer. A representative 128 × 128 request with the 16 base
+parts and four equipment parts was rendered cold 360 times in a Rust release test. On the named
+Linux reference host it measured 0.037 ms p50, 0.052 ms p95 and 0.322 ms maximum; a warmed lookup of
+the identical cached RGBA frame measured 0.000 ms p50/p95 and 0.001 ms maximum. These are
+hardware-specific CPU timings, not an inferred UI-FPS or cross-platform guarantee. Full setup,
+method and export measurements are in the
+[P19 desktop acceptance](../acceptance/desktop-usability-and-performance.md).
+
+The dummy and outfit viewports separately map source pixels to whole physical display pixels. DPR 2
+was exercised in the native Linux WebView; fractional DPR 1.25 is covered only by a geometry unit
+test and is not claimed as a native run. Existing full-frame RGBA Goldens remain the semantic gate,
+and no GPU or acceleration dependency was introduced. The `image` dependency disables default
+codecs and enables PNG only, preserving the product's PNG/JSON boundary.

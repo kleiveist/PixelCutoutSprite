@@ -16,8 +16,11 @@ const card = (
   name,
   action_key: name.toLowerCase(),
   status,
-  label_ids: [],
-  profile_ref: { id: "44444444-4444-4444-8444-444444444444", revision: 1 },
+  label_ids: name === "Walk" ? ["outdoor"] : ["outdoor", "hero"],
+  profile_ref: {
+    id: "44444444-4444-4444-8444-444444444444",
+    revision: name === "Walk" ? 1 : 2,
+  },
   frame_count: 8,
   fps: 12,
   loop_mode: "loop",
@@ -48,6 +51,16 @@ describe("motion filters", () => {
       filterMotionCards(cards, { ...emptyMotionFilters(), search: "jump" }).map(
         (item) => item.name,
       ),
+    ).toEqual(["Jump"]);
+    expect(
+      filterMotionCards(cards, {
+        ...emptyMotionFilters(),
+        action: "jump",
+        directionCoverage: "partial",
+        profile: "44444444-4444-4444-8444-444444444444@2",
+        labelIds: ["outdoor", "hero"],
+        labelMatch: "all",
+      }).map((item) => item.name),
     ).toEqual(["Jump"]);
   });
 });
