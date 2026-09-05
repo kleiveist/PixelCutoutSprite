@@ -1,14 +1,26 @@
 import type { NavigationItem } from "../app/navigation";
 import type { OpenVault, VaultClient } from "../api/vault-client";
+import { AreaDashboard } from "../features/areas/AreaDashboard";
 import { VaultWelcome } from "../features/vault/VaultWelcome";
 
 interface PlaceholderViewProps {
   details: NavigationItem;
   onVaultOpened: (vault: OpenVault) => void;
   vaultClient?: VaultClient;
+  projectId?: string | null;
+  vault?: OpenVault | null;
 }
 
-export function PlaceholderView({ details, onVaultOpened, vaultClient }: PlaceholderViewProps) {
+export function PlaceholderView({
+  details,
+  onVaultOpened,
+  vaultClient,
+  projectId = null,
+  vault = null,
+}: PlaceholderViewProps) {
+  if (details.route === "areas") {
+    return <AreaDashboard projectId={projectId} sessionId={vault?.session_id ?? null} />;
+  }
   if (details.route !== "welcome") {
     return (
       <section className="placeholder-panel" aria-labelledby="placeholder-heading">

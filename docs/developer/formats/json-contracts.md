@@ -69,6 +69,21 @@ Local validation checks one document. `DomainCatalog::validate` then detects dup
 revision pairs, resolves every required relationship by identity, checks project/area/profile
 ownership, and rejects incompatible profiles. It never falls back to a similar name.
 
+## Humanoid profile version 1
+
+P05 fixes the productive v1 profile to sixteen named slots: lower/upper torso, head, optional
+hair, and left/right upper arm, forearm, hand, thigh, shin and foot. Hair is the only optional
+slot; there is no eye layer. Parent links, pivots, base transforms, six left/right pairs and the
+back-to-front layer order are present for all eight views. `SlotDefinition.base_transform` is the
+south-view fallback and is byte-for-byte equal to that view transform, not an additional offset.
+
+The 80-px reference vertical chain is `16 + 20 + 10 + 16 + 14 + 4` for head, upper torso, lower
+torso, thigh, shin and foot. Other heights use integer largest-remainder allocation in stable
+segment order. Thus the neutral anatomical bounds measure exactly the requested 16–512 px while
+optional hair or future equipment may extend beyond them. Widths, pivots and view offsets use
+deterministic half-up integer scaling. `validate_humanoid_v1` compares stored geometry to the
+generator, so missing, reordered or invented slots cannot masquerade as this preset.
+
 ## Files and portable paths
 
 The layout service introduced with the Vault phase is the only code allowed to construct managed
@@ -79,7 +94,7 @@ locations. Version 1 reserves these conventions:
 <vault>/.pixelforge-studio/labels/<label-id>.json
 <vault>/<project-name>--<id>/.project/project.json
 <project>/<area-name>--<id>/.area/area.json
-<area>/.area/profiles/<profile-id>/rNNNN.json
+<area>/.area/profiles/humanoid--<profile-id-prefix>/rNNNN.json
 <area>/.area/templates/<template-id>/template.json
 <area>/.area/templates/<template-id>/draft.json
 <area>/.area/templates/<template-id>/revisions/rNNNN.json
@@ -125,4 +140,6 @@ type, traversal, graph, and atlas failures live beside them under `invalid/`. Th
 `domain_contracts` integration test loads every positive file, validates it, serializes it, reads
 it again, and validates the connected catalog. It also proves shared-template use and distinct
 template/appearance/binding identities. These fixtures are the version-1 compatibility examples;
-the shorter JSON excerpts in the product specification remain explanatory only.
+the shorter JSON excerpts in the product specification remain explanatory only. P05 adds
+`src-tauri/tests/fixtures/profiles/humanoid-v1-80-reference.json`; a generator test compares its
+slot dimensions, parents, pivots, mirror pairs, frame/anchor and every view layer order.

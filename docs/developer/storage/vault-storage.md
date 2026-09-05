@@ -39,6 +39,14 @@ Multi-file work has a validated project-scoped JSON journal with prepared/commit
 explicit target, staged file, optional backup and expected digest. P03 establishes this durable
 format; operation-specific resume/rollback policies and stale-lock recovery are completed in P18.
 
+P05 creates a complete area tree below `<project>/.project/transactions/<transaction-id>/staged/`,
+validates both `area.json` and the first profile snapshot, writes the move journal, and then
+publishes the directory into the project with one same-filesystem rename. Transaction trees are
+excluded from the object index, so an interrupted staged copy cannot shadow a published object.
+A later height change creates `rNNNN.json` with create-only semantics before the area manifest is
+advanced by SHA-256 compare-and-swap; a failed conflict removes only that newly staged revision.
+Crash-window reconciliation and general rollback remain explicitly assigned to P18.
+
 ## Durability boundary
 
 The staged-write ordering and failure behavior are exercised on Linux. No cross-platform atomic
@@ -66,3 +74,6 @@ reject Unicode-normalized sibling collisions. Workspace-label removal first stri
 reference and the persisted filter selection, then removes the label, so a partial failure cannot
 leave a dangling reference or delete a project. Project dashboard preferences live at the matching
 Workspace scope in `.pixelforge-studio/ui.json`.
+
+P05 adds area creation/reopen, project-label scope, a committed creation journal, read-only
+browsing and byte-identical preservation of the previous profile revision.

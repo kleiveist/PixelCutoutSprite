@@ -1,7 +1,10 @@
+use std::fs;
+
 use crate::domain::{
-    validate_portable_display_name, DocumentKind, Label, LabelScope, ObjectId, SCHEMA_VERSION,
+    validate_portable_display_name, DocumentKind, DomainDocument, Label, LabelScope, ObjectId,
+    SCHEMA_VERSION,
 };
-use crate::storage::{ResolvedPath, StorageError, VaultLayout};
+use crate::storage::{JsonStore, ResolvedPath, StorageError, VaultLayout, AREA_ADMIN_DIR};
 
 use super::project_service::{
     load_project_labels, load_project_view, load_workspace_labels,
@@ -116,12 +119,66 @@ impl LabelService {
         if scope == LabelScope::Workspace {
             remove_workspace_label_references(&context, label_id)?;
             remove_label_from_view(&context, label_id)?;
+        } else if let Some(project_id) = project_id {
+            ensure_project_label_is_unused(&context, project_id, label_id)?;
         }
         catalog.labels.retain(|label| label.id != label_id);
         touch_catalog(&mut catalog)?;
         save_json(&path, &catalog, LabelCatalog::validate)?;
         vaults.refresh_index(session_id)
     }
+}
+
+fn ensure_project_label_is_unused(
+    context: &VaultSessionContext,
+    project_id: ObjectId,
+    label_id: ObjectId,
+) -> Result<(), StorageError> {
+    let project = scan_projects(context)?
+        .into_iter()
+        .find(|candidate| candidate.project.id == project_id)
+        .ok_or_else(|| StorageError::InvalidVault("project does not exist".to_owned()))?;
+    let project_path = context.root.resolve(&project.folder)?;
+    for entry in fs::read_dir(project_path.as_path()).map_err(|error| {
+        StorageError::io(
+            "scan areas before label removal",
+            project_path.relative(),
+            error,
+        )
+    })? {
+        let entry = entry.map_err(|error| {
+            StorageError::io(
+                "scan area before label removal",
+                project_path.relative(),
+                error,
+            )
+        })?;
+        let file_type = entry.file_type().map_err(|error| {
+            StorageError::io("inspect area before label removal", &entry.path(), error)
+        })?;
+        if !file_type.is_dir() || file_type.is_symlink() {
+            continue;
+        }
+        let relative = project
+            .folder
+            .join(entry.file_name())
+            .join(AREA_ADMIN_DIR)
+            .join("area.json");
+        let manifest = context.root.resolve(&relative)?;
+        if !manifest.as_path().is_file() {
+            continue;
+        }
+        let loaded = JsonStore::default().load(&manifest)?;
+        if let DomainDocument::Area(area) = loaded.value {
+            if area.label_ids.contains(&label_id) {
+                return Err(StorageError::InvalidVault(format!(
+                    "label is assigned to area `{}`; remove that assignment first",
+                    area.name
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn load_catalog(

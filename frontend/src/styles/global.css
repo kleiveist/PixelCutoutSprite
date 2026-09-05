@@ -655,6 +655,316 @@ kbd {
     monospace;
 }
 
+.areas-view {
+  min-height: 100%;
+  padding: 36px clamp(28px, 4vw, 64px) 64px;
+  background:
+    linear-gradient(rgba(232, 255, 104, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(232, 255, 104, 0.025) 1px, transparent 1px), var(--surface);
+  background-size: 24px 24px;
+}
+.areas-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 40px;
+  margin-bottom: 24px;
+}
+.areas-heading h1 {
+  margin: 0;
+  font-size: 52px;
+  font-weight: 550;
+  letter-spacing: -0.05em;
+}
+.areas-heading > p {
+  max-width: 520px;
+  margin: 0 0 6px;
+  color: #a7a1ad;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.area-context-notice,
+.workspace-error {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid #504b31;
+  background: #1c1b14;
+  color: #c9c5a5;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.workspace-error {
+  border-color: #71473f;
+  background: #251714;
+  color: #ffb6a8;
+}
+.area-workbench {
+  display: grid;
+  grid-template-columns: minmax(330px, 0.72fr) minmax(560px, 1.28fr);
+  border: 1px solid var(--line);
+  background: rgba(17, 16, 21, 0.94);
+}
+.area-profile-form {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 28px;
+  border-right: 1px solid var(--line);
+}
+.area-form-heading,
+.humanoid-preview > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+}
+.area-form-heading span,
+.humanoid-preview header span,
+.area-card > span {
+  color: #77717e;
+  font:
+    500 9px/1 "DM Mono",
+    monospace;
+  letter-spacing: 0.12em;
+}
+.area-form-heading h2,
+.humanoid-preview h2,
+.area-library h2 {
+  margin: 7px 0 0;
+  font-size: 25px;
+  letter-spacing: -0.035em;
+}
+.area-form-heading > strong {
+  color: var(--accent);
+  font:
+    600 18px/1 "DM Mono",
+    monospace;
+}
+.area-profile-form label {
+  display: grid;
+  gap: 8px;
+  color: #aaa4af;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.area-profile-form input,
+.area-profile-form select {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #49444f;
+  border-radius: 0;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font-size: 13px;
+  text-transform: none;
+}
+.area-profile-form select:disabled {
+  color: #aaa4af;
+  opacity: 1;
+}
+.area-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.area-profile-form > small {
+  margin-top: -10px;
+  color: #77717e;
+  font:
+    400 9px/1.45 "DM Mono",
+    monospace;
+}
+.area-form-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 2px;
+}
+.area-form-actions button,
+.area-card button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid #4b4651;
+  background: var(--surface-soft);
+  cursor: pointer;
+}
+.area-form-actions .primary-button {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.area-form-actions button:disabled,
+.area-card button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.area-selection-note {
+  margin: 0;
+  color: #918b97;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.humanoid-preview {
+  display: grid;
+  min-height: 510px;
+  grid-template: auto minmax(300px, 1fr) auto / minmax(300px, 1fr) 220px;
+  gap: 18px 22px;
+  padding: 28px;
+}
+.humanoid-preview > header {
+  grid-column: 1 / -1;
+}
+.humanoid-preview > header > strong {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid #555061;
+  color: var(--accent);
+  font:
+    600 11px/1 "DM Mono",
+    monospace;
+}
+.humanoid-preview-empty {
+  grid-template: 1fr / 1fr;
+  place-items: center;
+  color: #77717e;
+}
+.humanoid-preview-canvas {
+  display: grid;
+  min-height: 300px;
+  place-items: center;
+  border: 1px solid #302d36;
+  background:
+    linear-gradient(#24212a 1px, transparent 1px),
+    linear-gradient(90deg, #24212a 1px, transparent 1px), #111015;
+  background-size: 16px 16px;
+}
+.humanoid-preview-canvas svg {
+  width: min(100%, 420px);
+  max-height: 390px;
+  image-rendering: pixelated;
+  shape-rendering: crispEdges;
+}
+.preview-ground {
+  stroke: #77717e;
+  stroke-dasharray: 2 2;
+  stroke-width: 0.75;
+}
+.preview-slot {
+  stroke: #111015;
+  stroke-width: 1;
+}
+.preview-slot-torso {
+  fill: #805fc9;
+}
+.preview-slot-skin {
+  fill: #d99a70;
+}
+.preview-slot-hair {
+  fill: #3d3245;
+  fill-opacity: 0.88;
+  stroke: var(--accent-hot);
+  stroke-dasharray: 2 1;
+}
+.preview-slot-left {
+  fill: #738db5;
+}
+.preview-slot-right {
+  fill: #55709c;
+}
+.slot-dimension-list {
+  display: grid;
+  align-content: start;
+  gap: 0;
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.slot-dimension-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 2px;
+  border-bottom: 1px solid #2d2932;
+  color: #aaa4af;
+  font:
+    400 9px/1.2 "DM Mono",
+    monospace;
+}
+.slot-dimension-list strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+.profile-contract-summary {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.profile-contract-summary span {
+  padding: 7px 9px;
+  border: 1px solid #3e3945;
+  color: #96919d;
+  font:
+    500 9px/1 "DM Mono",
+    monospace;
+  text-transform: uppercase;
+}
+.area-library {
+  margin-top: 30px;
+}
+.area-library > div:first-child {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+}
+.area-library > p {
+  color: #918b97;
+  font-size: 12px;
+}
+.area-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.area-card {
+  padding: 20px;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+}
+.area-card h3 {
+  margin: 9px 0 17px;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+.area-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0 0 18px;
+}
+.area-card dl div {
+  border-left: 1px solid #3a3540;
+  padding-left: 9px;
+}
+.area-card dt {
+  color: #77717e;
+  font-size: 9px;
+}
+.area-card dd {
+  margin: 4px 0 0;
+  font:
+    500 10px/1 "DM Mono",
+    monospace;
+}
+.area-card button {
+  width: 100%;
+}
+
 @media (max-height: 760px) {
   .welcome-copy {
     padding-block: 30px;

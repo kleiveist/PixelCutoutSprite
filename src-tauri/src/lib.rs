@@ -46,6 +46,11 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::list_labels,
             commands::update_label,
             commands::remove_label,
+            commands::preview_humanoid_profile,
+            commands::get_area_dashboard,
+            commands::open_area,
+            commands::create_area,
+            commands::create_area_profile_revision,
         ])
 }
 

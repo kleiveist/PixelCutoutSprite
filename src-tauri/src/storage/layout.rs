@@ -113,6 +113,40 @@ impl VaultLayout {
             .resolve(&area_folder.join(AREA_ADMIN_DIR).join("area.json"))
     }
 
+    pub fn area_profiles(&self, area_folder: &Path) -> Result<ResolvedPath, StorageError> {
+        self.root
+            .resolve(&area_folder.join(AREA_ADMIN_DIR).join("profiles"))
+    }
+
+    pub fn humanoid_profile_dir(
+        &self,
+        area_folder: &Path,
+        profile_id: ObjectId,
+    ) -> Result<ResolvedPath, StorageError> {
+        self.root.resolve(
+            &area_folder
+                .join(AREA_ADMIN_DIR)
+                .join("profiles")
+                .join(object_folder("humanoid", profile_id)?),
+        )
+    }
+
+    pub fn profile_revision(
+        &self,
+        area_folder: &Path,
+        profile_id: ObjectId,
+        revision: u32,
+    ) -> Result<ResolvedPath, StorageError> {
+        if revision == 0 {
+            return Err(StorageError::InvalidVault(
+                "profile revision must be positive".to_owned(),
+            ));
+        }
+        let directory = self.humanoid_profile_dir(area_folder, profile_id)?;
+        self.root
+            .resolve(&directory.relative().join(format!("r{revision:04}.json")))
+    }
+
     pub fn ownership(path: &Path) -> DataOwnership {
         let first = path.components().next().and_then(|part| match part {
             std::path::Component::Normal(value) => value.to_str(),

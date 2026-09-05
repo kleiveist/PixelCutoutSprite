@@ -15,16 +15,16 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-04 | Projects are folders | P03–P04 | P04: `ProjectService` creates a distinct safe folder and `.project/{project.json,labels.json,cache,transactions,backups,trash}`; filesystem integration tests cover reopen, rename, copy and trash |
 | RQ-05 | User-defined labels | P04 | P04: `LabelService` persists workspace/project label catalogs with name/color/revision validation; deletion removes references while retaining projects |
 | RQ-06 | Every structured filter uses a dropdown | P04–P06, P12, P15, P19 | P04 project filters expose labels, label-match mode, status and sorting as reusable single/multi dropdowns; later dashboards remain assigned to their phases |
-| RQ-07 | User-defined areas | P05 | Planned |
-| RQ-08 | Area-level size and body profile | P02, P05 | P02: `Area` pins a profile revision, 16–512 px height, eight-way model, frame size and ground origin; concrete humanoid generator remains P05 |
+| RQ-07 | User-defined areas | P05 | P05: `AreaService` creates freely named filesystem areas, lists cards per project and reopens them; `area_profiles` proves the `NPCs` round trip |
+| RQ-08 | Area-level size and body profile | P02, P05 | P05: each area stores height, exact humanoid profile revision, eight-way model, default frame/ground origin and project-label IDs; size changes publish and pin a new snapshot |
 | RQ-09 | Animations are actionable cards | P06 | Planned |
 | RQ-10 | Cards show real motion previews | P06, P11 | Planned |
 | RQ-11 | New animation opens the dummy editor | P06, P08 | Planned |
 | RQ-12 | Released animation opens outfitting | P06, P13 | Planned |
 | RQ-13 | Dummy remains directly accessible | P06, P08 | Planned |
-| RQ-14 | Grid and predefined body sizes | P05, P07–P08 | Planned |
-| RQ-15 | Three-part limbs and two-part torso | P05, P08 | Planned |
-| RQ-16 | Head and optional hair, no eye layer | P05, P08, P13 | Planned |
+| RQ-14 | Grid and predefined body sizes | P05, P07–P08 | P05: deterministic 80-px proportions scale to every integer height from 16–512 with controlled remainder allocation and an SVG grid preview; shared rasterer/editor follow |
+| RQ-15 | Three-part limbs and two-part torso | P05, P08 | P05: fixed profile contains upper arm/forearm/hand and thigh/shin/foot on both sides plus upper/lower torso, with parents and six mirror pairs |
+| RQ-16 | Head and optional hair, no eye layer | P05, P08, P13 | P05: head is required, hair is the sole optional sixteenth slot, and the strict humanoid-v1 validator rejects any extra eye slot |
 | RQ-17 | Recognizable dummy parts and handles | P08, P19 | Planned |
 | RQ-18 | Frame count, FPS and frame surface | P06, P09 | Planned |
 | RQ-19 | Sparse keyframes generate samples | P09, P11 | Planned |
@@ -47,5 +47,5 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-36 | Project/area/NPC/animation filesystem hierarchy | P03, P15–P16 | P03: filesystem ownership resolver establishes `.project`, `.area`, character and derived-export scopes; concrete NPC/export trees follow P15–P16 |
 | RQ-37 | Compact PNG sheets; loose frames optional | P16 | Planned |
 | RQ-38 | Generic integration and Godot output | P16–P17 | Planned |
-| RQ-39 | No required manual bone/skeleton setup | P05, P08, P22 | Planned |
-| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P04 implemented and gated; P05 is next |
+| RQ-39 | No required manual bone/skeleton setup | P05, P08, P22 | P05: all parent links, pivots, base positions, view transforms and layer orders are generated; no rig-creation input exists |
+| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P05 implemented, integrated in order and gated; P06 is next |

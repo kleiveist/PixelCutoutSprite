@@ -122,7 +122,15 @@ fn is_rebuildable_or_deleted(root: &Path, path: &Path) -> bool {
         relative.components().any(|part| {
             matches!(
                 part.as_os_str().to_str(),
-                Some("cache" | "exports" | "_exports" | ".trash" | "trash" | "backups")
+                Some(
+                    "cache"
+                        | "exports"
+                        | "_exports"
+                        | ".trash"
+                        | "trash"
+                        | "backups"
+                        | "transactions"
+                )
             )
         })
     })

@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P04 abgeschlossen; P05 ist der nächste Schritt
+**Implementierung:** P00–P05 abgeschlossen; P06 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -55,6 +55,12 @@ Labels und Ansichtsfilter werden im richtigen globalen Scope gespeichert. Die Re
 bietet Karten, Suche, alle strukturierten Bedingungen als zugängliche Dropdowns sowie any/all-
 Labelsemantik, Leer-/Fehler-/Read-only-Zustände und fokussierte Dialoge.
 
+P05 implementiert den vollständigen humanoiden Profilvertrag. `AreaService` erzeugt, listet und
+öffnet Bereiche im ausgewählten Projekt, validiert projektbezogene Labels und publiziert Größenänderungen als neue
+unveränderliche Profilrevision. Der Generator liefert 15 anatomische Slots plus optionale Haare,
+sechs Spiegelpaare und acht vollständige Ansichten. Die React-Ansicht zeigt die vom Rust-Backend
+berechneten Slotflächen; Speichern wird erst mit einem gültigen Projektkontext aktiv.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -72,7 +78,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P02](../prompts/pixelcutoutsprite/02.md) | Fachmodelle und JSON-Verträge | Abgeschlossen |
 | [P03](../prompts/pixelcutoutsprite/03.md) | Vault und sichere Dateispeicherung | Abgeschlossen |
 | [P04](../prompts/pixelcutoutsprite/04.md) | Projekt-Dashboard, Labels und Dropdown-Filter | Abgeschlossen |
-| [P05](../prompts/pixelcutoutsprite/05.md) | Bereiche und humanoide Körperprofile | Nicht begonnen |
+| [P05](../prompts/pixelcutoutsprite/05.md) | Bereiche und humanoide Körperprofile | Abgeschlossen |
 | [P06](../prompts/pixelcutoutsprite/06.md) | Animationsbibliothek und zustandsabhängige Navigation | Nicht begonnen |
 | [P07](../prompts/pixelcutoutsprite/07.md) | Gemeinsamer Pixel-Rasterer | Nicht begonnen |
 | [P08](../prompts/pixelcutoutsprite/08.md) | Direkt bedienbarer Dummy-Editor | Nicht begonnen |
@@ -102,6 +108,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P02: Fachmodelle, JSON-v1-Verträge, Graphvalidierung, Zustände und Vertragsfixtures erstellt.
 - [x] P03: native Vault-Auswahl, sichere Pfade/Writes, Lock, Index und Journalbasis erstellt.
 - [x] P04: Projekt-Dashboard, JSON-CRUD, Workspace-/Projektlabels und Dropdown-Filter erstellt.
+- [x] P05: Bereichskarten, humanoides 16-Slot-Profil, exakte Skalierung, Vorschau und unveränderliche Profilrevisionen erstellt und gegatet.
 - [ ] Meilenstein A: Grundlage, P00–P06.
 - [ ] Meilenstein B: Bewegungen, P07–P11.
 - [ ] Meilenstein C: Figuren, P12–P15.
@@ -149,6 +156,15 @@ Schreibfehler werden gemeldet und niemals durch eine Ersatzablage kaschiert.
 Beim Entfernen eines Workspace-Labels werden Projekt- und Filterreferenzen vor dem Katalogeintrag
 bereinigt; Projekte selbst werden weder gelöscht noch über sichtbare Namen referenziert.
 
+**2026-09-05 / P05:** Ansichts-Transforms sind lokale, richtungsbezogene Grundposen. Das
+`base_transform` eines Slots ist ausschließlich der identische Südansicht-Fallback; Renderer
+dürfen beide Werte nicht addieren. Dieser Vertrag verhindert schon vor P07 doppelte Offsets.
+
+**2026-09-05 / P05:** Ganzzahlige Skalierung allein garantiert keine exakte Figurenhöhe. Die
+sechs vertikalen anatomischen Segmente verteilen deshalb Abrundungsreste stabil nach größtem
+Rest. Die Tests prüfen jede erlaubte Höhe von 16 bis 512 px; Haare bleiben bewusst außerhalb der
+gemessenen anatomischen Höhe.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -161,6 +177,7 @@ bereinigt; Projekte selbst werden weder gelöscht noch über sichtbare Namen ref
 | ADR-007 | Gemeinsamer Sampler und prüfbarer Referenz-Rasterer. | Vorschau und Ausgabe sollen dieselben Pixel ergeben. |
 | ADR-008 | Workspace-Ordnername .pixelforge-studio bleibt fest. | Gewünschte globale Ablage, getrennt vom Produktbranding. |
 | ADR-009 | Rust-JSON-Vertrag v1 ist autoritativ; TypeScript spiegelt DTOs, und unbekannte Felder werden abgewiesen. | Verhindert konkurrierende Validatoren und verlustbehaftete Roundtrips; Zukunftsversionen bleiben unangetastet. |
+| ADR-010 | Humanoid v1 wird deterministisch aus Referenzhöhe und festen Ansichtsrezepten generiert; jede publizierte Größe ist ein neuer Snapshot. | Exakte ganzzahlige Geometrie ist reproduzierbar, benötigt kein manuelles Skelett und verändert gepinnte Bewegungen nicht rückwirkend. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -202,6 +219,10 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P04 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 21 Tests und alle Frontend-Gates | Dashboard-Einstieg, Kartenaktionen, Suche, Dropdowns, any/all, Fokus, Reset, Labelverwaltung und Read-only-Zustand belegt. |
 | 2026-09-05 / P04 | `tools/control.py quality architecture`, `tauri test --cargo --build-dry-run`, `integrate --check --json` und Docs-Check | Linux-Host | PASS | TypeScript-AST parst 41 Dateien, Architekturgrenzen bleiben intakt, der Cargo-/Tauri-Plan ist grün und 134 Dokumentseiten sind konsistent. |
 | 2026-09-05 / P04 | vollständige `tests/source` und zentrales `quality lint` | Linux-Host, Python 3.13.15 | OFFEN: 30 passed, 2 skipped, 4 failed; Quality-Lint FAIL | Die Source-Suite erwartet teils noch die P01-Capability ohne den seit P03 benötigten Dialog und hat drei versionsabhängige ESLint-/AST-Fixturefehler. Der zentrale Lint scannt fälschlich `.tooling-state/venv` und nutzt für Tauri-Makros das inkompatible `-F warnings`; die direkten Produktgates ESLint, TypeScript und Clippy `-D warnings` bestehen. |
+| 2026-09-05 / P05 | fokussierte Generator-, Fixture- und `area_profiles`-Tests | Linux-Host, Rust 1.97.1 | PASS: 8 P05-Tests | Referenzprofil 80 px, alle 497 erlaubten Höhen, Spiegelung, Persistenz/Reopen, Labels, Read-only und unveränderte alte Snapshot-Bytes belegt. |
+| 2026-09-05 / P05 | `cargo test --all-targets --locked`, Clippy `-D warnings`, Check und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 31 Tests | Alle Domain-, Storage-, Composition- und neuen Bereichstests grün. |
+| 2026-09-05 / P05 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 18 Tests und alle Frontend-Gates | Vier Area-Dashboard-Tests belegen 16-Slot-Vorschau, acht Richtungsoptionen, Erzeugung, Revision und fehlenden Projektkontext. |
+| 2026-09-05 / P05 | `tools/control.py quality architecture`, `quality lint`, `integrate --check` und Docs-Check | Linux-Host, Python 3.13.15 | PASS im Phasenbranch | TypeScript-AST, Python/TS/Rust-Gates und Integration grün; 134 Dokumentseiten konsistent. Die Integration nach P04 wurde zusätzlich mit den Produktgates geprüft. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -211,8 +232,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P05 ausführen: benennbare Bereiche und das versionierte
-humanoide Standardprofil mit exakter ganzzahliger Größenableitung implementieren.
+**Nächster ausführbarer Schritt:** P06 ausführen: Animationsbibliothek, persistente Entwürfe,
+Freigaben und zustandsabhängige Navigation implementieren.
 
 ## Outcomes & Retrospective
 
@@ -220,6 +241,8 @@ P00 hat die Planung in den tatsächlichen Checkout überführt. P01 liefert eine
 startfähigen, responsiven Desktop-Rahmen. P02 verankert die getrennten Identitäten und den
 portablen JSON-v1-Vertrag, auf dem die Dateispeicherung in P03 aufbaut. P03 liefert diese
 Dateispeicherung samt nativer Auswahl, Pfadgrenze, Konflikt- und Lock-Verhalten. P04 macht die
-Grundlage erstmals als persistentes Projekt- und Label-Dashboard produktiv bedienbar.
+Grundlage erstmals als persistentes Projekt- und Label-Dashboard produktiv bedienbar. P05 ergänzt
+die erste echte projektbezogene Fachressource mit reproduzierbarer Profilgeometrie,
+unveränderlichen Revisionen und visueller Slotprüfung.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

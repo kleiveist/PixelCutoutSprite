@@ -39,7 +39,7 @@ export const navigationItems: readonly NavigationItem[] = [
     label: "Areas",
     eyebrow: "Set up",
     description: "Define body profiles and pixel dimensions.",
-    available: false,
+    available: true,
   },
   {
     route: "animations",

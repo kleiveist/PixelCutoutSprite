@@ -116,7 +116,13 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
               onStatus={setStatus}
             />
           ) : (
-            <PlaceholderView details={details} onVaultOpened={openVault} vaultClient={vaultApi} />
+            <PlaceholderView
+              details={details}
+              onVaultOpened={openVault}
+              projectId={selectedProject?.id ?? null}
+              vault={vault}
+              vaultClient={vaultApi}
+            />
           )}
         </main>
       </div>
