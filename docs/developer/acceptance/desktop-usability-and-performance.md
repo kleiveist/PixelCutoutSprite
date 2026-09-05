@@ -1,3 +1,6 @@
+<!-- AUTO-GENERATED:backlink START -->
+[← Back](acceptance.md)
+<!-- AUTO-GENERATED:backlink END -->
 # P19 — Desktop-Usability und Leistung
 
 **Stand:** 5. September 2026
@@ -16,9 +19,11 @@ P19 kombiniert drei bewusst getrennte Nachweisarten:
 - Explizit gestartete Rust-Release-Messungen prüfen Compositor, Cache, Export, Vault-Öffnen,
   Inventarseiten, Thumbnails sowie Import und Abbruch ohne Debug-Build-Verzerrung.
 
-Der native Lauf verwendete einen lokalen Entwicklungsbuild, kein installierbares P20-Artefakt.
-Die Werte sind reproduzierbare Messpunkte dieses Rechners, keine allgemeine FPS-, Hardware- oder
-Plattformzusage. Insbesondere wird aus einer einzelnen CPU-Zeit kein UI-FPS-Wert hochgerechnet.
+Der native Referenzlauf verwendete einen lokalen Entwicklungsbuild. Der abschließende
+Post-Review-Lauf verwendete das aktuelle, nicht gebündelte Release-Executable. Keiner der beiden
+Läufe ist ein installierbares P20-Artefakt. Die Werte sind reproduzierbare Messpunkte des
+Referenzrechners, keine allgemeine FPS-, Hardware- oder Plattformzusage. Insbesondere wird aus
+einer einzelnen CPU-Zeit kein UI-FPS-Wert hochgerechnet.
 
 ## Referenzgerät
 
@@ -39,6 +44,22 @@ beiden Pflichtgrößen. Zentrale Navigation, Bereichs- und Bewegungskarten, Inve
 Panels, Timeline, Dialoge, Dropdowns, Statusmeldungen und primäre Alternativen zu Kontextmenüs
 blieben erreichbar. Kleine Höhen verwenden scrollbare Dialogflächen; die Pixelansichten passen
 sich getrennt vom übrigen Layout an.
+
+Nach der letzten Review-Härtung wurde dieser Großdatenpfad mit dem aktuellen Release-Executable
+erneut durchlaufen. Die gespeicherte serverseitige Projektsuche öffnete `Scale Project 000`, die
+erste Inventarseite lud ihre sichtbaren Thumbnails, und die explizite Pagination erhöhte den
+sichtbaren Bestand von 50 auf 100 von 1000 Datensätzen. `Asset 0999` ließ sich ohne erneutes
+Fokussieren vollständig in das Suchfeld eingeben und wurde trotz seiner Lage außerhalb der ersten
+Seite gefunden. Die strukturierte Sortierung wurde per fokussiertem Dropdown und Tastatur auf
+`Name Z–A` gestellt. Damit dieser Textpfad während einer laufenden Serverabfrage stabil bleibt,
+behält die Oberfläche die aktuelle Inventaransicht bis zur gültigen Antwort montiert; ein
+Regressionstest sichert Fokus und Elementidentität ab.
+
+Dieser Post-Review-Lauf fand zusätzlich zum unten benannten Referenzgerät in einer flüchtigen
+Debian-12-Containerumgebung mit dem echten Tauri-/WebKitGTK-Prozess und einem virtuellen
+X11-Display statt. Das Fenster wurde dort exakt auf 1280 × 720 und 1440 × 900 gesetzt. Er bestätigt
+den aktuellen Binär- und Großdatenpfad, ersetzt aber weder die physische KDE-/Wayland-, DPR-2-
+noch die AT-SPI-Evidenz des Referenzlaufs.
 
 Die tatsächliche WebView meldete DPR 2. Dummy- und Outfit-Vorschau bilden jeden Quellpixel auf eine
 ganze Zahl physischer Pixel ab, richten Pan-Werte am Gerätepixelraster aus und behalten
@@ -63,6 +84,10 @@ Firewall- oder Plattformtest.
 normale Frontend-Produktionsbuild enthält weder die Probeausgabe noch den Marker
 `P19_FRAME_PROBE`; die Debug-Fenstergröße ist ebenfalls nur über die ausdrücklich gesetzte
 P19-Acceptance-Umgebung steuerbar. Es wird daher keine Messinstrumentierung an Nutzer ausgeliefert.
+Im Post-Review-Lauf wurde die Probe ausdrücklich erst nach dem Laden und Filtern des
+1000-Asset-Inventars gestartet. Je 120 Intervalle ergaben bei beiden Fenstergrößen p50 16,00 ms,
+p95 17,00 ms und maximal 17,00 ms bei DPR 1 des virtuellen Displays. Diese Frameintervalle sind
+nur ein Laufzeit-Sanity-Check der konkreten Container-WebView und keine FPS- oder DPR-2-Messung.
 
 ## Release-Messungen
 
@@ -73,15 +98,21 @@ sichtbare 48-px-Thumbnails werden separat angefordert.
 
 | Messfall | Stichproben | p50 | p95 | Maximum |
 |---|---:|---:|---:|---:|
-| Raster, kalt, 128 × 128 px, 20 Teile | 360 | 0,037 ms | 0,052 ms | 0,322 ms |
-| Derselbe RGBA-Frame, warmer Cachezugriff | 360 | 0,000 ms | 0,000 ms | 0,001 ms |
-| Export, 192 Frames | 7 | 95,383 ms | 96,193 ms | 96,193 ms |
-| Vault öffnen, 100 Projekte / 1000 Assets | 7 | 143,601 ms | 145,254 ms | nicht protokolliert |
-| Inventar vollständig seitenweise lesen, 1000 Assets | 7 | 125,463 ms | 129,413 ms | nicht protokolliert |
-| Sichtbares Thumbnail, maximale Kante 48 px | 16 | 5,315 ms | 5,668 ms | nicht protokolliert |
-| Import-Worker, Batch mit vier PNGs | 7 | 6,995 ms | 8,800 ms | nicht protokolliert |
-| Import einschließlich Schließen, Reopen und Indexrefresh | 7 | 155,080 ms | 180,829 ms | nicht protokolliert |
-| Bereits angeforderter Importabbruch | 15 | 4,260 ms | 4,404 ms | nicht protokolliert |
+| Raster, kalt, 128 × 128 px, 20 Teile | 360 | 0,038 ms | 0,045 ms | 0,121 ms |
+| Derselbe RGBA-Frame, warmer Cachezugriff | 360 | 0,000 ms | 0,000 ms | 0,000 ms |
+| Export, 192 Frames | 7 | 95,497 ms | 99,926 ms | 99,926 ms |
+| Vault öffnen, 100 Projekte / 1000 Assets | 7 | 147,898 ms | 150,962 ms | 150,962 ms |
+| Inventar vollständig servergefiltert und seitenweise lesen, 1000 Assets | 7 | 620,117 ms | 631,689 ms | 631,689 ms |
+| Sichtbares Thumbnail, maximale Kante 48 px | 16 | 5,560 ms | 6,577 ms | 6,577 ms |
+| Import-Worker, Batch mit vier PNGs | 7 | 7,164 ms | 8,649 ms | 8,649 ms |
+| Import einschließlich Schließen, Reopen und Indexrefresh | 7 | 155,005 ms | 170,314 ms | 170,314 ms |
+| Bereits angeforderter Importabbruch | 15 | 5,556 ms | 6,627 ms | 6,627 ms |
+
+Der gemessene Peak-RSS im Rasterlauf betrug 18.604 KiB. Bei den kurzen Stichprobenreihen fällt
+das nearest-rank-p95 auf den Maximalwert. Die auf drei Nachkommastellen gerundeten warmen
+Cachewerte waren vollständig 0,000 ms. Die Mess-Tests wurden in der flüchtigen
+Containerumgebung zusätzlich funktional wiederholt; deren andere CPU- und Overlay-Dateisystemwerte
+ersetzen die hier protokollierte Referenzhardware ausdrücklich nicht.
 
 Die Messungen sind keine Microbenchmark-Bibliothek und kein Cross-Platform-Vergleich. Funktionale
 Assertions prüfen bei jedem Lauf vollständige Exporte, identische Rasterpixel, Seitenvollständigkeit,
@@ -127,13 +158,27 @@ Die nicht hardwareabhängigen Grenztests sind Teil der normalen Rust- und Fronte
 native AT-SPI-Prüfer liegt in `src-tauri/tests/native_accessibility_probe.py`; er benötigt eine
 laufende App und die reale `AT_SPI_BUS_ADDRESS` der Desktop-Sitzung.
 
+## Abschließende Gates
+
+Der P19-Abschlussstand wurde mit Rust 1.97.1 sowie Node 24.19.0/npm 11.17.0 erneut geprüft:
+
+- `cargo fmt --check`, `cargo check --locked --all-targets` und
+  `cargo clippy --locked --all-targets -- -D warnings`: bestanden.
+- `cargo test --locked`: 241 bestanden, vier ausdrücklich separate Sonderläufe ignoriert.
+- Fokussierte Preview-Cache-Regressionen: 13 von 13 bestanden.
+- `npm test -- --run`: 177 bestanden in 40 Dateien, einschließlich des neuen
+  Suchfokus-Regressionsfalls.
+- TypeScript-Typecheck, ESLint, Prettier und normaler Vite-Produktionsbuild: bestanden; der Build
+  umfasst 118 Module und enthält keinen `P19_FRAME_PROBE`-Marker.
+- Dokumentations-, Architektur- und Integrationsprüfung sowie `git diff --check`: bestanden.
+
 ## Gate und verbleibende Grenzen
 
 P19 gilt als abgeschlossen: Der Linux-Workflow ist mit Maus und den geprüften Tastaturpfaden
 bedienbar, Pflichtinformationen sind nicht nur farblich oder ausschließlich per Rechtsklick
 erreichbar, beide Layoutgrößen bestehen, der Pixelpfad bleibt exakt, große Metadatenbestände sind
-seitenweise, Cache und Import sind hart begrenzt, Abbruch reagiert und der Kernworkflow läuft im
-isolierten Offline-Namespace.
+seitenweise und ohne Fokusverlust filterbar, Cache und Import sind hart begrenzt, Abbruch reagiert
+und der Kernworkflow läuft im isolierten Offline-Namespace.
 
 Nicht durch P19 belegt sind native Windows-/macOS-Läufe, installierbare oder signierte Pakete,
 globale OS-Tab-Synthese und ein realer DPR-1,25-Desktop. Diese Punkte werden nicht als bestanden

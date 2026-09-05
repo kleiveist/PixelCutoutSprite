@@ -41,6 +41,7 @@ export function InventoryWorkspace({
   const contextKey = `${sessionId}\u0000${areaId}`;
   const activeContext = useRef(contextKey);
   activeContext.current = contextKey;
+  const renderedContext = useRef(contextKey);
   const activeQuery = useRef("");
   const requestGeneration = useRef({ archive: 0, inspect: 0, inventory: 0, more: 0 });
   const handledImport = useRef<string | null>(null);
@@ -119,8 +120,10 @@ export function InventoryWorkspace({
     const requestContext = contextKey;
     const requestQuery = queryKey;
     const generation = ++requestGeneration.current.inventory;
+    const contextChanged = renderedContext.current !== contextKey;
+    renderedContext.current = contextKey;
     setBusy(true);
-    setInventory(null);
+    if (contextChanged) setInventory(null);
     setInspection(null);
     setInspectionRunningId(null);
     setError(null);

@@ -6,6 +6,7 @@
 <!-- AUTO-GENERATED:docs-index START -->
 
 - ✅ [Acceptance](acceptance/acceptance.md)
+- 🖥️ [P19 — Desktop-Usability und Leistung](acceptance/desktop-usability-and-performance.md)
 - 📋 [Requirement ledger](acceptance/requirements.md)
 - 🧭 [Decisions](decisions/decisions.md)
 - 🖥️ [ADR-001: Tauri desktop profile](decisions/adr-001-tauri-desktop.md)
@@ -27,6 +28,7 @@
 - 🧩 [Prompts](prompts/prompts.md)
 - 🧾 [Repository inventory](repository-inventory.md)
 - 💾 [Storage](storage/storage.md)
+- 🛡️ [Recovery and data integrity](storage/recovery.md)
 - 🔐 [Vault and safe file storage](storage/vault-storage.md)
 
 <!-- AUTO-GENERATED:docs-index END -->

@@ -92,7 +92,9 @@ more than 100 per request. PNG bytes and data URLs are absent from those rows. A
 command revalidates the requested released revision, source hash and dimensions before producing a
 nearest-neighbour thumbnail with at most a 48 px edge. The React workspace requests thumbnails only
 when their cards enter or approach the viewport, keeps at most 256 outstanding/cached request
-identities and exposes an explicit “Load more” action for the next metadata page.
+identities and exposes an explicit “Load more” action for the next metadata page. Query refreshes
+keep the controlled filter controls mounted while the native page request is pending, so continuous
+typing retains focus; stale responses remain guarded by context, query and request generation.
 
 Confirmed imports run as native jobs with visible stage/progress state, polling fallback and an
 explicit cancel action in both Inventory and Outfit flows. A cancelled job reports its terminal

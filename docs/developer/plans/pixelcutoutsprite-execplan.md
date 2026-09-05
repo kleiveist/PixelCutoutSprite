@@ -175,8 +175,9 @@ AT-SPI-Aktionen/Fokus, DOM-geprüfter Tastaturbedienung und einem Offline-Lauf i
 Netznamespace ab. Gemeinsame Modalregeln, vollständige strukturierte Dropdownbedingungen,
 scrollbare Mindesthöhen und physisch ganzzahlige Pixelansichten beseitigen die gefundenen
 Bedienengpässe. Inventar-Metadaten sind seitenweise und von sichtbarkeitsgeladenen 48-px-
-Thumbnails getrennt; Import läuft als begrenzter abbrechbarer Job. Der gemeinsame Vorschau- und
-Quellbild-LRU zählt seine Payloads gegen 256 MiB und wird beim Vault-Schließen geleert.
+Thumbnails getrennt; laufende Serverfilter lassen die kontrollierten Eingaben montiert und
+erhalten dadurch den Fokus. Import läuft als begrenzter abbrechbarer Job. Der gemeinsame
+Vorschau- und Quellbild-LRU zählt seine Payloads gegen 256 MiB und wird beim Vault-Schließen geleert.
 Hardwarebezogene Raster-, Export-, Öffnungs-, Inventar- und Importwerte sowie alle Einschränkungen
 stehen in der [P19-Desktop-Abnahme](../acceptance/desktop-usability-and-performance.md).
 
@@ -245,7 +246,8 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
   Freigabe, Trash und Export erstellt und gegatet.
 - [x] P19: Desktop-Layout und DPI-Pixelpfad, Modal-/Tastaturbedienung, vollständige Dropdowns,
   seitenweises Inventar, sichtbarkeitsgeladene Thumbnails, begrenzten gemeinsamen Bildcache,
-  abbrechbare Importjobs sowie Linux-/Offline-/Leistungsmessungen erstellt und gegatet.
+  fokuserhaltende Serverfilter, abbrechbare Importjobs sowie Linux-/Offline-/Leistungsmessungen
+  erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
 - [x] Meilenstein C: Figuren, P12–P15.
@@ -491,6 +493,12 @@ unnötig aufblasen. Cursor-seitige Metadaten, getrennte hashgeprüfte 48-px-Thum
 Anforderung und gemeinsam gezählte `Arc`-Bitmaps halten Übersicht und Vorschau begrenzt, ohne die
 RGBA-Golden-Semantik des Referenzcompositors zu verändern.
 
+**2026-09-05 / P19:** Das Leeren der gesamten Inventarseite bei jedem Querywechsel ließ im realen
+WebView das Suchfeld nach dem ersten Zeichen den Fokus verlieren. Die letzte gültige Metadatenseite
+bleibt deshalb während der nächsten nativen Anfrage montiert; Kontext-, Query- und
+Generationsprüfungen verhindern weiterhin, dass eine alte Antwort übernommen wird. Ein fokussierter
+DOM-Test und kontinuierliche native Eingabe bis `Asset 0999` belegen die Korrektur.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -611,10 +619,12 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P18 | `npm test -- --run`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 150 Tests in 36 Dateien und alle Frontend-Gates | Exklusive Recovery-Ansicht, Opaque-ID-Aktionen, Orphan-Bestätigung, Live-Barriere, Recovery-Kopien, serialisierte Motion-/Outfit-Autosaves, Konflikt-Reload, Undo/Redo, Navigations-/Window-Gates und Freigabe-Blocking sind abgedeckt; der Build umfasst 112 Module. |
 | 2026-09-05 / P18 | `integrate --full-fix`, `integrate --check --json`, `docs check` und `quality architecture --format json` | Linux-Host, Python 3.13.15 | PASS | Das Desktopprofil ist ohne offene Operation integriert, die Navigation für 90 Dokumentseiten ist konsistent und die TypeScript-AST-Prüfung parst 132 Dateien. Das bekannte vollständige `quality`-Toolingproblem mit dem Scan von `.tooling-state` sowie historischen Formatterbefunden bleibt wie geplant Gegenstand von P20; die direkten Produktgates sind grün. |
 | 2026-09-05 / P19 | reale native Desktop-/AT-SPI-Durchläufe bei 1280×720 und 1440×900 sowie Offline-Wiederholung | Ryzen 7 3700X, 62 GiB, RX-9070-Klasse, KDE Wayland, DPR 2; `unshare`-Netznamespace nur mit Loopback | PASS im belegten Linux-Umfang | Pflichtaktionen und Status bleiben sichtbar, benannte AT-SPI-Aktionen/Fokus funktionieren und der lokale Kernworkflow benötigt kein Netzwerk. DPR 1,25 ist nur mathematisch getestet; globale synthetische Tab-Reihenfolge und Windows/macOS werden nicht behauptet. Der opt-in Frame-Probe fehlt im Default-Build. |
-| 2026-09-05 / P19 | `performance_acceptance` explizit als Rust-Release-Hardwarelauf | gleiches Referenzgerät | PASS | 128×128/20 Teile, 360 kalte Raster: p50 0,037 ms, p95 0,052 ms, max 0,322 ms; 360 warme Cachezugriffe: p50/p95 0,000 ms, max 0,001 ms; sieben vollständige 192-Frame-Exporte: p50 95,383 ms, p95/max 96,193 ms. Keine daraus abgeleitete FPS-Zusage. |
-| 2026-09-05 / P19 | `asset_scalability` mit 100 Projekten/1000 Assets explizit als Rust-Release-Hardwarelauf | gleiches Referenzgerät | PASS | Öffnen p50/p95 143,601/145,254 ms; zehn Inventarseiten 125,463/129,413 ms; 48-px-Thumbnails 5,315/5,668 ms; Viererimport 6,995/8,800 ms; Import plus Reopen/Index 155,080/180,829 ms; Abbruch 4,260/4,404 ms. |
-| 2026-09-05 / P19 | `cargo test --all-targets --locked` | Linux-Host, Rust 1.97.1 | PASS: 225 Tests, 4 vorgesehene Sonderläufe ignoriert | Zwei Hardwaremessungen, der gehaltene native Walkthrough-Fixturegenerator und der echte Godot-Test bleiben explizit separat; Cache-/Bytebudgets, Pagination, Jobabbruch, Pixel-Goldens und alle früheren Rust-Verträge sind in der normalen Suite grün. |
-| 2026-09-05 / P19 | `npm test -- --run`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 161 Tests in 40 Dateien und alle Frontend-Gates | Modalfokus, Shortcut-/Texteingabeschutz, Dropdownmodelle, Mindestlayout, Reduced Motion, DPR-Geometrie, Metadatenseiten, sichtbare Thumbnails sowie Importfortschritt/-abbruch sind abgedeckt. |
+| 2026-09-05 / P19 | abschließender Post-Review-Großdatenlauf des aktuellen Release-Executables | flüchtiger Debian-12-Container, echter Tauri-/WebKitGTK-Prozess, virtuelles X11-Display, DPR 1 | PASS bei 1280×720 und 1440×900 | 100 Projekte/1000 Assets/2103 Indexobjekte; Projektquery, sichtbare Thumbnails, Pagination 50→100, kontinuierlich fokussierte Suche nach `Asset 0999` und Dropdownsortierung `Name Z–A` funktionieren. Die erst auf der geladenen Zielansicht gestartete opt-in Probe meldet je 120 Samples mit p50 16,00 ms und p95/max 17,00 ms. Dieser Ergänzungslauf ersetzt keine Referenzhost-, AT-SPI- oder DPR-2-Evidenz. |
+| 2026-09-05 / P19 | `performance_acceptance` explizit als Rust-Release-Hardwarelauf | gleiches Referenzgerät | PASS | 128×128/20 Teile, 360 kalte Raster: p50 0,038 ms, p95 0,045 ms, max 0,121 ms; 360 warme Cachezugriffe: p50/p95/max gerundet 0,000 ms; sieben vollständige 192-Frame-Exporte: p50 95,497 ms, p95/max 99,926 ms. Peak-RSS im Rasterlauf: 18.604 KiB. Keine daraus abgeleitete FPS-Zusage. |
+| 2026-09-05 / P19 | `asset_scalability` mit 100 Projekten/1000 Assets explizit als Rust-Release-Hardwarelauf | gleiches Referenzgerät | PASS | Öffnen p50/p95 147,898/150,962 ms; vollständige servergefilterte Inventarpagination 620,117/631,689 ms; 48-px-Thumbnails 5,560/6,577 ms; Viererimport 7,164/8,649 ms; Import plus Reopen/Index 155,005/170,314 ms; Abbruch 5,556/6,627 ms. Bei diesen Stichprobenzahlen entspricht p95 dem Maximum. |
+| 2026-09-05 / P19 | `cargo test --locked`, `cargo check --locked --all-targets`, Clippy `-D warnings` und rustfmt | Abschluss-Container, Rust 1.97.1 | PASS: 241 Tests, 4 vorgesehene Sonderläufe ignoriert und alle Compiler-/Formatgates | Zwei Hardwaremessungen, der gehaltene native Walkthrough-Fixturegenerator und der echte Godot-Test bleiben explizit separat; Cache-/Bytebudgets, Pagination, Jobabbruch, Pixel-Goldens und alle früheren Rust-Verträge sind in der normalen Suite grün. |
+| 2026-09-05 / P19 | `npm test -- --run`, Typecheck, ESLint, Prettier und normaler Vite-Build | Abschluss-Container, Node 24.19.0 / npm 11.17.0 | PASS: 177 Tests in 40 Dateien und alle Frontend-Gates | Der neue Fokusfall ergänzt Modalfokus, Shortcut-/Texteingabeschutz, Dropdownmodelle, Mindestlayout, Reduced Motion, DPR-Geometrie, Metadatenseiten, sichtbare Thumbnails sowie Importfortschritt/-abbruch; der Build umfasst 118 Module und keinen Probe-Marker. |
+| 2026-09-05 / P19 | `tools/control.py docs check`, `quality architecture --format json`, `integrate --check --json` und `git diff --check` | Abschluss-Container | PASS | 145 Dokumentseiten sind konsistent, die TypeScript-AST-Prüfung parst 142 Quelldateien, das Desktopprofil ist ohne offene Operation integriert und das Patchformat ist sauber. Die bekannten zentralen Toolingkorrekturen bleiben ausdrücklich P20. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -694,7 +704,10 @@ Windows-/macOS-Dateisystemsemantik bleibt bewusst Bestandteil von P20.
 P19 belegt die vollständige Linux-Desktopbedienung in beiden Zielgrößen, trennt native
 AT-SPI-Evidenz sauber von DOM-Tastaturtests und hält die Pixeloberfläche bei DPR 2 auf dem
 physischen Raster. Repräsentative Release-Messungen, cursorbasierte 1000-Asset-Inventare,
-sichtbarkeitsgeladene Thumbnails, native Importabbrüche und ein gemeinsamer 256-MiB-LRU schließen
-die Performance- und Speicherziele ohne geänderte Golden-Pixel oder neue Beschleunigungsabhängigkeit.
+sichtbarkeitsgeladene Thumbnails, fokuserhaltende Serverfilter, native Importabbrüche und ein
+gemeinsamer 256-MiB-LRU schließen die Performance- und Speicherziele ohne geänderte Golden-Pixel
+oder neue Beschleunigungsabhängigkeit. Der Post-Review-Lauf des aktuellen Release-Executables
+bestätigt Projektquery, Pagination, Vollbestandssuche, Dropdownsortierung und Frame-Probe auf dem
+erzeugten 100/1000-Bestand in beiden Pflichtgrößen.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

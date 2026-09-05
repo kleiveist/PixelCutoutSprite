@@ -31,8 +31,9 @@ byte-for-byte.
 P19 retains the same raster semantics while sharing immutable `RgbaImage` storage between prepared
 frames instead of cloning each source buffer. A representative 128 × 128 request with the 16 base
 parts and four equipment parts was rendered cold 360 times in a Rust release test. On the named
-Linux reference host it measured 0.037 ms p50, 0.052 ms p95 and 0.322 ms maximum; a warmed lookup of
-the identical cached RGBA frame measured 0.000 ms p50/p95 and 0.001 ms maximum. These are
+Linux reference host it measured 0.038 ms p50, 0.045 ms p95 and 0.121 ms maximum; a warmed lookup of
+the identical cached RGBA frame measured 0.000 ms p50/p95/maximum when rounded to three decimal
+places. These are
 hardware-specific CPU timings, not an inferred UI-FPS or cross-platform guarantee. Full setup,
 method and export measurements are in the
 [P19 desktop acceptance](../acceptance/desktop-usability-and-performance.md).

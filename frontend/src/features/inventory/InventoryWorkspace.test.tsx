@@ -256,6 +256,45 @@ describe("InventoryWorkspace", () => {
     );
   });
 
+  it("keeps search mounted and focused while a server query reloads", async () => {
+    const filteredPage = deferred<AssetInventoryPage>();
+    const inventory = vi.fn(
+      async (
+        _session: string,
+        _area: string,
+        _cursor?: string | null,
+        _limit?: number | null,
+        query?: AssetInventoryQuery | null,
+      ) => (query?.search ? filteredPage.promise : emptyInventory),
+    );
+    render(
+      <InventoryWorkspace
+        areaId={emptyInventory.area_id}
+        client={fakeClient({ inventory })}
+        sessionId="session"
+      />,
+    );
+    const search = await screen.findByRole("searchbox");
+    search.focus();
+
+    fireEvent.change(search, { target: { value: "A" } });
+    expect(screen.getByRole("searchbox")).toBe(search);
+    expect(search).toHaveFocus();
+
+    fireEvent.change(search, { target: { value: "Asset 999" } });
+    expect(screen.getByRole("searchbox")).toBe(search);
+    expect(search).toHaveFocus();
+
+    await act(async () =>
+      filteredPage.resolve({
+        ...emptyInventory,
+        items: [inventoryItem("asset-999", "Asset 999")],
+        total_items: 1,
+      }),
+    );
+    expect(await screen.findByText("Asset 999")).toBeInTheDocument();
+  });
+
   it("discards a load-more page when the server query changes while it is in flight", async () => {
     const stalePage = deferred<AssetInventoryPage>();
     const inventory = vi.fn(

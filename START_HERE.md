@@ -89,10 +89,11 @@ Zukunftsschemaschutz und ein verschobener kopierter Vault sind durch temporäre 
 P19 rundet den Linux-Desktoppfad mit gemeinsamen Modal-Fokusregeln, geschützten Tastaturkürzeln,
 vollständigen Dropdownbedingungen, scrollbaren Mindesthöhen und physisch ganzzahlig skalierten
 Pixelansichten ab. Große Inventare liefern reine Metadaten in Seiten und laden nur sichtbare
-48-px-Thumbnails; Import erhält nativen Fortschritt und Abbruch. Der gemeinsame Vorschau-/Bildcache
-ist auf 256 MiB begrenzt und wird beim Schließen einer Vault geleert. Der reale Tauri-/WebView-Lauf
-bestand 1280 × 720 sowie 1440 × 900 bei DPR 2 und den Kernworkflow in einem isolierten
-Linux-Netznamespace mit nur Loopback. DPR 1,25 ist ausschließlich mathematisch getestet, und die
+48-px-Thumbnails; laufende Serverfilter behalten den Eingabefokus, und Import erhält nativen
+Fortschritt und Abbruch. Der gemeinsame Vorschau-/Bildcache ist auf 256 MiB begrenzt und wird beim
+Schließen einer Vault geleert. Der reale Tauri-/WebView-Lauf bestand 1280 × 720 sowie 1440 × 900
+bei DPR 2 und den Kernworkflow in einem isolierten Linux-Netznamespace mit nur Loopback. DPR 1,25
+ist ausschließlich mathematisch getestet, und die
 AT-SPI-Evidenz umfasst Aktionen und Fokus, nicht einen behaupteten global synthetischen Tab-Lauf.
 Messwerte und Grenzen stehen in der P19-Desktop-Abnahme. Der nächste Schritt ist P20 für native
 Buildartefakte, Tooling-/CI-Integration und die ehrliche Plattformmatrix.
