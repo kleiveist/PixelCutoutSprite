@@ -32,11 +32,12 @@ Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository 
 
 ## Aktueller Arbeitsauftrag
 
-P00 bis P03 sind abgeschlossen. Der nächste ausführbare Schritt ist P04 für Projekt-Dashboard,
-Labels und Dropdown-Filter. Die lokale Vault, validiertes JSON-Schreiben, Pfadgrenzen und der
-Single-Writer-Lock sind implementiert. Die übrigen Phasen werden weiterhin einzeln im dokumentierten
-Serienmodus umgesetzt; das Vorhandensein eines Prompts bedeutet nicht, dass seine Funktion
-bereits fertig ist.
+P00 bis P04 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App in das persistente
+Projekt-Dashboard: Projekte und Workspace-Labels werden als gewöhnliche JSON-Dateien verwaltet,
+strukturierte Dropdown-Filter bleiben im Vault erhalten und kontrolliertes Entfernen verschiebt
+Projekte in dessen `.trash`. Der nächste ausführbare Schritt ist P05 für Bereiche und humanoide
+Körperprofile. Die übrigen Phasen werden weiterhin einzeln im dokumentierten Serienmodus umgesetzt;
+das Vorhandensein eines Prompts bedeutet nicht, dass seine Funktion bereits fertig ist.
 
 ## Leitentscheidungen
 

@@ -33,6 +33,19 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::open_vault,
             commands::close_vault,
             commands::recent_vaults,
+            commands::get_project_dashboard,
+            commands::list_projects,
+            commands::save_project_view_state,
+            commands::create_project,
+            commands::rename_project,
+            commands::duplicate_project,
+            commands::set_project_archived,
+            commands::set_project_labels,
+            commands::remove_project,
+            commands::create_label,
+            commands::list_labels,
+            commands::update_label,
+            commands::remove_label,
         ])
 }
 

@@ -32,7 +32,7 @@ export const navigationItems: readonly NavigationItem[] = [
     label: "Projects",
     eyebrow: "Organize",
     description: "Browse project cards, labels, and recent work.",
-    available: false,
+    available: true,
   },
   {
     route: "areas",

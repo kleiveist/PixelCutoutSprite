@@ -1,22 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { vaultClient, type OpenVault } from "../api/vault-client";
+import { projectClient, type ProjectClient } from "../api/project-client";
+import { vaultClient, type OpenVault, type VaultClient } from "../api/vault-client";
 import { AppHeader } from "../components/AppHeader";
 import { Breadcrumbs } from "../components/Breadcrumbs";
 import { DialogLayer } from "../components/DialogLayer";
 import { PlaceholderView } from "../components/PlaceholderView";
 import { StatusBar } from "../components/StatusBar";
 import { WorkspaceNav } from "../components/WorkspaceNav";
+import type { ProjectCard } from "../domain/projects";
+import { ProjectDashboard } from "../features/projects/ProjectDashboard";
 import { navigationItems, routeBreadcrumbs, routeDetails, type WorkspaceRoute } from "./navigation";
 import type { KeyboardAction } from "./shortcuts";
 import { useKeyboardActions } from "./useKeyboardActions";
 
-export function App() {
+interface AppProps {
+  projectsApi?: ProjectClient;
+  vaultApi?: VaultClient;
+}
+
+export function App({ projectsApi = projectClient, vaultApi = vaultClient }: AppProps = {}) {
   const [route, setRoute] = useState<WorkspaceRoute>("welcome");
   const [helpOpen, setHelpOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState("Ready · changes stay on this device");
   const [vault, setVault] = useState<OpenVault | null>(null);
+  const [selectedProject, setSelectedProject] = useState<ProjectCard | null>(null);
   const mainContent = useRef<HTMLElement>(null);
   const initialRoute = useRef(true);
 
@@ -57,12 +66,17 @@ export function App() {
 
   useEffect(
     () => () => {
-      if (vault) void vaultClient.close(vault.session_id).catch(() => undefined);
+      if (vault) void vaultApi.close(vault.session_id).catch(() => undefined);
     },
-    [vault],
+    [vault, vaultApi],
   );
 
   function navigate(nextRoute: WorkspaceRoute): void {
+    if (nextRoute === "projects" && !vault) {
+      setRoute("welcome");
+      setStatus("Choose or reopen a vault before browsing projects");
+      return;
+    }
     setRoute(nextRoute);
     setStatus(`${routeDetails(nextRoute).label} selected`);
   }
@@ -76,14 +90,34 @@ export function App() {
     );
   }
 
+  function openProject(project: ProjectCard): void {
+    setSelectedProject(project);
+    setRoute("areas");
+    setStatus(`${project.name} opened · area setup follows in P05`);
+  }
+
+  const breadcrumbs =
+    route === "areas" && selectedProject
+      ? ["Workspace", "Projects", selectedProject.name, "Areas"]
+      : routeBreadcrumbs(route);
+
   return (
     <div className="app-frame">
       <AppHeader onHelp={() => setHelpOpen(true)} />
       <WorkspaceNav activeRoute={route} items={navigationItems} onNavigate={navigate} />
       <div className="content-frame">
-        <Breadcrumbs items={routeBreadcrumbs(route)} />
+        <Breadcrumbs items={breadcrumbs} />
         <main ref={mainContent} className="main-content" tabIndex={-1}>
-          <PlaceholderView details={details} onVaultOpened={openVault} />
+          {route === "projects" && vault ? (
+            <ProjectDashboard
+              client={projectsApi}
+              sessionId={vault.session_id}
+              onOpen={openProject}
+              onStatus={setStatus}
+            />
+          ) : (
+            <PlaceholderView details={details} onVaultOpened={openVault} vaultClient={vaultApi} />
+          )}
         </main>
       </div>
       <StatusBar message={status} playing={playing} />

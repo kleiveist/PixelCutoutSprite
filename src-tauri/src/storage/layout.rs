@@ -72,6 +72,42 @@ impl VaultLayout {
             .resolve(&project_folder.join(PROJECT_ADMIN_DIR).join("project.json"))
     }
 
+    pub fn project_admin(&self, project_folder: &Path) -> Result<ResolvedPath, StorageError> {
+        self.root.resolve(&project_folder.join(PROJECT_ADMIN_DIR))
+    }
+
+    pub fn project_labels(&self, project_folder: &Path) -> Result<ResolvedPath, StorageError> {
+        self.root
+            .resolve(&project_folder.join(PROJECT_ADMIN_DIR).join("labels.json"))
+    }
+
+    pub fn project_cache(&self, project_folder: &Path) -> Result<ResolvedPath, StorageError> {
+        self.root
+            .resolve(&project_folder.join(PROJECT_ADMIN_DIR).join("cache"))
+    }
+
+    pub fn project_transactions(
+        &self,
+        project_folder: &Path,
+    ) -> Result<ResolvedPath, StorageError> {
+        self.root
+            .resolve(&project_folder.join(PROJECT_ADMIN_DIR).join("transactions"))
+    }
+
+    pub fn project_backups(&self, project_folder: &Path) -> Result<ResolvedPath, StorageError> {
+        self.root
+            .resolve(&project_folder.join(PROJECT_ADMIN_DIR).join("backups"))
+    }
+
+    pub fn project_trash(&self, project_folder: &Path) -> Result<ResolvedPath, StorageError> {
+        self.root
+            .resolve(&project_folder.join(PROJECT_ADMIN_DIR).join("trash"))
+    }
+
+    pub fn removed_projects(&self) -> Result<ResolvedPath, StorageError> {
+        self.root.resolve(Path::new(".trash"))
+    }
+
     pub fn area_manifest(&self, area_folder: &Path) -> Result<ResolvedPath, StorageError> {
         self.root
             .resolve(&area_folder.join(AREA_ADMIN_DIR).join("area.json"))

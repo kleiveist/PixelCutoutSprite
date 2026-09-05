@@ -50,3 +50,19 @@ The integration suite uses temporary directories only. It covers initialization 
 foreign/damaged directories, concurrent writers, injected replacement failure, external-change
 conflict, journal scope, global ownership, device recents, permission failure and Unix symlink
 escape prevention.
+
+## Project and label persistence
+
+`ProjectService` discovers projects from their own `.project/project.json` manifests rather than
+from a hidden database or authoritative global index. Creation writes the complete project
+administration skeleton before exposing the card. Rename preserves the UUID; duplication creates
+a fresh UUID and carries only valid Workspace-label references. Archive is a reversible manifest
+state. Controlled removal renames the complete folder into the Vault-root `.trash` directory and
+does not permanently delete user content.
+
+Workspace labels live in `.pixelforge-studio/labels.json`; the empty project-label foundation lives
+in each `.project/labels.json`. Both catalogs retain stable label UUIDs, colors and revisions and
+reject Unicode-normalized sibling collisions. Workspace-label removal first strips every project
+reference and the persisted filter selection, then removes the label, so a partial failure cannot
+leave a dangling reference or delete a project. Project dashboard preferences live at the matching
+Workspace scope in `.pixelforge-studio/ui.json`.

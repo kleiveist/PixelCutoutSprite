@@ -11,10 +11,10 @@ evidence. A phase checkbox or file name alone is not evidence.
 |---|---|---|---|
 | RQ-01 | Pixel-art RPG animation focus | P07–P11 | Planned |
 | RQ-02 | Native desktop app; no mobile or web product | P01, P20 | P01: native Tauri 2 shell starts on Linux; only bundled WebView content and `core:default`; packaging matrix remains P20 |
-| RQ-03 | Project dashboard after opening a vault | P03–P04 | P03: successful native vault open routes to the Projects workspace; project cards follow in P04 |
-| RQ-04 | Projects are folders | P03–P04 | P03: `VaultLayout` reserves project `.project` ownership and safe object folders; CRUD follows in P04 |
-| RQ-05 | User-defined labels | P04 | Planned |
-| RQ-06 | Every structured filter uses a dropdown | P04–P06, P12, P15, P19 | Planned |
+| RQ-03 | Project dashboard after opening a vault | P03–P04 | P04: `App` routes an opened Vault directly to `ProjectDashboard`; app and dashboard tests cover the transition, empty state and cards |
+| RQ-04 | Projects are folders | P03–P04 | P04: `ProjectService` creates a distinct safe folder and `.project/{project.json,labels.json,cache,transactions,backups,trash}`; filesystem integration tests cover reopen, rename, copy and trash |
+| RQ-05 | User-defined labels | P04 | P04: `LabelService` persists workspace/project label catalogs with name/color/revision validation; deletion removes references while retaining projects |
+| RQ-06 | Every structured filter uses a dropdown | P04–P06, P12, P15, P19 | P04 project filters expose labels, label-match mode, status and sorting as reusable single/multi dropdowns; later dashboards remain assigned to their phases |
 | RQ-07 | User-defined areas | P05 | Planned |
 | RQ-08 | Area-level size and body profile | P02, P05 | P02: `Area` pins a profile revision, 16–512 px height, eight-way model, frame size and ground origin; concrete humanoid generator remains P05 |
 | RQ-09 | Animations are actionable cards | P06 | Planned |
@@ -48,4 +48,4 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-37 | Compact PNG sheets; loose frames optional | P16 | Planned |
 | RQ-38 | Generic integration and Godot output | P16–P17 | Planned |
 | RQ-39 | No required manual bone/skeleton setup | P05, P08, P22 | Planned |
-| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P03 implemented and gated; P04 is next |
+| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P04 implemented and gated; P05 is next |

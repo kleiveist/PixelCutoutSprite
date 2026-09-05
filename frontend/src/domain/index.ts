@@ -4,5 +4,6 @@ export * from "./common";
 export * from "./export";
 export * from "./motion";
 export * from "./profile";
+export * from "./projects";
 export * from "./validation";
 export * from "./workspace";

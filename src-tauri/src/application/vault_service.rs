@@ -61,6 +61,12 @@ struct VaultSession {
     index: ObjectIndex,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct VaultSessionContext {
+    pub root: VaultRoot,
+    pub mode: VaultOpenMode,
+}
+
 #[derive(Debug, Default)]
 pub struct VaultService {
     sessions: HashMap<ObjectId, VaultSession>,
@@ -188,6 +194,29 @@ impl VaultService {
                 session.index.len(),
             )
         })
+    }
+
+    pub(crate) fn context(
+        &self,
+        session_id: ObjectId,
+    ) -> Result<VaultSessionContext, StorageError> {
+        let session = self
+            .sessions
+            .get(&session_id)
+            .ok_or_else(|| StorageError::InvalidVault("unknown vault session".to_owned()))?;
+        Ok(VaultSessionContext {
+            root: session.root.clone(),
+            mode: session.mode,
+        })
+    }
+
+    pub(crate) fn refresh_index(&mut self, session_id: ObjectId) -> Result<(), StorageError> {
+        let session = self
+            .sessions
+            .get_mut(&session_id)
+            .ok_or_else(|| StorageError::InvalidVault("unknown vault session".to_owned()))?;
+        session.index = ObjectIndex::rebuild(&session.root)?;
+        Ok(())
     }
 }
 
