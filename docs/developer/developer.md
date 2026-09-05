@@ -1,0 +1,19 @@
+<!-- AUTO-GENERATED:backlink START -->
+[← Back](../index.md)
+<!-- AUTO-GENERATED:backlink END -->
+# Developer documentation
+
+<!-- AUTO-GENERATED:docs-index START -->
+
+- ✅ [Acceptance](acceptance/acceptance.md)
+- 📋 [Requirement ledger](acceptance/requirements.md)
+- 🧭 [Decisions](decisions/decisions.md)
+- 🖥️ [ADR-001: Tauri desktop profile](decisions/adr-001-tauri-desktop.md)
+- 📋 [Features](features/features.md)
+- 🎨 [PixelCutoutSprite Studio specification](features/pixelcutoutsprite-studio.md)
+- 🗺️ [Plans](plans/plans.md)
+- 🧭 [PixelCutoutSprite Studio ExecPlan](plans/pixelcutoutsprite-execplan.md)
+- 🧩 [Prompts](prompts/prompts.md)
+- 🧾 [Repository inventory](repository-inventory.md)
+
+<!-- AUTO-GENERATED:docs-index END -->

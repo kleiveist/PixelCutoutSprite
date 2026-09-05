@@ -1,7 +1,7 @@
 <!-- AUTO-GENERATED:docs-index START -->
 
 ## 📄 Files
-- 📝 [Portable Tooling – Workflow-Abschluss und Übergabe](WORKFLOW-HANDOFF.md)
+- 🚀 [Start PixelCutoutSprite Studio implementation](START_HERE.md)
 
 # DOCS
 - 📚 [Docs Home](docs/index.md)
