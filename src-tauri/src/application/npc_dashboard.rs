@@ -5,11 +5,11 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::domain::{
-    canonical_json_bytes, export_freshness, AnimationBinding, Appearance, AssetFallbackApproval,
-    AssetRevision, Character, Direction, DirectionFit, DirectionMode, Equipment, ExportFreshness,
-    LocalOverride, MotionRevision, ProfileRevision, RevisionRef, Sha256Digest, SlotAppearance,
-    SlotRef, TemplateStatus,
+    canonical_json_bytes, AnimationBinding, Appearance, AssetFallbackApproval, AssetRevision,
+    Character, Direction, DirectionFit, DirectionMode, Equipment, LocalOverride, MotionRevision,
+    ProfileRevision, RevisionRef, Sha256Digest, SlotAppearance, SlotRef, TemplateStatus,
 };
+use crate::exports::ExportService;
 use crate::storage::VaultRoot;
 
 use super::appearance_service::{AppearanceServiceError, OutfitLabelOption};
@@ -18,6 +18,7 @@ use super::binding_service::{
     ReleasedMotionOption, RevisionComparison, RevisionCompatibility, RevisionOffer,
 };
 use super::outfit_snapshot::{project_labels, AreaSnapshot};
+use super::{managed_output_directory, NpcExportService, StartNpcExportRequest};
 
 pub(super) fn workspace_context(
     vault: &VaultRoot,
@@ -28,7 +29,7 @@ pub(super) fn workspace_context(
     let mut npcs = snapshot
         .characters
         .iter()
-        .map(|character| npc_view(&snapshot, character, &labels))
+        .map(|character| npc_view(vault, area_path, &snapshot, character, &labels))
         .collect::<Result<Vec<_>, _>>()?;
     npcs.sort_by(|left, right| {
         left.character
@@ -45,6 +46,8 @@ pub(super) fn workspace_context(
 }
 
 fn npc_view(
+    vault: &VaultRoot,
+    area_path: &Path,
     snapshot: &AreaSnapshot,
     character: &Character,
     labels: &[OutfitLabelOption],
@@ -79,7 +82,7 @@ fn npc_view(
         .collect::<Vec<_>>();
     let fingerprint =
         effective_source_fingerprint(snapshot, character, appearance, &effective_bindings)?;
-    let export_status = export_status(snapshot, character, appearance, &bindings, &fingerprint)?;
+    let export_status = export_status(vault, area_path, snapshot, character, &bindings)?;
     let mut available_slots = appearance
         .slots
         .iter()
@@ -304,11 +307,62 @@ pub(super) fn validate_compatibility(
     Ok(())
 }
 
+pub(super) fn validate_export_compatibility(
+    snapshot: &AreaSnapshot,
+    character: &Character,
+    appearance: &Appearance,
+    motion: &MotionRevision,
+    local_overrides: &[LocalOverride],
+    allow_incomplete_test: bool,
+) -> Result<Vec<String>, AppearanceServiceError> {
+    if !allow_incomplete_test {
+        validate_compatibility(snapshot, character, appearance, motion, local_overrides)?;
+        return Ok(Vec::new());
+    }
+    let profile = snapshot
+        .profiles
+        .iter()
+        .find(|profile| profile.reference() == motion.profile_ref)
+        .ok_or_else(|| missing("motion profile snapshot"))?;
+    if character.profile_ref != motion.profile_ref
+        || appearance.profile_ref != motion.profile_ref
+        || appearance.character_id != character.id
+    {
+        return Err(invalid(
+            "character, appearance, and released motion must use one exact profile revision",
+        ));
+    }
+    let mut reasons = validate_appearance_slots_for_export(snapshot, appearance, profile, true)?;
+    validate_overrides(profile, appearance, motion, local_overrides)?;
+    snapshot.validate_equipment_references(
+        &appearance.equipment,
+        appearance.profile_ref,
+        motion.reference(),
+        false,
+    )?;
+    collect_incomplete_equipment_reasons(snapshot, appearance, &mut reasons)?;
+    reasons.sort();
+    reasons.dedup();
+    Ok(reasons)
+}
+
 fn validate_appearance_slots(
     snapshot: &AreaSnapshot,
     appearance: &Appearance,
     profile: &ProfileRevision,
 ) -> Result<(), AppearanceServiceError> {
+    let reasons = validate_appearance_slots_for_export(snapshot, appearance, profile, false)?;
+    debug_assert!(reasons.is_empty());
+    Ok(())
+}
+
+fn validate_appearance_slots_for_export(
+    snapshot: &AreaSnapshot,
+    appearance: &Appearance,
+    profile: &ProfileRevision,
+    allow_incomplete_test: bool,
+) -> Result<Vec<String>, AppearanceServiceError> {
+    let mut reasons = Vec::new();
     for slot in &appearance.slots {
         if !profile
             .slots
@@ -326,6 +380,13 @@ fn validate_appearance_slots(
                 .iter()
                 .find(|fit| fit.direction == direction)
             else {
+                if allow_incomplete_test {
+                    reasons.push(format!(
+                        "appearance slot {} has no {:?} fitting",
+                        slot.slot_id, direction
+                    ));
+                    continue;
+                }
                 return Err(invalid(format!(
                     "appearance slot {} has no {:?} fitting",
                     slot.slot_id, direction
@@ -379,6 +440,13 @@ fn validate_appearance_slots(
             .iter()
             .any(|slot| slot.slot_id == required.id)
         {
+            if allow_incomplete_test {
+                reasons.push(format!(
+                    "appearance is missing required profile slot {}",
+                    required.id
+                ));
+                continue;
+            }
             return Err(invalid(format!(
                 "appearance is missing required profile slot {}",
                 required.id
@@ -386,6 +454,60 @@ fn validate_appearance_slots(
         }
     }
     validate_fallback_approvals(snapshot, appearance)?;
+    Ok(reasons)
+}
+
+fn collect_incomplete_equipment_reasons(
+    snapshot: &AreaSnapshot,
+    appearance: &Appearance,
+    reasons: &mut Vec<String>,
+) -> Result<(), AppearanceServiceError> {
+    for equipment in &appearance.equipment {
+        if equipment.enabled {
+            collect_equipment_piece_reasons(
+                snapshot,
+                equipment.id,
+                &equipment.asset,
+                &equipment.fit_by_direction,
+                reasons,
+            )?;
+        }
+        for part in &equipment.additional_parts {
+            if part.enabled {
+                collect_equipment_piece_reasons(
+                    snapshot,
+                    part.id,
+                    &part.asset,
+                    &part.fit_by_direction,
+                    reasons,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn collect_equipment_piece_reasons(
+    snapshot: &AreaSnapshot,
+    id: crate::domain::ObjectId,
+    base_asset: &SlotRef,
+    fits: &[DirectionFit],
+    reasons: &mut Vec<String>,
+) -> Result<(), AppearanceServiceError> {
+    for direction in Direction::ALL {
+        let covered = fits
+            .iter()
+            .find(|fit| fit.direction == direction)
+            .map(|fit| fit.asset.as_ref().unwrap_or(base_asset))
+            .map(|reference| snapshot.require_asset_revision(reference))
+            .transpose()?
+            .is_some_and(|revision| revision.direction == direction);
+        if !covered {
+            reasons.push(format!(
+                "enabled equipment part {id} has no compatible {direction:?} image"
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -493,62 +615,40 @@ pub(super) fn require_motion(
 }
 
 fn export_status(
+    vault: &VaultRoot,
+    area_path: &Path,
     snapshot: &AreaSnapshot,
     character: &Character,
-    appearance: &Appearance,
     bindings: &[NpcBindingView],
-    character_fingerprint: &Sha256Digest,
 ) -> Result<NpcExportStatus, AppearanceServiceError> {
     if bindings.is_empty() {
         return Ok(NpcExportStatus::NotExported);
     }
-    let binding_ids = bindings
+    let binding_documents = bindings
         .iter()
-        .map(|view| view.binding.id)
-        .collect::<HashSet<_>>();
-    let full_manifest = snapshot
-        .exports
-        .iter()
-        .filter(|manifest| {
-            manifest.character_id == character.id
-                && manifest
-                    .sources
-                    .bindings
-                    .iter()
-                    .map(|reference| reference.id)
-                    .collect::<HashSet<_>>()
-                    == binding_ids
-        })
-        .max_by_key(|manifest| manifest.created_at);
-    if let Some(manifest) = full_manifest {
-        return Ok(freshness_status(manifest, character_fingerprint));
+        .map(|view| view.binding.clone())
+        .collect::<Vec<_>>();
+    if binding_documents.len() > 1 {
+        match managed_current_status(vault, area_path, snapshot, character.id, &binding_documents)?
+        {
+            ManagedCurrentStatus::Current => return Ok(NpcExportStatus::Current),
+            ManagedCurrentStatus::Stale => return Ok(NpcExportStatus::Stale),
+            ManagedCurrentStatus::Missing => {}
+        }
     }
+
     let mut found_count = 0;
-    for binding in bindings {
-        let manifest = snapshot
-            .exports
-            .iter()
-            .filter(|manifest| {
-                manifest.character_id == character.id
-                    && manifest
-                        .sources
-                        .bindings
-                        .iter()
-                        .any(|reference| reference.id == binding.binding.id)
-            })
-            .max_by_key(|manifest| manifest.created_at);
-        let Some(manifest) = manifest else {
-            continue;
-        };
-        found_count += 1;
-        let fingerprint = effective_source_fingerprint(
+    for binding in &binding_documents {
+        match managed_current_status(
+            vault,
+            area_path,
             snapshot,
-            character,
-            appearance,
-            std::slice::from_ref(&binding.binding),
-        )?;
-        if export_freshness(manifest, &fingerprint) == ExportFreshness::Stale {
-            return Ok(NpcExportStatus::Stale);
+            character.id,
+            std::slice::from_ref(binding),
+        )? {
+            ManagedCurrentStatus::Current => found_count += 1,
+            ManagedCurrentStatus::Stale => return Ok(NpcExportStatus::Stale),
+            ManagedCurrentStatus::Missing => {}
         }
     }
     if found_count == bindings.len() {
@@ -560,14 +660,74 @@ fn export_status(
     }
 }
 
-fn freshness_status(
-    manifest: &crate::domain::ExportManifest,
-    fingerprint: &Sha256Digest,
-) -> NpcExportStatus {
-    match export_freshness(manifest, fingerprint) {
-        ExportFreshness::Current => NpcExportStatus::Current,
-        ExportFreshness::Stale => NpcExportStatus::Stale,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ManagedCurrentStatus {
+    Missing,
+    Current,
+    Stale,
+}
+
+fn managed_current_status(
+    vault: &VaultRoot,
+    area_path: &Path,
+    snapshot: &AreaSnapshot,
+    character_id: crate::domain::ObjectId,
+    bindings: &[AnimationBinding],
+) -> Result<ManagedCurrentStatus, AppearanceServiceError> {
+    let output = managed_output_directory(area_path, snapshot, character_id, bindings)
+        .map_err(|error| invalid(error.to_string()))?;
+    let exporter = ExportService::new(vault.clone(), env!("CARGO_PKG_VERSION"));
+    let current = match exporter.current(&output) {
+        Ok(Some(current)) => current,
+        Ok(None) => return Ok(ManagedCurrentStatus::Missing),
+        Err(_) => return Ok(ManagedCurrentStatus::Stale),
+    };
+    if !current.current.complete {
+        return Ok(ManagedCurrentStatus::Stale);
     }
+    let expected_ids = bindings
+        .iter()
+        .map(|binding| binding.id)
+        .collect::<HashSet<_>>();
+    let manifest_ids = current
+        .manifest
+        .sources
+        .bindings
+        .iter()
+        .map(|reference| reference.id)
+        .collect::<HashSet<_>>();
+    if current.manifest.character_id != character_id || manifest_ids != expected_ids {
+        return Ok(ManagedCurrentStatus::Stale);
+    }
+    let Some(first_action) = current.manifest.actions.first() else {
+        return Ok(ManagedCurrentStatus::Stale);
+    };
+    if current.manifest.actions.iter().any(|action| {
+        action.root_motion_mode != first_action.root_motion_mode
+            || action.jump_mode != first_action.jump_mode
+    }) {
+        return Ok(ManagedCurrentStatus::Stale);
+    }
+    let request = StartNpcExportRequest {
+        character_id,
+        binding_ids: bindings.iter().map(|binding| binding.id).collect(),
+        profile: current.manifest.profile.clone(),
+        root_motion_mode: first_action.root_motion_mode,
+        jump_mode: first_action.jump_mode,
+    };
+    let prepared = match NpcExportService.prepare(vault, area_path, request) {
+        Ok(prepared) if prepared.output_directory == output => prepared,
+        Ok(_) | Err(_) => return Ok(ManagedCurrentStatus::Stale),
+    };
+    let fingerprint = match exporter.source_fingerprint(&prepared.request) {
+        Ok(fingerprint) => fingerprint,
+        Err(_) => return Ok(ManagedCurrentStatus::Stale),
+    };
+    Ok(if fingerprint == current.current.source_fingerprint {
+        ManagedCurrentStatus::Current
+    } else {
+        ManagedCurrentStatus::Stale
+    })
 }
 
 #[derive(Serialize)]

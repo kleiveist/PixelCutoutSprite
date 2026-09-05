@@ -9,9 +9,10 @@ use crate::directions::{
     ResolvedPoseSlot, SampledSlot as DirectionSampledSlot,
 };
 use crate::domain::{
-    Direction, DirectionFit, Equipment, EquipmentMotionTrack, EquipmentPart, FollowMode,
-    GroundShadow, LoopMode, ObjectId, OutfitDraft, OutfitFitting, PixelPoint, ProfileRevision,
-    SlotId, SlotRef, Transform2D,
+    AnimationBinding, Appearance, AssetFallbackApproval, Direction, DirectionFit, Equipment,
+    EquipmentMotionTrack, EquipmentPart, FollowMode, GroundShadow, LoopMode, ObjectId, OutfitDraft,
+    OutfitFitting, OutfitLocalOverride, PixelPoint, ProfileRevision, RevisionRef, SlotId, SlotRef,
+    Transform2D,
 };
 use crate::render::{
     resolve_world_transforms, Affine, PixelCompositor, RenderPart, RenderRequest, RenderTransform,
@@ -28,7 +29,8 @@ struct PartContext<'a> {
     vault: &'a VaultRoot,
     area_path: &'a Path,
     snapshot: &'a AreaSnapshot,
-    draft: &'a OutfitDraft,
+    source: &'a OutfitRenderSource,
+    bitmaps: Option<&'a HashMap<RevisionRef, RgbaImage>>,
     direction_resolution: ResolvedDirection,
     fittings: HashMap<SlotId, &'a OutfitFitting>,
     overrides: HashMap<SlotId, Transform2D>,
@@ -37,6 +39,25 @@ struct PartContext<'a> {
     frame_index: u16,
     frame_count: u16,
     loop_mode: LoopMode,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct OutfitRenderSource {
+    profile_ref: RevisionRef,
+    fittings: Vec<OutfitFitting>,
+    asset_fallback_approvals: Vec<AssetFallbackApproval>,
+    local_overrides: Vec<OutfitLocalOverride>,
+    equipment: Vec<Equipment>,
+}
+
+pub(super) struct OutfitRenderContext<'a> {
+    pub(super) vault: &'a VaultRoot,
+    pub(super) area_path: &'a Path,
+    pub(super) snapshot: &'a AreaSnapshot,
+    pub(super) source: &'a OutfitRenderSource,
+    pub(super) motion: &'a crate::domain::MotionRevision,
+    pub(super) profile: &'a ProfileRevision,
+    pub(super) bitmaps: Option<&'a HashMap<RevisionRef, RgbaImage>>,
 }
 
 #[derive(Clone, Copy)]
@@ -92,9 +113,112 @@ pub(super) fn render_preview(
     let snapshot = AreaSnapshot::load(vault, area_path)?;
     let draft = transient_draft(&snapshot, draft_id, edits)?;
     let (_, motion, profile) = snapshot.workflow(draft.template_ref)?;
+    let source = OutfitRenderSource::from_draft(&draft);
+    let sampled = AnimationSampler.sample(motion, direction, frame_index)?;
+    let request = render_request(
+        OutfitRenderContext {
+            vault,
+            area_path,
+            snapshot: &snapshot,
+            source: &source,
+            motion,
+            profile,
+            bitmaps: None,
+        },
+        &sampled,
+        true,
+    )?;
+    let guides = preview_guides(&request, profile)?;
+    let rendered = PixelCompositor.render(&request)?;
+    Ok(OutfitPreviewFrame {
+        direction,
+        frame_index,
+        width: rendered.image.width(),
+        height: rendered.image.height(),
+        rgba: rendered.image.into_raw(),
+        clipping: rendered
+            .clipping
+            .into_iter()
+            .map(preview_clipping)
+            .collect(),
+        guides,
+        guides_included: false,
+    })
+}
+
+pub(super) fn persisted_render_source(
+    snapshot: &AreaSnapshot,
+    appearance: &Appearance,
+    binding: &AnimationBinding,
+) -> Result<OutfitRenderSource, AppearanceServiceError> {
+    if binding.appearance_id != appearance.id || binding.character_id != appearance.character_id {
+        return Err(AppearanceServiceError::InvalidState(
+            "animation binding does not use the selected persisted appearance".to_owned(),
+        ));
+    }
+    let mut fittings = Vec::new();
+    for slot in &appearance.slots {
+        for fit in &slot.fit_by_direction {
+            let asset = fit.asset.clone().unwrap_or_else(|| slot.asset.clone());
+            let revision = snapshot.require_asset_revision(&asset)?;
+            fittings.push(OutfitFitting {
+                slot_id: slot.slot_id.clone(),
+                direction: fit.direction,
+                asset,
+                pivot_px: fit.pivot_px.unwrap_or(revision.pivot_px),
+                variant_fittings: fit.variant_fittings.clone(),
+                transform: fit.transform,
+                visible: fit.visible,
+                layer_delta: fit.layer_delta,
+            });
+        }
+    }
+    sort_fittings(&mut fittings);
+    let local_overrides = binding
+        .local_overrides
+        .iter()
+        .map(|local| OutfitLocalOverride {
+            slot_id: local.slot_id.clone(),
+            direction: local.direction,
+            transform: local.transform,
+        })
+        .collect();
+    Ok(OutfitRenderSource {
+        profile_ref: appearance.profile_ref,
+        fittings,
+        asset_fallback_approvals: appearance.asset_fallback_approvals.clone(),
+        local_overrides,
+        equipment: appearance.equipment.clone(),
+    })
+}
+
+pub(super) fn render_request(
+    context: OutfitRenderContext<'_>,
+    sampled: &crate::animation::SampledPose,
+    include_shadow: bool,
+) -> Result<RenderRequest, AppearanceServiceError> {
+    let OutfitRenderContext {
+        vault,
+        area_path,
+        snapshot,
+        source,
+        motion,
+        profile,
+        bitmaps,
+    } = context;
+    if source.profile_ref != profile.reference() || motion.profile_ref != profile.reference() {
+        return Err(AppearanceServiceError::InvalidState(
+            "render source, motion, and profile revisions do not match".to_owned(),
+        ));
+    }
+    let direction = sampled.requested_direction;
     let resolver = DirectionResolver::new(motion, profile)?;
     let resolution = resolver.resolve(direction)?;
-    let sampled = AnimationSampler.sample(motion, resolution.source, frame_index)?;
+    if sampled.source_direction != resolution.source {
+        return Err(AppearanceServiceError::InvalidState(
+            "sampled pose does not match the resolved direction source".to_owned(),
+        ));
+    }
     let sampled_by_slot = sampled
         .slots
         .iter()
@@ -123,44 +247,49 @@ pub(super) fn render_preview(
     };
     let resolved = resolver.resolve_pose(direction, &source_pose)?;
     let parts = render_parts(
-        vault,
-        area_path,
-        &snapshot,
-        &draft,
+        OutfitRenderContext {
+            vault,
+            area_path,
+            snapshot,
+            source,
+            motion,
+            profile,
+            bitmaps,
+        },
         resolution,
         &resolved.slots,
         PreviewFrameInput {
             sample_index: sampled.sample_index,
             frame_count: motion.frame_count,
             loop_mode: motion.loop_mode,
-            ground_shadow: motion
-                .semantics
-                .as_ref()
-                .and_then(|semantics| semantics.ground_shadow),
+            ground_shadow: include_shadow
+                .then(|| {
+                    motion
+                        .semantics
+                        .as_ref()
+                        .and_then(|semantics| semantics.ground_shadow)
+                })
+                .flatten(),
         },
     )?;
-    let request = RenderRequest {
+    Ok(RenderRequest {
         direction,
         frame_size_px: motion.frame_size_px,
         ground_origin_px: motion.ground_origin_px,
         parts,
-    };
-    let guides = preview_guides(&request, profile)?;
-    let rendered = PixelCompositor.render(&request)?;
-    Ok(OutfitPreviewFrame {
-        direction,
-        frame_index,
-        width: rendered.image.width(),
-        height: rendered.image.height(),
-        rgba: rendered.image.into_raw(),
-        clipping: rendered
-            .clipping
-            .into_iter()
-            .map(preview_clipping)
-            .collect(),
-        guides,
-        guides_included: false,
     })
+}
+
+impl OutfitRenderSource {
+    fn from_draft(draft: &OutfitDraft) -> Self {
+        Self {
+            profile_ref: draft.profile_ref,
+            fittings: draft.fittings.clone(),
+            asset_fallback_approvals: draft.asset_fallback_approvals.clone(),
+            local_overrides: draft.local_overrides.clone(),
+            equipment: draft.equipment.clone(),
+        }
+    }
 }
 
 fn preview_guides(
@@ -213,21 +342,26 @@ fn transient_draft(
 }
 
 fn render_parts(
-    vault: &VaultRoot,
-    area_path: &Path,
-    snapshot: &AreaSnapshot,
-    draft: &OutfitDraft,
+    context: OutfitRenderContext<'_>,
     direction_resolution: ResolvedDirection,
     resolved_slots: &[ResolvedPoseSlot],
     frame: PreviewFrameInput,
 ) -> Result<Vec<RenderPart>, AppearanceServiceError> {
-    let fittings = draft
+    let OutfitRenderContext {
+        vault,
+        area_path,
+        snapshot,
+        source,
+        bitmaps,
+        ..
+    } = context;
+    let fittings = source
         .fittings
         .iter()
         .filter(|fit| fit.direction == direction_resolution.target)
         .map(|fit| (fit.slot_id.clone(), fit))
         .collect::<HashMap<_, _>>();
-    let overrides = draft
+    let overrides = source
         .local_overrides
         .iter()
         .filter(|fit| fit.direction == direction_resolution.target)
@@ -241,7 +375,8 @@ fn render_parts(
         vault,
         area_path,
         snapshot,
-        draft,
+        source,
+        bitmaps,
         direction_resolution,
         fittings,
         overrides,
@@ -255,7 +390,7 @@ fn render_parts(
         .iter()
         .map(|slot| build_render_part(&context, slot))
         .collect::<Result<Vec<_>, _>>()?;
-    for equipment in &draft.equipment {
+    for equipment in &source.equipment {
         parts.push(build_equipment_part(
             &context,
             primary_equipment_source(equipment),
@@ -294,9 +429,7 @@ fn build_render_part(
 ) -> Result<RenderPart, AppearanceServiceError> {
     let resolved = resolve_fitting(context, slot)?;
     let fitting = fitting_render_data(
-        context.vault,
-        context.area_path,
-        context.snapshot,
+        context,
         resolved.fit,
         resolved.image,
         resolved.mirror_bitmap_x,
@@ -357,7 +490,7 @@ fn resolve_fitting<'a>(
     }
 
     let approvals = context
-        .draft
+        .source
         .asset_fallback_approvals
         .iter()
         .filter(|approval| {
@@ -388,9 +521,9 @@ fn resolve_fitting<'a>(
         });
     }
     let resolved = AssetResolver::new(
-        context.draft.profile_ref,
+        context.source.profile_ref,
         &candidates,
-        &context.draft.asset_fallback_approvals,
+        &context.source.asset_fallback_approvals,
     )?
     .resolve(context.direction_resolution, &slot.slot_id, variant)?;
     let source = fitted_image_for_revision(
@@ -456,7 +589,7 @@ fn approved_fallback(
     variant: &str,
 ) -> bool {
     context
-        .draft
+        .source
         .asset_fallback_approvals
         .iter()
         .any(|approval| {
@@ -474,7 +607,7 @@ fn asset_candidates(
     let mut seen = HashSet::new();
     let mut candidates = Vec::new();
     for fit in context
-        .draft
+        .source
         .fittings
         .iter()
         .filter(|fit| fit.slot_id == *slot_id)
@@ -500,7 +633,7 @@ fn fitted_image_for_revision<'a>(
     source_direction: Direction,
 ) -> Result<(&'a OutfitFitting, FittedImage<'a>), AppearanceServiceError> {
     for fit in context
-        .draft
+        .source
         .fittings
         .iter()
         .filter(|fit| fit.slot_id == *slot_id && fit.direction == source_direction)
@@ -535,9 +668,7 @@ fn fitted_image_for_revision<'a>(
 }
 
 fn fitting_render_data(
-    vault: &VaultRoot,
-    area_path: &Path,
-    snapshot: &AreaSnapshot,
+    context: &PartContext<'_>,
     fit: Option<&crate::domain::OutfitFitting>,
     image: Option<FittedImage<'_>>,
     bitmap_mirrored: bool,
@@ -553,11 +684,8 @@ fn fitting_render_data(
             mirror_bitmap_x: false,
         });
     };
-    let revision = snapshot.require_asset_revision(image.asset)?;
-    let source = vault.resolve(&area_path.join(revision.source_file.as_str()))?;
-    let bitmap = image::open(source.as_path())
-        .map_err(|error| AppearanceServiceError::Image(error.to_string()))?
-        .to_rgba8();
+    let revision = context.snapshot.require_asset_revision(image.asset)?;
+    let bitmap = load_bitmap(context, revision)?;
     let mut transform = RenderTransform::from(fit.transform);
     let pivot_px = (f64::from(image.pivot_px.0), f64::from(image.pivot_px.1));
     if mirror_geometry {
@@ -679,12 +807,7 @@ fn equipment_fitting_render_data(
             source.id, context.direction
         )));
     }
-    let path = context
-        .vault
-        .resolve(&context.area_path.join(revision.source_file.as_str()))?;
-    let bitmap = image::open(path.as_path())
-        .map_err(|error| AppearanceServiceError::Image(error.to_string()))?
-        .to_rgba8();
+    let bitmap = load_bitmap(context, revision)?;
     Ok(FittingRenderData {
         bitmap,
         transform: RenderTransform::from(fit.transform),
@@ -695,6 +818,26 @@ fn equipment_fitting_render_data(
         // again would swap asymmetric gloves and accessories.
         mirror_bitmap_x: false,
     })
+}
+
+fn load_bitmap(
+    context: &PartContext<'_>,
+    revision: &crate::domain::AssetRevision,
+) -> Result<RgbaImage, AppearanceServiceError> {
+    if let Some(bitmaps) = context.bitmaps {
+        return bitmaps.get(&revision.reference()).cloned().ok_or_else(|| {
+            AppearanceServiceError::InvalidState(format!(
+                "verified export bitmap {} is missing from the immutable render snapshot",
+                revision.reference()
+            ))
+        });
+    }
+    let path = context
+        .vault
+        .resolve(&context.area_path.join(revision.source_file.as_str()))?;
+    image::open(path.as_path())
+        .map_err(|error| AppearanceServiceError::Image(error.to_string()))
+        .map(|image| image.to_rgba8())
 }
 
 fn missing_fitting_render_data() -> FittingRenderData {

@@ -2,6 +2,11 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { describe, expect, it, vi } from "vitest";
 
 import type { AreaClient } from "../api/area-client";
+import {
+  ExportCancelledError,
+  type ExportClient,
+  type StartNpcExportRequest,
+} from "../api/export-client";
 import type { MotionClient } from "../api/motion-client";
 import type { NpcClient } from "../api/npc-client";
 import type { OutfitClient } from "../api/outfit-client";
@@ -32,6 +37,14 @@ describe("desktop shell", () => {
   it("requires a selected area before opening the NPC workspace", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "NPCs" }));
+
+    expect(screen.getByRole("heading", { name: "Areas" })).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("Open an area");
+  });
+
+  it("requires a selected area before opening export", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
 
     expect(screen.getByRole("heading", { name: "Areas" })).toBeInTheDocument();
     expect(screen.getByRole("contentinfo")).toHaveTextContent("Open an area");
@@ -246,10 +259,58 @@ describe("desktop shell", () => {
         ],
       })),
     } as unknown as NpcClient;
+    const exportsApi = {
+      inspect: vi.fn(async (_session, _area, requestedCharacterId) => ({
+        character_id: requestedCharacterId,
+        bindings: [
+          {
+            binding_id: otherBindingId,
+            action_key: "idle",
+            frame_size_px: [128, 128],
+            ground_origin_px: [64, 108],
+            frame_count: 8,
+            fps: 8,
+            loop_mode: "loop",
+            covered_directions: ["n", "ne", "e", "se", "s", "sw", "w", "nw"],
+            missing_directions: [],
+            reviewed: true,
+            ready: true,
+            issue: null,
+          },
+          {
+            binding_id: bindingId,
+            action_key: "walk",
+            frame_size_px: [128, 128],
+            ground_origin_px: [64, 108],
+            frame_count: 8,
+            fps: 8,
+            loop_mode: "loop",
+            covered_directions: ["n", "ne", "e", "se", "s", "sw", "w", "nw"],
+            missing_directions: [],
+            reviewed: true,
+            ready: true,
+            issue: null,
+          },
+        ],
+        missing_required_actions: [],
+        common_frame_size_px: [128, 128],
+        common_ground_origin_px: [64, 108],
+      })),
+      listProfiles: vi.fn(async () => []),
+      saveProfile: vi.fn(),
+      deleteProfile: vi.fn(),
+      run: vi.fn(
+        (_session: string, _area: string, _request: StartNpcExportRequest, signal: AbortSignal) =>
+          new Promise<never>((_resolve, reject) => {
+            signal.addEventListener("abort", () => reject(new ExportCancelledError()));
+          }),
+      ),
+    } as unknown as ExportClient;
 
     render(
       <App
         areasApi={areasApi}
+        exportsApi={exportsApi}
         motionsApi={motionsApi}
         npcsApi={npcsApi}
         projectsApi={projectsApi}
@@ -280,6 +341,24 @@ describe("desktop shell", () => {
     );
     expect(await screen.findByLabelText("Village NPC workspace")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Active motion" })).toHaveValue(bindingId);
+
+    fireEvent.click(screen.getByRole("button", { name: "Export this motion" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Export PNG sheets + JSON" }),
+    ).toBeInTheDocument();
+    expect(exportsApi.inspect).toHaveBeenCalledWith("session", areaId, characterId);
+    expect(screen.getByRole("combobox", { name: "Animation assignment" })).toHaveValue(bindingId);
+    const exportDialog = screen.getByRole("dialog", { name: "Export PNG sheets + JSON" });
+    await waitFor(() =>
+      expect(within(exportDialog).getByRole("button", { name: "Export" })).toBeEnabled(),
+    );
+    fireEvent.click(within(exportDialog).getByRole("button", { name: "Export" }));
+    expect(await screen.findByRole("button", { name: "Cancel export" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Projects" }));
+    expect(screen.getByRole("dialog", { name: "Export PNG sheets + JSON" })).toBeInTheDocument();
+    expect(screen.getByText(/Navigation blocked · cancel the active export/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel export" }));
+    await screen.findByText(/last good build is unchanged/i);
   });
 
   it("opens and dismisses the shortcut dialog from the keyboard", () => {

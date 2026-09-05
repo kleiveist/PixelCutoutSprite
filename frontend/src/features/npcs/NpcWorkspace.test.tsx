@@ -67,6 +67,13 @@ describe("NPC workspace", () => {
     await screen.findByRole("heading", { name: "Mara" });
     expect(client.adoptRevision).not.toHaveBeenCalled();
 
+    fireEvent.click(screen.getByRole("button", { name: "Export this motion" }));
+    expect(onSectionChange).toHaveBeenCalledWith("export", {
+      areaId,
+      npcId: maraId,
+      bindingId,
+    });
+
     fireEvent.click(screen.getByRole("button", { name: "Animations" }));
     expect(onSectionChange).toHaveBeenCalledWith("animations", {
       areaId,
@@ -257,6 +264,8 @@ describe("NPC workspace", () => {
     expect(screen.getByRole("button", { name: "Add correction" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Save local corrections" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Adopt r2" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export NPC" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Export this motion" })).toBeDisabled();
     expect(screen.getByLabelText("New display name")).toBeDisabled();
     expect(screen.getByLabelText("Duplicate name")).toBeDisabled();
   });

@@ -115,7 +115,7 @@ impl AreaSnapshot {
                 self.binding_paths.insert(value.id, path);
                 self.bindings.push(value);
             }
-            DomainDocument::ExportManifest(value) => self.exports.push(value),
+            DomainDocument::ExportManifest(value) => self.exports.push(*value),
             _ => {}
         }
     }
@@ -860,7 +860,15 @@ fn should_skip_directory(path: &Path, include_exports: bool) -> bool {
         || path.components().any(|part| {
             matches!(
                 part.as_os_str().to_str(),
-                Some("cache" | "_exports" | ".trash" | "trash" | "backups" | "transactions")
+                Some(
+                    "cache"
+                        | "_exports"
+                        | "export-profiles"
+                        | ".trash"
+                        | "trash"
+                        | "backups"
+                        | "transactions"
+                )
             )
         })
 }

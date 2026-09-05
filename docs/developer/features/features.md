@@ -13,5 +13,6 @@
 - 🧭 [Eight-direction resolution](eight-direction-resolution.md)
 - 🏃 [Motion presets and stored card previews](motion-presets-and-previews.md)
 - 🖼️ [Area PNG inventory and reviewed imports](asset-inventory-and-import.md)
+- 📦 [Deterministic PNG/JSON export](generic-export.md)
 
 <!-- AUTO-GENERATED:docs-index END -->

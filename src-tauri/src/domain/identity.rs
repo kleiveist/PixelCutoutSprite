@@ -189,6 +189,10 @@ impl fmt::Display for RelativePath {
 pub struct UtcTimestamp(DateTime<Utc>);
 
 impl UtcTimestamp {
+    pub fn now() -> Self {
+        Self(Utc::now())
+    }
+
     pub fn parse(value: &str) -> Result<Self, DomainError> {
         let parsed = DateTime::parse_from_rfc3339(value)
             .map_err(|_| DomainError::invalid("timestamp", "must be RFC 3339"))?;

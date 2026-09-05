@@ -73,8 +73,10 @@ copies validated content to a new `motion_revision`; it never changes an existin
   property, amplitude, cycles, phase and enabled state and may be baked to ordinary keys. Jump
   height mode and the optional bounded ground-shadow layer are separate from the fixed ground
   origin and from the sixteen anatomical profile slots.
-- Atlas rectangles are positive and fully contained in a declared page. Frame action, page,
-  direction, and sample references must exist.
+- Atlas pages are independently limited to `1..=4096` pixels per axis. Rectangles describe the
+  unpadded, fixed `1..=1024` frame surface, are positive, and remain fully inside their declared
+  page. Frame action, page, direction, and sample references must exist. Every frame lasts one
+  tick (`1 / fps`) in format version 1.
 
 Local validation checks one document. `DomainCatalog::validate` then detects duplicate IDs and
 revision pairs, resolves every required relationship by identity, checks project/area/profile
@@ -199,7 +201,10 @@ locations. Version 1 reserves these conventions:
 <area>/<character-name>--<id>/character.json
 <character>/appearances/default.json
 <character>/<action-key>--<binding-id>/binding.json
-<export-build>/manifest.json
+<binding>/exports/current.json
+<binding>/exports/build-<source-fingerprint>/animation.json
+<binding>/exports/build-<source-fingerprint>/sheet-0.png
+<binding>/exports/build-<source-fingerprint>/frames/<action>/<direction>/0000.png  # opt-in
 ```
 
 `.pixelforge-studio` contains only vault-wide labels/settings, rebuildable index data, and runtime
@@ -235,6 +240,29 @@ actually used: profile, released motion, referenced image revisions, appearance 
 overrides, export settings, and renderer version. JSON object key order and timestamps alone do
 not alter this input. A newer unused release therefore does not make an old export stale; changing
 an effective source does.
+
+## Export builds and publication
+
+The generic export manifest records generator and rasterizer versions, the effective profile,
+motion, asset, appearance, and binding revisions with their content hashes, all actions in stable
+action-key order, FPS/loop/root/jump modes, the fixed frame surface and ground origin, atlas page
+sizes and decoded-RGBA hashes, and every frame rectangle in canonical `n` through `nw` order.
+Optional padding changes cell spacing, not the rectangle or artwork size. Optional extrusion
+duplicates edge pixels only into that padding. Individual PNGs are omitted by default; when
+enabled, their relative paths are explicit and their decoded pixels must equal the atlas rectangle.
+
+An ordinary export contains every sample for all eight directions. A subset or missing source is
+accepted only when `allow_incomplete_test` is true; the manifest is then `complete: false` and has
+an `incomplete_export` warning. Clipping blocks by default and can only continue under the saved
+warning policy, with per-frame bounds retained in JSON. Different action canvases or ground
+origins likewise block unless transparent geometry normalization is selected; normalization
+aligns ground origins without scaling or cropping.
+
+Frames are first rendered through the shared animation sampler and CPU compositor into a private
+job directory. Atlas pages, optional loose frames, JSON, dimensions, paths, decoded-pixel hashes,
+and cross-references are reread and checked there. Only then is the directory renamed to
+`build-<source-fingerprint>` and `current.json` replaced. Cancellation or any validation/write
+failure leaves the prior pointer intact and removes only the job's private staging directory.
 
 ## Fixtures and compatibility gate
 

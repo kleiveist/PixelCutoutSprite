@@ -9,6 +9,7 @@ pub mod commands;
 pub mod directions;
 pub mod domain;
 pub mod editor;
+pub mod exports;
 pub mod render;
 pub mod storage;
 
@@ -32,6 +33,7 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(application::VaultService::default()))
         .manage(Mutex::new(animation::PreviewCache::new(32 * 1024 * 1024)))
+        .manage(application::ExportJobRegistry::default())
         .invoke_handler(tauri::generate_handler![
             desktop_identity,
             commands::inspect_vault,
@@ -92,6 +94,13 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::set_npc_status,
             commands::duplicate_npc,
             commands::rename_npc,
+            commands::inspect_npc_export,
+            commands::list_npc_export_profiles,
+            commands::save_npc_export_profile,
+            commands::delete_npc_export_profile,
+            commands::start_npc_export,
+            commands::get_npc_export_job,
+            commands::cancel_npc_export,
         ])
 }
 

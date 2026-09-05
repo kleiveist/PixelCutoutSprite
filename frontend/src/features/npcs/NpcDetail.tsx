@@ -23,6 +23,7 @@ interface NpcDetailProps {
   onDuplicate: (name: string) => void;
   onRename: (name: string) => void;
   onKeepCurrent: (view: NpcBindingView) => void;
+  onExport: (bindingId: string | null) => void;
 }
 
 export function NpcDetail({
@@ -42,6 +43,7 @@ export function NpcDetail({
   onDuplicate,
   onRename,
   onKeepCurrent,
+  onExport,
 }: NpcDetailProps) {
   const [selectedMotion, setSelectedMotion] = useState("");
   const [selectedDirection, setSelectedDirection] = useState<Direction>("s");
@@ -113,6 +115,20 @@ export function NpcDetail({
           <span className={`npc-status npc-status-${npc.export_status}`}>
             {npc.export_status.replaceAll("_", " ")}
           </span>
+          <button
+            type="button"
+            disabled={busy || readOnly || hasDirtyDrafts || npc.bindings.length === 0}
+            title={
+              readOnly
+                ? "Managed export requires a writable vault"
+                : hasDirtyDrafts
+                  ? "Save or discard local corrections before exporting"
+                  : undefined
+            }
+            onClick={() => onExport(null)}
+          >
+            Export NPC
+          </button>
         </div>
       </header>
       <dl className="npc-overview">
@@ -234,6 +250,13 @@ export function NpcDetail({
                 ? `${selectedDirection.toUpperCase()} is available for ${activeBinding.binding.action_key}.`
                 : `${selectedDirection.toUpperCase()} is missing from ${activeBinding?.binding.action_key ?? "this motion"}.`}
             </p>
+            <button
+              type="button"
+              disabled={busy || readOnly || hasDirtyDrafts}
+              onClick={() => onExport(activeBinding?.binding.id ?? null)}
+            >
+              Export this motion
+            </button>
           </div>
         )}
         {activeBinding && (

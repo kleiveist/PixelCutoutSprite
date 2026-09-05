@@ -55,7 +55,7 @@ impl DomainCatalog {
             DomainDocument::Character(value) => self.characters.push(value),
             DomainDocument::Appearance(value) => self.appearances.push(value),
             DomainDocument::AnimationBinding(value) => self.bindings.push(value),
-            DomainDocument::ExportManifest(value) => self.exports.push(value),
+            DomainDocument::ExportManifest(value) => self.exports.push(*value),
         }
     }
 

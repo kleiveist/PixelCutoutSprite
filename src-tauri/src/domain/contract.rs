@@ -24,7 +24,7 @@ pub enum DomainDocument {
     Character(Character),
     Appearance(Appearance),
     AnimationBinding(AnimationBinding),
-    ExportManifest(ExportManifest),
+    ExportManifest(Box<ExportManifest>),
 }
 
 #[derive(Debug, Deserialize)]
@@ -103,9 +103,9 @@ fn dispatch_document(kind: DocumentKind, value: Value) -> Result<DomainDocument,
         DocumentKind::AnimationBinding => {
             parse(value, AnimationBinding::validate).map(DomainDocument::AnimationBinding)
         }
-        DocumentKind::ExportManifest => {
-            parse(value, ExportManifest::validate).map(DomainDocument::ExportManifest)
-        }
+        DocumentKind::ExportManifest => parse(value, ExportManifest::validate)
+            .map(Box::new)
+            .map(DomainDocument::ExportManifest),
     }
 }
 

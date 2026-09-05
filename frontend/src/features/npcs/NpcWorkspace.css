@@ -289,6 +289,9 @@
 
 .npc-detail-statuses {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -388,7 +391,9 @@
 
 .npc-binding-focus {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(140px, 0.45fr) minmax(220px, 1fr);
+  grid-template-columns:
+    minmax(180px, 1fr) minmax(140px, 0.45fr) minmax(220px, 1fr)
+    auto;
   align-items: end;
   gap: 12px;
   padding: 14px;

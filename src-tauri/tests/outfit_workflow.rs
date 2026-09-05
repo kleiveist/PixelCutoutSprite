@@ -14,6 +14,7 @@ use pixel_cutout_sprite_studio_lib::domain::*;
 use pixel_cutout_sprite_studio_lib::storage::{
     object_folder, JsonStore, TransactionAction, TransactionJournal, TransactionState, VaultRoot,
 };
+use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 
 const AREA_PATH: &str = "game/npcs";
@@ -386,6 +387,7 @@ fn seed_asset(
         root,
         Path::new(AREA_PATH).join(format!(".area/assets/{segment}/revision.json")),
         DomainDocument::AssetRevision(asset_revision_document(
+            root,
             asset_id,
             profile_ref,
             slot_id,
@@ -429,6 +431,7 @@ fn seed_variant_asset(
         DomainDocument::Asset(asset_document(asset_id, area_id, &segment, timestamp)),
     );
     let mut revision = asset_revision_document(
+        root,
         asset_id,
         profile_ref,
         slot_id,
@@ -490,6 +493,7 @@ fn asset_document(
 }
 
 fn asset_revision_document(
+    root: &VaultRoot,
     asset_id: ObjectId,
     profile_ref: RevisionRef,
     slot_id: &SlotId,
@@ -497,6 +501,14 @@ fn asset_revision_document(
     source_relative: String,
     timestamp: UtcTimestamp,
 ) -> AssetRevision {
+    let source = root
+        .resolve(&Path::new(AREA_PATH).join(&source_relative))
+        .unwrap();
+    let content_hash = Sha256Digest::parse(format!(
+        "{:x}",
+        Sha256::digest(fs::read(source.as_path()).unwrap())
+    ))
+    .unwrap();
     AssetRevision {
         schema_version: SCHEMA_VERSION,
         kind: DocumentKind::AssetRevision,
@@ -509,7 +521,7 @@ fn asset_revision_document(
         source_file: RelativePath::parse(source_relative).unwrap(),
         image_size_px: PixelSize(1, 1),
         pivot_px: PixelPoint(0, 0),
-        content_hash: Sha256Digest::parse("a".repeat(64)).unwrap(),
+        content_hash,
         sprite_mirroring_allowed: false,
         published_at: timestamp,
     }
@@ -585,6 +597,7 @@ fn seed_equipment_assets(
                 &fixture.root,
                 Path::new(AREA_PATH).join(format!(".area/assets/{name}/revision.json")),
                 DomainDocument::AssetRevision(asset_revision_document(
+                    &fixture.root,
                     asset_id,
                     fixture.profile_ref,
                     &slot_id,

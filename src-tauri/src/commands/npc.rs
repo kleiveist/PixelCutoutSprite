@@ -4,8 +4,8 @@ use tauri::State;
 
 use crate::application::{
     AddBindingRequest, AdoptBindingRevisionRequest, BindingService, DuplicateNpcRequest,
-    DuplicatedNpc, NpcWorkspaceContext, RenameNpcRequest, RenamedNpc, ReviewBindingRequest,
-    SetCharacterStatusRequest, UpdateBindingOverridesRequest, VaultService,
+    DuplicatedNpc, ExportJobRegistry, NpcWorkspaceContext, RenameNpcRequest, RenamedNpc,
+    ReviewBindingRequest, SetCharacterStatusRequest, UpdateBindingOverridesRequest, VaultService,
 };
 use crate::domain::{AnimationBinding, Character};
 
@@ -126,9 +126,16 @@ pub fn rename_npc(
     area_id: String,
     request: RenameNpcRequest,
     service: State<'_, Mutex<VaultService>>,
+    jobs: State<'_, ExportJobRegistry>,
 ) -> Result<RenamedNpc, String> {
     let (mut service, session_id, root, area_path) =
         locked_area_session(&service, &session_id, &area_id, true)?;
+    if jobs
+        .has_active_character(session_id, request.character_id)
+        .map_err(|error| error.to_string())?
+    {
+        return Err("cancel the active export before renaming this NPC".to_owned());
+    }
     let result = BindingService
         .rename_npc(&root, &area_path, request)
         .map_err(|error| error.to_string())?;

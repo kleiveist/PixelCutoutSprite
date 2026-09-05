@@ -1,5 +1,5 @@
 use std::fs::{self, File, OpenOptions};
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::Path;
 
 use sha2::{Digest, Sha256};
@@ -131,6 +131,77 @@ impl<R: FileReplacer> JsonStore<R> {
             let _ = fs::remove_file(&staged);
         }
         result
+    }
+
+    pub fn create_bytes<F>(
+        &self,
+        path: &ResolvedPath,
+        bytes: &[u8],
+        validate: F,
+    ) -> Result<VersionStamp, StorageError>
+    where
+        F: Fn(&[u8]) -> Result<(), crate::domain::DomainError>,
+    {
+        validate(bytes)?;
+        let parent = path
+            .as_path()
+            .parent()
+            .ok_or_else(|| StorageError::UnsafePath {
+                path: path.relative().to_string_lossy().into_owned(),
+                reason: "document has no parent directory".to_owned(),
+            })?;
+        let file_name = path
+            .as_path()
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| StorageError::UnsafePath {
+                path: path.relative().to_string_lossy().into_owned(),
+                reason: "document needs a UTF-8 filename".to_owned(),
+            })?;
+        let staged = parent.join(format!(".{file_name}.{}.tmp", uuid::Uuid::new_v4()));
+        let result = (|| {
+            let mut file = create_staged_file(&staged)?;
+            file.write_all(bytes)
+                .map_err(|error| StorageError::io("write staged JSON", path.relative(), error))?;
+            file.sync_all()
+                .map_err(|error| StorageError::io("sync staged JSON", path.relative(), error))?;
+            drop(file);
+            let verified = fs::read(&staged)
+                .map_err(|error| StorageError::io("verify staged JSON", path.relative(), error))?;
+            validate(&verified)?;
+            match fs::hard_link(&staged, path.as_path()) {
+                Ok(()) => Ok(VersionStamp::from_bytes(bytes)),
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+                    Err(StorageError::WriteConflict)
+                }
+                Err(error) => Err(StorageError::io(
+                    "publish new JSON document",
+                    path.relative(),
+                    error,
+                )),
+            }
+        })();
+        let _ = fs::remove_file(&staged);
+        result
+    }
+
+    pub fn compare_and_swap_bytes<F>(
+        &self,
+        path: &ResolvedPath,
+        expected: &VersionStamp,
+        bytes: &[u8],
+        validate: F,
+    ) -> Result<VersionStamp, StorageError>
+    where
+        F: Fn(&[u8]) -> Result<(), crate::domain::DomainError>,
+    {
+        let current = fs::read(path.as_path())
+            .map_err(|error| StorageError::io("read JSON document", path.relative(), error))?;
+        if VersionStamp::from_bytes(&current) != *expected {
+            return Err(StorageError::WriteConflict);
+        }
+        self.write_bytes(path, bytes, validate)?;
+        Ok(VersionStamp::from_bytes(bytes))
     }
 
     fn stage_validate_replace<F>(

@@ -3,7 +3,7 @@ use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager, Runtime, State};
 
-use crate::application::{OpenVault, VaultInspection, VaultService};
+use crate::application::{ExportJobRegistry, OpenVault, VaultInspection, VaultService};
 use crate::domain::ObjectId;
 use crate::storage::DeviceSettingsStore;
 
@@ -47,14 +47,20 @@ pub fn open_vault<R: Runtime>(
 pub fn close_vault(
     session_id: String,
     service: State<'_, Mutex<VaultService>>,
+    jobs: State<'_, ExportJobRegistry>,
 ) -> Result<(), String> {
     let session_id =
         ObjectId::parse("session_id", &session_id).map_err(|error| error.to_string())?;
-    service
+    let mut service = service
         .lock()
-        .map_err(|_| "vault service lock is poisoned".to_owned())?
-        .close(session_id)
-        .map_err(|error| error.to_string())
+        .map_err(|_| "vault service lock is poisoned".to_owned())?;
+    if jobs
+        .has_active_session(session_id)
+        .map_err(|error| error.to_string())?
+    {
+        return Err("cancel the active export before closing this vault".to_owned());
+    }
+    service.close(session_id).map_err(|error| error.to_string())
 }
 
 #[tauri::command]

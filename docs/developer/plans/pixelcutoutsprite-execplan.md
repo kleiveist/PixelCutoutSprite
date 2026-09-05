@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P15 abgeschlossen; P16 ist der nächste Schritt
+**Implementierung:** P00–P16 abgeschlossen; P17 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -134,6 +134,22 @@ deterministisch gesampelt und liefern bei jedem deaktivierten Gate die Identitä
 Keys zu löschen. Vorschau und künftiger Export teilen weiterhin den CPU-Compositor; P14 führt
 weder zusätzliche Pflichtslots noch Mesh-/Skinning-Abhängigkeiten ein.
 
+P15 fasst alle Bindings einer Figur in einem erreichbaren NPC-Arbeitsbereich zusammen. Er zeigt
+Anforderungen, Richtungsabdeckung, Review und aus effektiv gepinnten Quellen berechnete
+Exportaktualität. Lokale Korrekturen verändern nur ihr Binding; neue Freigaben werden verglichen
+und niemals automatisch übernommen. Zusätzliche Aktionen, Varianten, Duplikate und kontrollierte
+Ordner-Renames bewahren stabile Referenzen und getrennte gemeinsame Quellen.
+
+P16 verbindet diesen gespeicherten Zustand mit dem generischen Export. `NpcExportService` löst
+stabile IDs serverseitig auf, lädt und verifiziert alle verwendeten PNG-Revisionen und reicht den
+identischen Outfit-/Equipment-Renderpfad an `ExportService`. Der regelmäßige Mehrseitenatlas,
+optionale Einzelbilder und das vollständige Manifest werden gegen dekodierte Pixel geprüft. Erst
+ein gültiger inhaltsadressierter Build darf `current.json` ersetzen. Bereichseigene
+Exportprofile, Vorprüfung, Fortschrittsereignisse, Polling-Fallback, sitzungsgebundener nativer
+Abbruch und ein ausschließlich `current.json` folgender NPC-Status sind in die Tauri-App
+integriert. Frei gelieferte Zielpfade werden in P16 nicht als Schreibauthority akzeptiert; der
+verwaltete Vault-Baum bleibt die portable kanonische Ausgabegrenze für P17.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -162,7 +178,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P13](../prompts/pixelcutoutsprite/13.md) | Ausstattungseditor, Feinschliff und NPC-Entwürfe | Abgeschlossen |
 | [P14](../prompts/pixelcutoutsprite/14.md) | Ausrüstung und optionale Eigenbewegung | Abgeschlossen |
 | [P15](../prompts/pixelcutoutsprite/15.md) | NPC-Dashboard, Mehrfachanimationen und Revisionen | Abgeschlossen |
-| [P16](../prompts/pixelcutoutsprite/16.md) | Generischer PNG-/JSON-Export | Nicht begonnen |
+| [P16](../prompts/pixelcutoutsprite/16.md) | Generischer PNG-/JSON-Export | Abgeschlossen |
 | [P17](../prompts/pixelcutoutsprite/17.md) | Portables Godot-Paket und echter Importtest | Nicht begonnen |
 | [P18](../prompts/pixelcutoutsprite/18.md) | Recovery, Autosave und Datenintegrität härten | Nicht begonnen |
 | [P19](../prompts/pixelcutoutsprite/19.md) | Desktop-Usability und Leistung prüfen | Nicht begonnen |
@@ -192,10 +208,11 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P13: Outfit-Editor, AppearanceService, wiederaufnehmbare Entwürfe und erste NPC-Erzeugung erstellt, in den Area-/Motion-Router eingebunden und gegatet.
 - [x] P14: mehrteilige starre Ausrüstung, getrennte Zustände, optionale Transformspuren und Acht-Richtungs-Rendering erstellt und gegatet.
 - [x] P15: NPC-Dashboard/-Detail, Mehrfachbindungen, Freigaben, explizite Revisionsübernahme, lokale Overrides sowie Duplizieren/Umbenennen erstellt und gegatet.
+- [x] P16: gemeinsamen Multi-Action-PNG-/JSON-Export, Atlanten, optionale Einzelbilder, Profile, Fingerprint, validierte Veröffentlichung und native Jobs erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
 - [x] Meilenstein C: Figuren, P12–P15.
-- [ ] Meilenstein D: Spieleinbindung, P16–P17.
+- [ ] Meilenstein D: Spieleinbindung, P16 abgeschlossen; P17 offen.
 - [ ] Meilenstein E: belastbare Desktop-Version, P18–P22.
 
 Bei jeder Phasenänderung ergänzen: Datum, tatsächlicher Umfang, betroffene Dateien, Prüfungen und nächster Schritt. Noch nicht geprüfte Plattformen werden nicht als fertig markiert.
@@ -380,6 +397,22 @@ vorbereitete Export-Fingerabdruck enthält nur festgehaltene Profile, Motion- un
 Fittings, Equipment sowie lokale Overrides. Eine neue ungenutzte Vorlagenrevision oder eine reine
 Freigabeaktion macht einen vorhandenen Export daher nicht fälschlich veraltet.
 
+**2026-09-05 / P16:** Ein Verzeichnis mit dem neuesten Zeitstempel ist keine verlässliche
+Exportquelle. Das Dashboard folgt ausschließlich einem vollständig validierten `current.json`,
+prüft Manifest, Artefakte und den aus den derzeit effektiv verwendeten Quellen neu berechneten
+Fingerabdruck. Verwaiste oder beschädigte Builds können dadurch weder `Current` noch `Stale`
+vortäuschen.
+
+**2026-09-05 / P16:** Ein ausdrücklich unvollständiger Testexport ist kein alter vollständiger
+Build. Fehlende Richtungen, Bilder oder Quellteile werden normalisiert in Fingerabdruck und
+Manifest aufgenommen, `complete` bleibt falsch und der NPC-Status bleibt `Stale`. Hash-,
+Decodierungs- und Maßfehler werden niemals als bloß fehlend herabgestuft.
+
+**2026-09-05 / P16:** UI-Abbruch allein beendet keinen nativen CPU-Job. Eine sitzungsgebundene
+Registry besitzt deshalb das Cancellation-Flag und hält den terminalen Zustand sowohl für frühe
+Desktop-Ereignisse als auch für Polling bereit. Navigation wartet auf die native Bestätigung,
+statt nur den Dialog zu schließen.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -402,6 +435,7 @@ Freigabeaktion macht einen vorhandenen Export daher nicht fälschlich veraltet.
 | ADR-017 | Ein Equipmentobjekt behält sein Primärteil und ergänzt weitere starre Teile additiv; `slot` und Figuren-`root` sind die einzigen wirksamen Mitführmodi. | Bewahrt schema-v1-Lesbarkeit, lässt große Kleidung ehrlich segmentieren und vermeidet neue Anatomieslots oder unkontrollierte Weltkoordinaten. |
 | ADR-018 | Binding-Revisionen werden nur ausdrücklich übernommen; vorhandene Equipment-Keys müssen vollständig in den Ziel-Framebereich passen. | Bewahrt reproduzierbare NPCs und verhindert stilles Abschneiden oder ungefragtes Retiming gemeinsam genutzter Ausrüstung. |
 | ADR-019 | Exportaktualität wird aus einem kanonischen Fingerabdruck der effektiv festgehaltenen Quellen abgeleitet, nicht aus dem jeweils neuesten Katalogstand oder Prüfmetadaten. | Ungenutzte Releases und reine Freigaben dürfen einen visuell unveränderten Build nicht als veraltet markieren. |
+| ADR-020 | Generische Builds werden in einem inhaltsadressierten, verwalteten NPC-/Binding-Ziel veröffentlicht; nur ein validiertes `current.json` bezeichnet den aktuellen Stand. | Verhindert beliebige IPC-Schreibpfade, verwaiste Build-Auswahl und die Beschädigung des letzten guten Exports durch Abbruch oder einen fehlerhaften neuen Build. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -482,6 +516,10 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P15 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 137 Tests und alle Compiler-/Formatgates | Zehn fokussierte Binding-Fälle sind in der Gesamtsuite enthalten und belegen Walk/Sprint/Jump, getrennte IDs, lokale Overrides, kompatible und inkompatible Revisionsangebote, tatsächliche Verzeichnisjournale, sichere Exportinventur, Duplikat, Rename und Reopen. |
 | 2026-09-05 / P15 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 103 Tests in 28 Dateien und alle Frontend-Gates | NPC-Dashboard, sechs strukturierte Dropdownfilter, gezielte Motion-/Richtungswahl, per-Binding-Drafts, Revisionsvergleich, Duplicate-Schutz und kontexttreue NPC-/Animationsnavigation sind abgedeckt; der Build umfasst 103 Module. |
 | 2026-09-05 / P15 | `tools/control.py docs check`, `quality architecture`, `tauri test --cargo --build-dry-run` und stabile Source-Policytests | Linux-Host, Python 3.13.15 | PASS | 141 Dokumentseiten konsistent, TypeScript-AST parst 116 Dateien, Desktopprofil/Cargo/native Dry-Run sind intakt und 16 Repository-Vertragstests bestehen. Die vier bekannten Gesamt-Suite-Fixtureabweichungen bleiben planmäßig bis P20 offen. |
+| 2026-09-05 / P16 | fokussierte Atlas-, Export-, Robustheits-, Profil- und echte NPC-Exporttests | Linux-Host, Rust 1.97.1 | PASS: 17 Tests | Regelmäßige Mehrseitenatlanten, Extrusion, Budgets, gemeinsame Geometrie, Fingerprint, optionale Einzelbilder, atomarer Pointer, Abbruch, Profile sowie ein gespeicherter Multi-Action-/Acht-Richtungs-NPC sind belegt. |
+| 2026-09-05 / P16 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 156 Tests und alle Compiler-/Formatgates | Derselbe gespeicherte Outfit-/Equipment-Renderpfad speist Vorschau und Export; aktuelle/incomplete/korrupte Builds, reale PNG-Verifikation und Jobguards sind in der Gesamtsuite enthalten. |
+| 2026-09-05 / P16 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 122 Tests in 32 Dateien und alle Frontend-Gates | Exportprofile, native Jobereignisse plus Polling, genau ein Abbruch, persistente Auswahl, Read-only, Navigation und Ausgabezustände sind abgedeckt; der Build umfasst 109 Module. |
+| 2026-09-05 / P16 | `tools/control.py docs check`, `quality architecture`, `tauri test --cargo --build-dry-run` und stabile Source-Policytests | Linux-Host, Python 3.13.15 | PASS | 142 Dokumentseiten konsistent, TypeScript-AST parst 125 Dateien, Desktopprofil/Cargo/native Dry-Run sind intakt und 16 Repository-Vertragstests bestehen. Die breite Migration einer lokal neueren PyGitIndex-Version wurde nicht übernommen; nur der bestehende dokumentierte Indexvertrag wurde ergänzt. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -491,7 +529,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P16 für den generischen PNG-/JSON-Export ausführen.
+**Nächster ausführbarer Schritt:** P17 für das portable Godot-Paket und den echten Headless-
+Importtest ausführen.
 
 ## Outcomes & Retrospective
 
@@ -540,5 +579,10 @@ P15 fasst Figuren in einem filterbaren NPC-Arbeitsbereich zusammen und macht ihr
 Motionmenge, Richtungsabdeckung, Anforderungen, Prüfung und Exportaktualität sichtbar. Zusätzliche
 Bindings bleiben action-eindeutig und revisionsfest; lokale Änderungen, Duplikate und
 Ordner-Renames bewahren die getrennten Identitäten und unveränderlichen gemeinsamen Quellen.
+P16 bäckt diese Quellen in deterministische, regelmäßig gepackte PNG-Sheets und ein vollständiges
+engine-neutrales JSON-Manifest. Der Desktopdialog speichert bereichseigene Profile, prüft echte
+NPC-Bindings, meldet native Jobfortschritte und wartet bei Abbruch auf Rust. Inhaltsadressierte
+Builds, vollständige Artefaktprüfung und der zuletzt ersetzte `current.json` halten Wiederholung,
+Aktualität, unvollständige Tests und Fehlerzustände voneinander getrennt.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

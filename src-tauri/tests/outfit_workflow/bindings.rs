@@ -1,9 +1,11 @@
 use super::*;
 use pixel_cutout_sprite_studio_lib::application::{
     AddBindingRequest, AdoptBindingRevisionRequest, DuplicateNpcRequest, NpcCompleteness,
-    NpcExportStatus, RenameNpcRequest, ReviewBindingRequest, RevisionCompatibility,
-    SetCharacterStatusRequest, UpdateBindingOverridesRequest,
+    NpcExportService, NpcExportStatus, RenameNpcRequest, ReviewBindingRequest,
+    RevisionCompatibility, SetCharacterStatusRequest, StartNpcExportRequest,
+    UpdateBindingOverridesRequest,
 };
+use pixel_cutout_sprite_studio_lib::exports::{ExportService, NeverCancel};
 
 #[test]
 fn one_npc_keeps_walk_sprint_and_jump_with_explicit_variant_keys() {
@@ -407,6 +409,181 @@ fn approval_metadata_stays_current_while_binding_local_edits_stale_the_export() 
         .workspace_context(&fixture.root, Path::new(AREA_PATH))
         .unwrap();
     assert_eq!(stale.npcs[0].export_status, NpcExportStatus::Stale);
+}
+
+#[test]
+fn authoritative_npc_export_renders_multiple_actions_and_current_pointer_controls_freshness() {
+    let fixture = OutfitFixture::new();
+    let saved = save_standard_npc(&fixture, "Atlas keeper");
+    let sprint_motion = seed_released_motion(&fixture, "sprint", "Sprint");
+    let sprint = add_motion(&fixture, saved.character.id, sprint_motion, None).unwrap();
+
+    let request = export_request(saved.character.id, vec![saved.binding.id, sprint.id], false);
+    let first = NpcExportService
+        .export(
+            &fixture.root,
+            Path::new(AREA_PATH),
+            request.clone(),
+            &NeverCancel,
+            &mut |_| {},
+        )
+        .unwrap();
+    assert!(first.manifest.complete);
+    assert_eq!(first.manifest.actions.len(), 2);
+    assert_eq!(first.manifest.frames.len(), 2 * 8 * 2);
+    for action in &first.manifest.actions {
+        assert_eq!(action.directions, Direction::ALL);
+        assert_eq!(action.frame_count, 2);
+        assert_eq!(action.fps, 8);
+        assert_eq!(action.ground_origin_px, PixelPoint(2, 2));
+    }
+    assert!(first
+        .manifest
+        .frames
+        .iter()
+        .all(|frame| frame.individual_file.is_none()));
+    let output = Path::new(&saved.character_folder).join("_exports");
+    let current = ExportService::new(fixture.root.clone(), env!("CARGO_PKG_VERSION"))
+        .current(&output)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        current.manifest.source_fingerprint,
+        first.manifest.source_fingerprint
+    );
+    assert_eq!(
+        BindingService
+            .workspace_context(&fixture.root, Path::new(AREA_PATH))
+            .unwrap()
+            .npcs[0]
+            .export_status,
+        NpcExportStatus::Current
+    );
+
+    let repeated = NpcExportService
+        .export(
+            &fixture.root,
+            Path::new(AREA_PATH),
+            request,
+            &NeverCancel,
+            &mut |_| {},
+        )
+        .unwrap();
+    assert!(repeated.reused_existing_build);
+    assert_eq!(
+        repeated.manifest.source_fingerprint,
+        first.manifest.source_fingerprint
+    );
+
+    fs::remove_file(
+        fixture
+            .root
+            .resolve(&output.join("current.json"))
+            .unwrap()
+            .as_path(),
+    )
+    .unwrap();
+    assert_eq!(
+        BindingService
+            .workspace_context(&fixture.root, Path::new(AREA_PATH))
+            .unwrap()
+            .npcs[0]
+            .export_status,
+        NpcExportStatus::NotExported,
+        "an orphan build must never be promoted without its managed current pointer"
+    );
+}
+
+#[test]
+fn incomplete_real_export_marks_a_missing_png_but_never_masks_corrupt_bytes() {
+    let fixture = OutfitFixture::new();
+    let saved = save_standard_npc(&fixture, "Missing source keeper");
+    let source = Path::new(AREA_PATH).join(".area/assets/n/source.png");
+    fs::remove_file(fixture.root.resolve(&source).unwrap().as_path()).unwrap();
+
+    let complete = NpcExportService.export(
+        &fixture.root,
+        Path::new(AREA_PATH),
+        export_request(saved.character.id, vec![saved.binding.id], false),
+        &NeverCancel,
+        &mut |_| {},
+    );
+    assert!(
+        complete.is_err(),
+        "ordinary export must block a missing PNG"
+    );
+
+    let outcome = NpcExportService
+        .export(
+            &fixture.root,
+            Path::new(AREA_PATH),
+            export_request(saved.character.id, vec![saved.binding.id], true),
+            &NeverCancel,
+            &mut |_| {},
+        )
+        .unwrap();
+    assert!(!outcome.manifest.complete);
+    assert_eq!(outcome.manifest.frames.len(), 16);
+    assert!(outcome
+        .manifest
+        .checks
+        .iter()
+        .any(|check| check.code == "missing_source" && check.message.contains("PNG is missing")));
+    assert!(outcome
+        .manifest
+        .checks
+        .iter()
+        .any(|check| check.code == "incomplete_export"));
+
+    let binding_folder =
+        object_folder(saved.binding.action_key.as_str(), saved.binding.id).unwrap();
+    let output = Path::new(&saved.character_folder)
+        .join(binding_folder)
+        .join("exports");
+    let exporter = ExportService::new(fixture.root.clone(), env!("CARGO_PKG_VERSION"));
+    let previous = exporter.current(&output).unwrap().unwrap();
+    assert_eq!(
+        previous.current.source_fingerprint,
+        outcome.manifest.source_fingerprint
+    );
+    assert_eq!(
+        BindingService
+            .workspace_context(&fixture.root, Path::new(AREA_PATH))
+            .unwrap()
+            .npcs[0]
+            .export_status,
+        NpcExportStatus::Stale,
+        "an explicitly incomplete test build is never a current game-ready NPC export"
+    );
+
+    let corrupt_path = fixture.root.resolve(&source).unwrap();
+    RgbaImage::from_pixel(1, 1, Rgba([1, 2, 3, 255]))
+        .save(corrupt_path.as_path())
+        .unwrap();
+    let corrupt = NpcExportService.export(
+        &fixture.root,
+        Path::new(AREA_PATH),
+        export_request(saved.character.id, vec![saved.binding.id], true),
+        &NeverCancel,
+        &mut |_| {},
+    );
+    assert!(
+        corrupt
+            .unwrap_err()
+            .to_string()
+            .contains("content hash does not match"),
+        "incomplete test mode must not accept altered source bytes"
+    );
+    assert_eq!(
+        exporter
+            .current(&output)
+            .unwrap()
+            .unwrap()
+            .current
+            .source_fingerprint,
+        previous.current.source_fingerprint,
+        "a failed retry must preserve the last valid current pointer"
+    );
 }
 
 #[test]
@@ -1003,56 +1180,44 @@ fn add_motion(
 fn seed_export(
     fixture: &OutfitFixture,
     saved: &pixel_cutout_sprite_studio_lib::application::SavedNpc,
-    source_fingerprint: Sha256Digest,
+    _source_fingerprint: Sha256Digest,
 ) {
-    let manifest = ExportManifest {
-        schema_version: SCHEMA_VERSION,
-        kind: DocumentKind::ExportManifest,
-        id: ObjectId::new(),
-        format_version: 1,
-        generator_version: "p15-test".to_owned(),
-        character_id: saved.character.id,
-        source_fingerprint,
-        sources: ExportSources {
-            profile: saved.character.profile_ref,
-            motion: vec![saved.binding.template_ref],
-            assets: Vec::new(),
-            appearances: vec![RevisionRef {
-                id: saved.appearance.id,
-                revision: saved.appearance.revision,
-            }],
-            bindings: vec![RevisionRef {
-                id: saved.binding.id,
-                revision: saved.binding.revision,
-            }],
-        },
-        actions: vec![ExportAction {
-            action_key: saved.binding.action_key.clone(),
-            binding_ref: RevisionRef {
-                id: saved.binding.id,
-                revision: saved.binding.revision,
-            },
-            frame_size_px: PixelSize(6, 6),
-            ground_origin_px: PixelPoint(2, 2),
-            frame_count: 2,
-            fps: 8,
-            loop_mode: LoopMode::Loop,
+    NpcExportService
+        .export(
+            &fixture.root,
+            Path::new(AREA_PATH),
+            export_request(saved.character.id, vec![saved.binding.id], false),
+            &NeverCancel,
+            &mut |_| {},
+        )
+        .unwrap();
+}
+
+fn export_request(
+    character_id: ObjectId,
+    binding_ids: Vec<ObjectId>,
+    allow_incomplete_test: bool,
+) -> StartNpcExportRequest {
+    StartNpcExportRequest {
+        character_id,
+        binding_ids,
+        profile: ExportProfileSnapshot {
+            name: "Test PNG + JSON".to_owned(),
             directions: Direction::ALL.to_vec(),
-        }],
-        pages: vec![AtlasPage {
-            id: "page_0".to_owned(),
-            file: RelativePath::parse("exports/page_0.png").unwrap(),
-            size_px: PixelSize(6, 6),
-        }],
-        frames: Vec::new(),
-        checks: Vec::new(),
-        created_at: timestamp(),
-    };
-    write_document(
-        &fixture.root,
-        Path::new(&saved.character_folder).join("exports/manifest.json"),
-        DomainDocument::ExportManifest(manifest),
-    );
+            max_page_size_px: AtlasSize(64, 64),
+            max_pages: 16,
+            memory_budget_bytes: 8 * 1024 * 1024,
+            padding_px: 0,
+            extrude_edges: false,
+            individual_frames: false,
+            include_shadow: true,
+            normalize_geometry: false,
+            clipping_policy: ClippingPolicy::Block,
+            allow_incomplete_test,
+        },
+        root_motion_mode: ExportRootMotionMode::Baked,
+        jump_mode: ExportJumpMode::Baked,
+    }
 }
 
 fn action_names(actions: &[ActionKey]) -> Vec<&str> {

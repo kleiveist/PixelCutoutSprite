@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { areaClient, type AreaClient } from "../api/area-client";
 import { assetClient, type AssetClient } from "../api/asset-client";
+import { exportClient, type ExportClient } from "../api/export-client";
 import { motionClient, type MotionClient } from "../api/motion-client";
 import { npcClient, type NpcClient } from "../api/npc-client";
 import { outfitClient, type OutfitClient } from "../api/outfit-client";
@@ -19,6 +20,7 @@ import type { MotionOpenTarget } from "../domain/animations";
 import type { RevisionRef } from "../domain/common";
 import { AnimationDashboard } from "../features/animations/AnimationDashboard";
 import { MotionDummyEditorRoute } from "../features/dummy-editor/MotionDummyEditorRoute";
+import { ExportWorkspace } from "../features/export";
 import { InventoryWorkspace } from "../features/inventory/InventoryWorkspace";
 import { NpcWorkspace } from "../features/npcs";
 import { OutfitEditor } from "../features/outfit";
@@ -30,6 +32,7 @@ import { useKeyboardActions } from "./useKeyboardActions";
 interface AppProps {
   areasApi?: AreaClient;
   assetsApi?: AssetClient;
+  exportsApi?: ExportClient;
   motionsApi?: MotionClient;
   npcsApi?: NpcClient;
   outfitsApi?: OutfitClient;
@@ -40,6 +43,7 @@ interface AppProps {
 export function App({
   areasApi = areaClient,
   assetsApi = assetClient,
+  exportsApi = exportClient,
   motionsApi = motionClient,
   npcsApi = npcClient,
   outfitsApi = outfitClient,
@@ -58,6 +62,7 @@ export function App({
   const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null);
   const [selectedBindingId, setSelectedBindingId] = useState<string | null>(null);
   const [editorDirty, setEditorDirty] = useState(false);
+  const [exportRunning, setExportRunning] = useState(false);
   const mainContent = useRef<HTMLElement>(null);
   const initialRoute = useRef(true);
 
@@ -113,6 +118,10 @@ export function App({
   );
 
   function navigate(nextRoute: WorkspaceRoute): void {
+    if (nextRoute !== route && exportRunning) {
+      setStatus("Navigation blocked · cancel the active export and wait for it to finish");
+      return;
+    }
     const leavingEditor =
       nextRoute !== route &&
       (route === "dummy-editor" ||
@@ -137,7 +146,7 @@ export function App({
       return;
     }
     if (
-      ["animations", "dummy-editor", "outfit", "characters"].includes(nextRoute) &&
+      ["animations", "dummy-editor", "outfit", "characters", "export"].includes(nextRoute) &&
       !selectedArea
     ) {
       setRoute("areas");
@@ -303,7 +312,25 @@ export function App({
                 setSelectedNpcId(context.npcId);
                 setSelectedBindingId(context.bindingId);
                 if (section === "animations") navigate("animations");
+                if (section === "export") navigate("export");
               }}
+              onSelectionChange={(selection) => {
+                setSelectedNpcId(selection.npcId);
+                setSelectedBindingId(selection.bindingId);
+              }}
+              onStatus={setStatus}
+              readOnly={vault.mode !== "read_write"}
+              sessionId={vault.session_id}
+            />
+          ) : route === "export" && vault && selectedArea ? (
+            <ExportWorkspace
+              key={selectedArea.id}
+              areaId={selectedArea.id}
+              client={exportsApi}
+              initialBindingId={selectedBindingId ?? undefined}
+              initialNpcId={selectedNpcId ?? undefined}
+              npcsClient={npcsApi}
+              onRunningChange={setExportRunning}
               onSelectionChange={(selection) => {
                 setSelectedNpcId(selection.npcId);
                 setSelectedBindingId(selection.bindingId);

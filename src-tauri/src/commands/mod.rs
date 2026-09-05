@@ -1,5 +1,6 @@
 mod area;
 mod assets;
+mod export;
 mod motions;
 mod npc;
 mod outfit;
@@ -8,6 +9,7 @@ mod vault;
 
 pub use area::*;
 pub use assets::*;
+pub use export::*;
 pub use motions::*;
 pub use npc::*;
 pub use outfit::*;

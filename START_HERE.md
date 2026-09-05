@@ -32,7 +32,7 @@ Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository 
 
 ## Aktueller Arbeitsauftrag
 
-P00 bis P15 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
+P00 bis P16 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
 Projekt-Dashboard über ein exakt skaliertes humanoides Gebiet in die Animationsbibliothek.
 Vorlagen, mutable `draft.json`-Arbeitsstände und unveränderliche Freigaben liegen als gewöhnliche
 Dateien in ihrem Bereich. Karten besitzen Dropdown-Filter und explizite Wege zum Dummy sowie zum
@@ -64,7 +64,15 @@ Revisionsübernahme und erhält bei Duplikat oder kontrollierter Umbenennung all
 Referenzen. Der Wechsel zwischen Animationen und NPCs bewahrt Bereich, Figur und fokussierte
 Zuordnung; ungespeicherte lokale Korrekturen bleiben beim Wechsel zwischen den Bewegungen erhalten,
 und Revisionsangebote zeigen Framezahl, FPS, Richtungsabdeckung sowie übernommene Overrides.
-Der nächste Schritt ist P16 für den generischen PNG-/JSON-Export.
+Der native Export-Arbeitsbereich löst die ausgewählten NPC- und Binding-IDs erneut aus der Vault
+auf und erzeugt aus demselben Sampler-/Resolver-/Compositorpfad regelmäßige PNG-Atlanten mit
+vollständigem JSON-Manifest. Bereichseigene Profile steuern Seiten- und Speichergrenzen, Padding,
+Extrusion, Schatten, optionale Einzelbilder und ausdrücklich markierte Testausgaben. Jeder Job
+rendert zunächst in ein eigenes Staging, validiert dekodierte Pixel und Inhalts-Hashes und ersetzt
+`current.json` erst nach erfolgreicher Veröffentlichung; Abbruch erhält den vorherigen guten
+Pointer. Fortschritt, nativer Abbruch, Read-only-Schutz und Exportaktualität sind in der
+Desktop-Oberfläche verbunden. Der nächste Schritt ist P17 für das portable Godot-Paket und den
+echten Headless-Importtest.
 
 ## Leitentscheidungen
 

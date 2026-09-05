@@ -17,6 +17,7 @@
 - 🧭 [Eight-direction resolution](features/eight-direction-resolution.md)
 - 🏃 [Motion presets and stored card previews](features/motion-presets-and-previews.md)
 - 🖼️ [Area PNG inventory and reviewed imports](features/asset-inventory-and-import.md)
+- 📦 [Deterministic PNG/JSON export](features/generic-export.md)
 - 🎨 [PixelCutoutSprite Studio specification](features/pixelcutoutsprite-studio.md)
 - 🧾 [Data formats](formats/formats.md)
 - 🔐 [JSON contract version 1](formats/json-contracts.md)

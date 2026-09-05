@@ -33,7 +33,10 @@ interface NpcWorkspaceProps {
   client?: NpcClient;
   onDirtyChange?: (dirty: boolean) => void;
   onSelectionChange?: (selection: NpcSelectionContext) => void;
-  onSectionChange?: (section: "animations" | "npcs", context: AreaSectionContext) => void;
+  onSectionChange?: (
+    section: "animations" | "npcs" | "export",
+    context: AreaSectionContext,
+  ) => void;
   onStatus?: (message: string) => void;
 }
 
@@ -225,6 +228,9 @@ export function NpcWorkspace({
           >
             NPCs
           </button>
+          <button type="button" onClick={() => onSectionChange?.("export", areaContext)}>
+            Export
+          </button>
         </nav>
         {readOnly && <span className="npc-read-only">Read-only vault</span>}
       </header>
@@ -342,6 +348,13 @@ export function NpcWorkspace({
             setNotice(message);
             onStatus?.(message);
           }}
+          onExport={(bindingId) =>
+            onSectionChange?.("export", {
+              ...areaContext,
+              npcId: selected?.character.id ?? null,
+              bindingId,
+            })
+          }
         />
       </div>
     </section>

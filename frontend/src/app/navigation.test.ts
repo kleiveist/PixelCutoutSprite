@@ -10,6 +10,11 @@ describe("workspace navigation", () => {
     expect(routes.every(isWorkspaceRoute)).toBe(true);
     expect(routeDetails("dummy-editor").label).toBe("Dummy editor");
     expect(routeDetails("characters")).toMatchObject({ label: "NPCs", available: true });
+    expect(routeDetails("export")).toMatchObject({
+      label: "Export",
+      available: true,
+      description: expect.not.stringMatching(/godot/i),
+    });
   });
 
   it("builds concise breadcrumbs", () => {

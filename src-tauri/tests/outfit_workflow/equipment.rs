@@ -430,6 +430,7 @@ fn seed_equipment_variant(
         DomainDocument::Asset(asset),
     );
     let mut revision = asset_revision_document(
+        &fixture.root,
         asset_id,
         fixture.profile_ref,
         &slot_id,
