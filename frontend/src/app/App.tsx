@@ -9,6 +9,9 @@ import { PlaceholderView } from "../components/PlaceholderView";
 import { StatusBar } from "../components/StatusBar";
 import { WorkspaceNav } from "../components/WorkspaceNav";
 import type { ProjectCard } from "../domain/projects";
+import type { AreaCard } from "../domain/areas";
+import type { MotionOpenTarget } from "../domain/animations";
+import { AnimationDashboard } from "../features/animations/AnimationDashboard";
 import { ProjectDashboard } from "../features/projects/ProjectDashboard";
 import { navigationItems, routeBreadcrumbs, routeDetails, type WorkspaceRoute } from "./navigation";
 import type { KeyboardAction } from "./shortcuts";
@@ -26,6 +29,8 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
   const [status, setStatus] = useState("Ready · changes stay on this device");
   const [vault, setVault] = useState<OpenVault | null>(null);
   const [selectedProject, setSelectedProject] = useState<ProjectCard | null>(null);
+  const [selectedArea, setSelectedArea] = useState<AreaCard | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const mainContent = useRef<HTMLElement>(null);
   const initialRoute = useRef(true);
 
@@ -77,6 +82,14 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
       setStatus("Choose or reopen a vault before browsing projects");
       return;
     }
+    if (
+      ["animations", "dummy-editor", "outfit", "characters"].includes(nextRoute) &&
+      !selectedArea
+    ) {
+      setRoute("areas");
+      setStatus("Open an area before entering its animation or NPC workspace");
+      return;
+    }
     setRoute(nextRoute);
     setStatus(`${routeDetails(nextRoute).label} selected`);
   }
@@ -92,14 +105,41 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
 
   function openProject(project: ProjectCard): void {
     setSelectedProject(project);
+    setSelectedArea(null);
     setRoute("areas");
-    setStatus(`${project.name} opened · area setup follows in P05`);
+    setStatus(`${project.name} opened · choose or create an area`);
   }
 
-  const breadcrumbs =
-    route === "areas" && selectedProject
-      ? ["Workspace", "Projects", selectedProject.name, "Areas"]
-      : routeBreadcrumbs(route);
+  function openAreaAnimations(area: AreaCard): void {
+    setSelectedArea(area);
+    setRoute("animations");
+    setStatus(`${area.name} animation library opened`);
+  }
+
+  function openMotionTarget(target: MotionOpenTarget): void {
+    setSelectedTemplateId(target.template_id);
+    if (target.kind === "dummy_editor") {
+      setRoute("dummy-editor");
+      setStatus("Dummy editor selected · the interactive editor arrives in P08");
+      return;
+    }
+    setRoute(target.kind === "binding_editor" ? "characters" : "outfit");
+    setStatus(
+      target.kind === "outfit_chooser" && target.compatible_character_ids.length > 1
+        ? `Choose one of ${target.compatible_character_ids.length} compatible NPCs or start a new outfit`
+        : "Outfit workflow selected · the editor arrives in P13",
+    );
+  }
+
+  const breadcrumbs = selectedProject
+    ? [
+        "Workspace",
+        "Projects",
+        selectedProject.name,
+        ...(selectedArea ? [selectedArea.name] : []),
+        routeDetails(route).label,
+      ]
+    : routeBreadcrumbs(route);
 
   return (
     <div className="app-frame">
@@ -115,9 +155,19 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
               onOpen={openProject}
               onStatus={setStatus}
             />
+          ) : route === "animations" && vault && selectedArea ? (
+            <AnimationDashboard
+              areaId={selectedArea.id}
+              defaultFrameSize={selectedArea.default_frame_size_px}
+              defaultGroundOrigin={selectedArea.default_ground_origin_px}
+              onOpen={openMotionTarget}
+              onStatus={setStatus}
+              sessionId={vault.session_id}
+            />
           ) : (
             <PlaceholderView
               details={details}
+              onOpenAreaAnimations={openAreaAnimations}
               onVaultOpened={openVault}
               projectId={selectedProject?.id ?? null}
               vault={vault}
@@ -127,6 +177,7 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
         </main>
       </div>
       <StatusBar message={status} playing={playing} />
+      <span className="visually-hidden" data-selected-template={selectedTemplateId ?? undefined} />
       <DialogLayer open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );

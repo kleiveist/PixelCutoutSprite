@@ -51,6 +51,15 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::open_area,
             commands::create_area,
             commands::create_area_profile_revision,
+            commands::get_motion_dashboard,
+            commands::create_motion,
+            commands::duplicate_motion,
+            commands::load_motion_draft,
+            commands::save_motion_draft,
+            commands::publish_motion,
+            commands::set_motion_archived,
+            commands::remove_motion,
+            commands::resolve_motion_open,
         ])
 }
 

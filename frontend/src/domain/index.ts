@@ -1,5 +1,6 @@
 export * from "./assets";
 export * from "./areas";
+export * from "./animations";
 export * from "./characters";
 export * from "./common";
 export * from "./export";

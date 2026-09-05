@@ -10,6 +10,7 @@
 - 🧭 [Decisions](decisions/decisions.md)
 - 🖥️ [ADR-001: Tauri desktop profile](decisions/adr-001-tauri-desktop.md)
 - 📋 [Features](features/features.md)
+- 🎞️ [Motion library and navigation](features/motion-library.md)
 - 🎨 [PixelCutoutSprite Studio specification](features/pixelcutoutsprite-studio.md)
 - 🧾 [Data formats](formats/formats.md)
 - 🔐 [JSON contract version 1](formats/json-contracts.md)

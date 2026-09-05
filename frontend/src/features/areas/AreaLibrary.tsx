@@ -1,18 +1,31 @@
+import type { AreaCard } from "../../domain/areas";
 import type { AreaDashboardModel } from "./useAreaDashboard";
 
-export function AreaLibrary({ model }: { model: AreaDashboardModel }) {
+export function AreaLibrary({
+  model,
+  onOpenAnimations,
+}: {
+  model: AreaDashboardModel;
+  onOpenAnimations?: (area: AreaCard) => void;
+}) {
   return (
     <section className="area-library" aria-labelledby="area-library-heading">
       <div>
         <p className="view-eyebrow">Project library</p>
         <h2 id="area-library-heading">Area cards</h2>
       </div>
-      <AreaLibraryContent model={model} />
+      <AreaLibraryContent model={model} onOpenAnimations={onOpenAnimations} />
     </section>
   );
 }
 
-function AreaLibraryContent({ model }: { model: AreaDashboardModel }) {
+function AreaLibraryContent({
+  model,
+  onOpenAnimations,
+}: {
+  model: AreaDashboardModel;
+  onOpenAnimations?: (area: AreaCard) => void;
+}) {
   if (model.loadingAreas) return <p role="status">Loading areas…</p>;
   if (!model.hasProjectContext) {
     return <p>Project context is supplied by the completed Projects phase.</p>;
@@ -44,6 +57,14 @@ function AreaLibraryContent({ model }: { model: AreaDashboardModel }) {
           </dl>
           <button disabled={model.busy} onClick={() => void model.openArea(area)} type="button">
             Open profile
+          </button>
+          <button
+            className="primary-button"
+            disabled={model.busy}
+            onClick={() => onOpenAnimations?.(area)}
+            type="button"
+          >
+            Open animations
           </button>
         </article>
       ))}

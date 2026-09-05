@@ -32,12 +32,11 @@ Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository 
 
 ## Aktueller Arbeitsauftrag
 
-P00 bis P04 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App in das persistente
-Projekt-Dashboard: Projekte und Workspace-Labels werden als gewöhnliche JSON-Dateien verwaltet,
-strukturierte Dropdown-Filter bleiben im Vault erhalten und kontrolliertes Entfernen verschiebt
-Projekte in dessen `.trash`. Der nächste ausführbare Schritt ist P05 für Bereiche und humanoide
-Körperprofile. Die übrigen Phasen werden weiterhin einzeln im dokumentierten Serienmodus umgesetzt;
-das Vorhandensein eines Prompts bedeutet nicht, dass seine Funktion bereits fertig ist.
+P00 bis P06 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
+Projekt-Dashboard über ein exakt skaliertes humanoides Gebiet in die Animationsbibliothek.
+Vorlagen, mutable `draft.json`-Arbeitsstände und unveränderliche Freigaben liegen als gewöhnliche
+Dateien in ihrem Bereich. Karten besitzen Dropdown-Filter und explizite Wege zum Dummy sowie zum
+Outfit-/NPC-Fluss. Der nächste Schritt ist P07 für den gemeinsamen Pixel-Rasterer.
 
 ## Leitentscheidungen
 

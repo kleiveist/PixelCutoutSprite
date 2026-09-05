@@ -16,12 +16,12 @@ describe("desktop shell", () => {
     expect(screen.getByRole("contentinfo")).toHaveTextContent("Ready");
   });
 
-  it("navigates to an explicitly marked placeholder", () => {
+  it("keeps animation navigation inside a selected area context", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: /Animations/ }));
 
-    expect(screen.getByRole("heading", { name: "Animations" })).toBeInTheDocument();
-    expect(screen.getByText(/intentionally marked as a placeholder/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Areas" })).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("Open an area");
     expect(screen.getByRole("main")).toHaveFocus();
   });
 

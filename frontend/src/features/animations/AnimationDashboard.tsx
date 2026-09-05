@@ -1,0 +1,191 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { motionClient, type MotionClient } from "../../api/motion-client";
+import {
+  emptyMotionFilters,
+  filterMotionCards,
+  type MotionCard,
+  type MotionOpenTarget,
+} from "../../domain/animations";
+import type { PixelPoint, PixelSize } from "../../domain/common";
+import { MotionCardView } from "./MotionCardView";
+import { MotionCreateDialog } from "./MotionCreateDialog";
+import { MotionFilters } from "./MotionFilters";
+import "./animations.css";
+
+interface AnimationDashboardProps {
+  sessionId: string;
+  areaId: string;
+  defaultFrameSize: PixelSize;
+  defaultGroundOrigin: PixelPoint;
+  client?: MotionClient;
+  onOpen: (target: MotionOpenTarget) => void;
+  onStatus?: (message: string) => void;
+}
+
+export function AnimationDashboard({
+  sessionId,
+  areaId,
+  defaultFrameSize,
+  defaultGroundOrigin,
+  client = motionClient,
+  onOpen,
+  onStatus,
+}: AnimationDashboardProps) {
+  const [dashboard, setDashboard] = useState<Awaited<ReturnType<MotionClient["dashboard"]>> | null>(
+    null,
+  );
+  const [filters, setFilters] = useState(emptyMotionFilters);
+  const [creating, setCreating] = useState(false);
+  const [removing, setRemoving] = useState<MotionCard | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setDashboard(await client.dashboard(sessionId, areaId));
+      setError(null);
+    } catch (reason) {
+      setError(message(reason));
+    }
+  }, [areaId, client, sessionId]);
+  useEffect(() => void load(), [load]);
+  const cards = useMemo(
+    () => filterMotionCards(dashboard?.motions ?? [], filters),
+    [dashboard?.motions, filters],
+  );
+
+  async function duplicate(motion: MotionCard): Promise<void> {
+    const copy = await client.duplicate(sessionId, motion.id);
+    onStatus?.(`${copy.name} created with a new template identity`);
+    await load();
+  }
+  async function archive(motion: MotionCard): Promise<void> {
+    await client.setArchived(sessionId, motion.id, motion.revision, motion.status !== "archived");
+    await load();
+  }
+  async function publish(motion: MotionCard): Promise<void> {
+    const release = await client.publish(sessionId, motion.id);
+    onStatus?.(`${motion.name} dummy released as immutable r${release.revision}`);
+    await load();
+  }
+
+  return (
+    <section className="animations-view" aria-labelledby="animations-title">
+      <header className="animations-header">
+        <div>
+          <span>REUSABLE MOTION</span>
+          <h1 id="animations-title">Animations</h1>
+        </div>
+        <button
+          className="primary-button"
+          disabled={!dashboard?.writable}
+          type="button"
+          onClick={() => setCreating(true)}
+        >
+          New animation
+        </button>
+      </header>
+      <nav className="area-mode-tabs" aria-label="Area workspace">
+        <button type="button" aria-current="page">
+          Animations
+        </button>
+        <button
+          type="button"
+          onClick={() => onStatus?.("NPC dashboard becomes available after the first saved outfit")}
+        >
+          NPCs
+        </button>
+      </nav>
+      {error && (
+        <p className="workspace-error" role="alert">
+          {error}
+        </p>
+      )}
+      {dashboard && !dashboard.writable && (
+        <p role="status">This vault is read-only. Templates can be inspected but not changed.</p>
+      )}
+      <MotionFilters
+        value={filters}
+        profileIds={(dashboard?.profiles ?? []).map((profile) => profile.id)}
+        onChange={setFilters}
+      />
+      <button
+        type="button"
+        className="filter-reset"
+        onClick={() => setFilters(emptyMotionFilters())}
+      >
+        Reset filters
+      </button>
+      <div className="motion-grid">
+        {cards.map((motion) => (
+          <MotionCardView
+            key={motion.id}
+            motion={motion}
+            disabled={!dashboard?.writable}
+            onOpen={onOpen}
+            onResolveOpen={() => client.resolveOpen(sessionId, motion.id, null)}
+            onOpenDummy={() => onOpen({ kind: "dummy_editor", template_id: motion.id })}
+            onDuplicate={() => void duplicate(motion).catch((reason) => setError(message(reason)))}
+            onPublish={() => void publish(motion).catch((reason) => setError(message(reason)))}
+            onArchive={() => void archive(motion).catch((reason) => setError(message(reason)))}
+            onRemove={() => setRemoving(motion)}
+          />
+        ))}
+      </div>
+      {dashboard && cards.length === 0 && (
+        <p className="motion-empty">No animations match this view.</p>
+      )}
+      <MotionCreateDialog
+        areaId={areaId}
+        defaultFrameSize={defaultFrameSize}
+        defaultGroundOrigin={defaultGroundOrigin}
+        open={creating}
+        onClose={() => setCreating(false)}
+        onCreate={async (request) => {
+          const motion = await client.create(sessionId, request);
+          setCreating(false);
+          await load();
+          onOpen({ kind: "dummy_editor", template_id: motion.id });
+        }}
+      />
+      {removing && (
+        <div className="motion-dialog-backdrop" role="presentation">
+          <div
+            className="motion-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="remove-motion-title"
+          >
+            <h2 id="remove-motion-title">Remove {removing.name}?</h2>
+            <p>
+              The template moves to project trash. Released revisions are not silently reassigned.
+            </p>
+            <footer>
+              <button type="button" onClick={() => setRemoving(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void client
+                    .remove(sessionId, removing.id, removing.revision)
+                    .then(async () => {
+                      setRemoving(null);
+                      await load();
+                    })
+                    .catch((reason) => setError(message(reason)));
+                }}
+              >
+                Move to trash
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function message(reason: unknown): string {
+  return reason instanceof Error ? reason.message : String(reason);
+}

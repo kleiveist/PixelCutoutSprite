@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P05 abgeschlossen; P06 ist der nächste Schritt
+**Implementierung:** P00–P06 abgeschlossen; P07 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -61,6 +61,12 @@ unveränderliche Profilrevision. Der Generator liefert 15 anatomische Slots plus
 sechs Spiegelpaare und acht vollständige Ansichten. Die React-Ansicht zeigt die vom Rust-Backend
 berechneten Slotflächen; Speichern wird erst mit einem gültigen Projektkontext aktiv.
 
+P06 ersetzt den Animationsplatzhalter durch eine persistente Bibliothek. `MotionService` verwaltet
+Vorlagenentwürfe, unveränderliche Freigaben, Duplikate, Archiv und sicheres Entfernen innerhalb
+des gewählten Bereichs. Karten, Dropdownfilter, Erstellungsdialog und Kontextmenü bilden diese
+Zustände vollständig ab. Das Öffnen einer freigegebenen Vorlage verlangt eine ausdrückliche
+Figurenauswahl; bei mehreren kompatiblen NPCs wird nie stillschweigend einer gewählt.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -79,7 +85,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P03](../prompts/pixelcutoutsprite/03.md) | Vault und sichere Dateispeicherung | Abgeschlossen |
 | [P04](../prompts/pixelcutoutsprite/04.md) | Projekt-Dashboard, Labels und Dropdown-Filter | Abgeschlossen |
 | [P05](../prompts/pixelcutoutsprite/05.md) | Bereiche und humanoide Körperprofile | Abgeschlossen |
-| [P06](../prompts/pixelcutoutsprite/06.md) | Animationsbibliothek und zustandsabhängige Navigation | Nicht begonnen |
+| [P06](../prompts/pixelcutoutsprite/06.md) | Animationsbibliothek und zustandsabhängige Navigation | Abgeschlossen |
 | [P07](../prompts/pixelcutoutsprite/07.md) | Gemeinsamer Pixel-Rasterer | Nicht begonnen |
 | [P08](../prompts/pixelcutoutsprite/08.md) | Direkt bedienbarer Dummy-Editor | Nicht begonnen |
 | [P09](../prompts/pixelcutoutsprite/09.md) | Timeline, Keyframes und deterministisches Sampling | Nicht begonnen |
@@ -109,7 +115,8 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P03: native Vault-Auswahl, sichere Pfade/Writes, Lock, Index und Journalbasis erstellt.
 - [x] P04: Projekt-Dashboard, JSON-CRUD, Workspace-/Projektlabels und Dropdown-Filter erstellt.
 - [x] P05: Bereichskarten, humanoides 16-Slot-Profil, exakte Skalierung, Vorschau und unveränderliche Profilrevisionen erstellt und gegatet.
-- [ ] Meilenstein A: Grundlage, P00–P06.
+- [x] P06: Animationsbibliothek, persistente Entwürfe, unveränderliche Freigaben und kontextabhängige Navigation erstellt und gegatet.
+- [x] Meilenstein A: Grundlage, P00–P06.
 - [ ] Meilenstein B: Bewegungen, P07–P11.
 - [ ] Meilenstein C: Figuren, P12–P15.
 - [ ] Meilenstein D: Spieleinbindung, P16–P17.
@@ -164,6 +171,15 @@ dürfen beide Werte nicht addieren. Dieser Vertrag verhindert schon vor P07 dopp
 sechs vertikalen anatomischen Segmente verteilen deshalb Abrundungsreste stabil nach größtem
 Rest. Die Tests prüfen jede erlaubte Höhe von 16 bis 512 px; Haare bleiben bewusst außerhalb der
 gemessenen anatomischen Höhe.
+
+**2026-09-05 / P06:** Der Katalogstatus einer Vorlage reicht nicht aus, um unpublizierte Arbeit
+anzuzeigen. Der Entwurf speichert deshalb zusätzlich die zuletzt freigegebene Entwurfsrevision;
+spätere Bearbeitungen lassen die bestehende unveränderliche Freigabe intakt und markieren die
+Karte wieder nachvollziehbar als Entwurf.
+
+**2026-09-05 / P06:** Mehrere kompatible NPCs sind ein normaler Zustand. Die Auflösung liefert
+alle Kandidaten an die Oberfläche und öffnet nur bei einer ausdrücklich gewählten Figur eine
+bestehende Bindung; der Dummy bleibt immer als sichtbarer, deterministischer Weg erreichbar.
 
 ## Decision Log
 
@@ -223,6 +239,9 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P05 | `cargo test --all-targets --locked`, Clippy `-D warnings`, Check und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 31 Tests | Alle Domain-, Storage-, Composition- und neuen Bereichstests grün. |
 | 2026-09-05 / P05 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 18 Tests und alle Frontend-Gates | Vier Area-Dashboard-Tests belegen 16-Slot-Vorschau, acht Richtungsoptionen, Erzeugung, Revision und fehlenden Projektkontext. |
 | 2026-09-05 / P05 | `tools/control.py quality architecture`, `quality lint`, `integrate --check` und Docs-Check | Linux-Host, Python 3.13.15 | PASS im Phasenbranch | TypeScript-AST, Python/TS/Rust-Gates und Integration grün; 134 Dokumentseiten konsistent. Die Integration nach P04 wurde zusätzlich mit den Produktgates geprüft. |
+| 2026-09-05 / P06 | `cargo test --all-targets --locked`, Clippy `-D warnings`, Check und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 39 Tests | Vier neue Bibliothekstests belegen Entwurf/Freigabe, Timinggrenzen, Duplikat/Archiv/Entfernen, Mehrfach-NPC-Auswahl und Bindungsauflösung. |
+| 2026-09-05 / P06 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 29 Tests und alle Frontend-Gates | Bibliothekskarten, Dropdownfilter, Dialogvalidierung, Kontextmenü, Dummy-Einstieg und explizite Figurenwahl sind abgedeckt. |
+| 2026-09-05 / P06 | `tools/control.py quality architecture`, `integrate --check` und Docs-Check | Linux-Host, Python 3.13.15 | PASS im Phasenbranch | Architektur- und Integrationsgrenzen bleiben intakt; 135 Dokumentseiten sind vollständig verknüpft. Der zentrale `quality lint` bleibt wegen seines bereits in P04 erfassten inkompatiblen Clippy-Flags `-F warnings` offen; das direkte Clippy-Gate mit `-D warnings` besteht. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -232,8 +251,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P06 ausführen: Animationsbibliothek, persistente Entwürfe,
-Freigaben und zustandsabhängige Navigation implementieren.
+**Nächster ausführbarer Schritt:** P07 ausführen: den gemeinsamen deterministischen
+Pixel-Rasterer für Vorschau und Export implementieren.
 
 ## Outcomes & Retrospective
 
@@ -244,5 +263,8 @@ Dateispeicherung samt nativer Auswahl, Pfadgrenze, Konflikt- und Lock-Verhalten.
 Grundlage erstmals als persistentes Projekt- und Label-Dashboard produktiv bedienbar. P05 ergänzt
 die erste echte projektbezogene Fachressource mit reproduzierbarer Profilgeometrie,
 unveränderlichen Revisionen und visueller Slotprüfung.
+P06 ergänzt die persistente Bewegungsbibliothek mit belastbaren Entwurfs-/Freigabezuständen,
+vollständigen Kartenaktionen und einer Navigation, die Projekt, Bereich, Vorlage und optionale
+Figurenbindung ausdrücklich statt implizit auflöst.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

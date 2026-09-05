@@ -1,4 +1,5 @@
 import { areaClient, type AreaClient } from "../../api/area-client";
+import type { AreaCard } from "../../domain/areas";
 import { AreaLibrary } from "./AreaLibrary";
 import { AreaProfileForm } from "./AreaProfileForm";
 import { ProfilePreview } from "./ProfilePreview";
@@ -8,6 +9,7 @@ interface AreaDashboardProps {
   sessionId: string | null;
   projectId: string | null;
   client?: AreaClient;
+  onOpenAnimations?: (area: AreaCard) => void;
   onStatus?: (message: string) => void;
 }
 
@@ -15,6 +17,7 @@ export function AreaDashboard({
   sessionId,
   projectId,
   client = areaClient,
+  onOpenAnimations,
   onStatus,
 }: AreaDashboardProps) {
   const model = useAreaDashboardModel({ client, onStatus, projectId, sessionId });
@@ -60,7 +63,7 @@ export function AreaDashboard({
         />
       </div>
 
-      <AreaLibrary model={model} />
+      <AreaLibrary model={model} onOpenAnimations={onOpenAnimations} />
     </section>
   );
 }

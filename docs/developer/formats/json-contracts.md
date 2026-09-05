@@ -33,6 +33,7 @@ The fixed document kinds and their identities are:
 | `area` | area UUID + object revision | Project UUID and exact active profile revision |
 | `profile_revision` | profile UUID + release revision | Area, slots, eight views and mirror pairs |
 | `motion_template` | template UUID + object/draft revisions | Area and immutable released revision numbers |
+| `motion_draft` | template UUID + mutable draft revision | Exact profile, timing, directions, tracks, and last released draft revision |
 | `motion_revision` | template UUID + release revision | Exact profile, timing, directions and tracks |
 | `asset` | asset UUID + object revision | Area and immutable released revision numbers |
 | `asset_revision` | asset UUID + release revision | Exact profile/slot, relative PNG and SHA-256 |
@@ -45,6 +46,11 @@ The fixed document kinds and their identities are:
 Template, appearance, and animation-binding IDs are deliberately separate. Multiple characters
 may reference the same released motion revision. A character may have at most one active binding
 for a given lowercase `action_key`; variants use distinct keys such as `walk_carry`.
+
+`motion_draft` is intentionally loaded by `MotionService` rather than the released-document
+index: it shares the template UUID and therefore is not a second catalog identity. Its
+`released_from_draft_revision` records whether the current bytes have been published. Publishing
+copies validated content to a new `motion_revision`; it never changes an existing release.
 
 ## Numeric and graph rules
 

@@ -46,7 +46,7 @@ export const navigationItems: readonly NavigationItem[] = [
     label: "Animations",
     eyebrow: "Animate",
     description: "Manage reusable motion templates and revisions.",
-    available: false,
+    available: true,
   },
   {
     route: "dummy-editor",
@@ -67,7 +67,7 @@ export const navigationItems: readonly NavigationItem[] = [
     label: "Characters",
     eyebrow: "Bind",
     description: "Keep NPC identity, appearance, and motion together.",
-    available: false,
+    available: true,
   },
   {
     route: "export",

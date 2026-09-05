@@ -6,5 +6,6 @@
 <!-- AUTO-GENERATED:docs-index START -->
 
 - 🎨 [PixelCutoutSprite Studio specification](pixelcutoutsprite-studio.md)
+- 🎞️ [Motion library and release routing](motion-library.md)
 
 <!-- AUTO-GENERATED:docs-index END -->
