@@ -1,11 +1,13 @@
 use super::*;
 use pixel_cutout_sprite_studio_lib::application::{
-    AddBindingRequest, AdoptBindingRevisionRequest, DuplicateNpcRequest, NpcCompleteness,
-    NpcExportService, NpcExportStatus, RenameNpcRequest, ReviewBindingRequest,
-    RevisionCompatibility, SetCharacterStatusRequest, StartNpcExportRequest,
+    AddBindingRequest, AdoptBindingRevisionRequest, DuplicateNpcRequest, ExportOutputFormat,
+    NpcCompleteness, NpcExportError, NpcExportService, NpcExportStatus, RenameNpcRequest,
+    ReviewBindingRequest, RevisionCompatibility, SetCharacterStatusRequest, StartNpcExportRequest,
     UpdateBindingOverridesRequest,
 };
-use pixel_cutout_sprite_studio_lib::exports::{ExportService, NeverCancel};
+use pixel_cutout_sprite_studio_lib::exports::{
+    CancellationFlag, ExportError, ExportService, ExportStage, NeverCancel,
+};
 
 #[test]
 fn one_npc_keeps_walk_sprint_and_jump_with_explicit_variant_keys() {
@@ -492,6 +494,195 @@ fn authoritative_npc_export_renders_multiple_actions_and_current_pointer_control
         NpcExportStatus::NotExported,
         "an orphan build must never be promoted without its managed current pointer"
     );
+}
+
+#[test]
+fn real_npc_godot_export_reuses_both_variants_and_publishes_current_only_at_the_end() {
+    let fixture = OutfitFixture::new();
+    let saved = save_standard_npc(&fixture, "Godot package keeper");
+    let sprint_motion = seed_released_motion(&fixture, "sprint", "Sprint");
+    let sprint = add_motion(&fixture, saved.character.id, sprint_motion, None).unwrap();
+    let mut request = export_request(saved.character.id, vec![saved.binding.id, sprint.id], false);
+    request.format = ExportOutputFormat::GodotPackage;
+
+    let first = NpcExportService
+        .execute(
+            &fixture.root,
+            Path::new(AREA_PATH),
+            request.clone(),
+            &NeverCancel,
+            &mut |_| {},
+        )
+        .unwrap();
+    assert_eq!(first.format, ExportOutputFormat::GodotPackage);
+    assert!(first.generic.manifest.complete);
+    let first_package = first.godot_package.as_ref().unwrap();
+    assert!(!first_package.reused_existing_package);
+    assert_eq!(first_package.animation_names.len(), 16);
+    assert_eq!(
+        first_package.scene.as_ref().unwrap().as_str(),
+        "character.tscn"
+    );
+    let first_package_path = fixture
+        .root
+        .resolve(&first_package.package_directory)
+        .unwrap();
+    assert!(first_package_path
+        .as_path()
+        .join("character.tscn")
+        .is_file());
+
+    let repeated = NpcExportService
+        .execute(
+            &fixture.root,
+            Path::new(AREA_PATH),
+            request.clone(),
+            &NeverCancel,
+            &mut |_| {},
+        )
+        .unwrap();
+    assert!(repeated.generic.reused_existing_build);
+    assert!(
+        repeated
+            .godot_package
+            .as_ref()
+            .unwrap()
+            .reused_existing_package
+    );
+
+    let mut resources_request = request.clone();
+    resources_request.include_godot_scene = false;
+    let resources = NpcExportService
+        .execute(
+            &fixture.root,
+            Path::new(AREA_PATH),
+            resources_request,
+            &NeverCancel,
+            &mut |_| {},
+        )
+        .unwrap();
+    assert!(resources.generic.reused_existing_build);
+    let resources_package = resources.godot_package.as_ref().unwrap();
+    assert!(resources_package.scene.is_none());
+    assert_ne!(
+        resources_package.package_directory,
+        first_package.package_directory
+    );
+    assert!(!fixture
+        .root
+        .resolve(&resources_package.package_directory)
+        .unwrap()
+        .as_path()
+        .join("character.tscn")
+        .exists());
+
+    let output = Path::new(&saved.character_folder).join("_exports");
+    let current_path = fixture.root.resolve(&output.join("current.json")).unwrap();
+    let old_current = fs::read(current_path.as_path()).unwrap();
+    let changed = BindingService
+        .update_local_overrides(
+            &fixture.root,
+            Path::new(AREA_PATH),
+            UpdateBindingOverridesRequest {
+                binding_id: saved.binding.id,
+                expected_revision: saved.binding.revision,
+                local_overrides: vec![local_override(1)],
+            },
+        )
+        .unwrap();
+    assert_eq!(changed.revision, saved.binding.revision + 1);
+
+    let cancellation = CancellationFlag::default();
+    let cancel_from_progress = cancellation.clone();
+    let mut progress = move |event: pixel_cutout_sprite_studio_lib::exports::ExportProgress| {
+        if event.stage == ExportStage::Publishing && event.completed == 0 {
+            cancel_from_progress.cancel();
+        }
+    };
+    let cancelled = NpcExportService.execute(
+        &fixture.root,
+        Path::new(AREA_PATH),
+        request.clone(),
+        &cancellation,
+        &mut progress,
+    );
+    assert!(matches!(
+        cancelled,
+        Err(NpcExportError::Export(ExportError::Cancelled))
+    ));
+    assert_eq!(
+        fs::read(current_path.as_path()).unwrap(),
+        old_current,
+        "cancellation after Godot publication must preserve the previous current pointer"
+    );
+
+    let retry = NpcExportService
+        .execute(
+            &fixture.root,
+            Path::new(AREA_PATH),
+            request,
+            &NeverCancel,
+            &mut |_| {},
+        )
+        .unwrap();
+    assert!(retry.generic.reused_existing_build);
+    assert!(
+        retry
+            .godot_package
+            .as_ref()
+            .unwrap()
+            .reused_existing_package
+    );
+    assert_ne!(
+        fs::read(current_path.as_path()).unwrap(),
+        old_current,
+        "the successful retry must publish the new source fingerprint"
+    );
+    let package_parent = fixture
+        .root
+        .resolve(&output.join("godot-packages"))
+        .unwrap();
+    assert!(fs::read_dir(package_parent.as_path())
+        .unwrap()
+        .all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .contains(".staging")
+        }));
+}
+
+#[test]
+fn real_npc_godot_export_rejects_incomplete_mode_before_creating_output() {
+    let fixture = OutfitFixture::new();
+    let saved = save_standard_npc(&fixture, "Incomplete Godot keeper");
+    let mut request = export_request(saved.character.id, vec![saved.binding.id], true);
+    request.format = ExportOutputFormat::GodotPackage;
+
+    let result = NpcExportService.execute(
+        &fixture.root,
+        Path::new(AREA_PATH),
+        request,
+        &NeverCancel,
+        &mut |_| {},
+    );
+    assert!(matches!(
+        result,
+        Err(NpcExportError::Invalid(message)) if message.contains("complete export")
+    ));
+    let binding_folder =
+        object_folder(saved.binding.action_key.as_str(), saved.binding.id).unwrap();
+    assert!(!fixture
+        .root
+        .resolve(
+            &Path::new(&saved.character_folder)
+                .join(binding_folder)
+                .join("exports")
+        )
+        .unwrap()
+        .as_path()
+        .exists());
 }
 
 #[test]
@@ -1217,6 +1408,8 @@ fn export_request(
         },
         root_motion_mode: ExportRootMotionMode::Baked,
         jump_mode: ExportJumpMode::Baked,
+        format: ExportOutputFormat::PngJson,
+        include_godot_scene: true,
     }
 }
 

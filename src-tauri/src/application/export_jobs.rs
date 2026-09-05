@@ -6,7 +6,9 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::domain::{ObjectId, Sha256Digest};
-use crate::exports::{CancellationFlag, ExportOutcome, ExportProgress};
+use crate::exports::{CancellationFlag, ExportProgress, GodotPackageOutcome};
+
+use super::{ExportOutputFormat, NpcExportExecutionOutcome};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -30,15 +32,38 @@ pub struct NpcExportResult {
     pub source_fingerprint: Sha256Digest,
     pub complete: bool,
     pub reused_existing_build: bool,
+    pub format: ExportOutputFormat,
+    pub godot_package: Option<NpcGodotPackageResult>,
 }
 
-impl From<ExportOutcome> for NpcExportResult {
-    fn from(value: ExportOutcome) -> Self {
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct NpcGodotPackageResult {
+    pub package_directory: String,
+    pub animation_names: Vec<String>,
+    pub scene: Option<String>,
+    pub reused_existing_package: bool,
+}
+
+impl From<GodotPackageOutcome> for NpcGodotPackageResult {
+    fn from(value: GodotPackageOutcome) -> Self {
         Self {
-            build: value.build.to_string(),
-            source_fingerprint: value.manifest.source_fingerprint,
-            complete: value.manifest.complete,
-            reused_existing_build: value.reused_existing_build,
+            package_directory: value.package_directory.to_string_lossy().replace('\\', "/"),
+            animation_names: value.animation_names,
+            scene: value.scene.map(|scene| scene.to_string()),
+            reused_existing_package: value.reused_existing_package,
+        }
+    }
+}
+
+impl From<NpcExportExecutionOutcome> for NpcExportResult {
+    fn from(value: NpcExportExecutionOutcome) -> Self {
+        Self {
+            build: value.generic.build.to_string(),
+            source_fingerprint: value.generic.manifest.source_fingerprint,
+            complete: value.generic.manifest.complete,
+            reused_existing_build: value.generic.reused_existing_build,
+            format: value.format,
+            godot_package: value.godot_package.map(Into::into),
         }
     }
 }
@@ -164,7 +189,7 @@ impl ExportJobRegistry {
     pub(crate) fn complete(
         &self,
         job_id: ObjectId,
-        outcome: ExportOutcome,
+        outcome: NpcExportExecutionOutcome,
     ) -> Result<ExportJobView, ExportJobError> {
         self.finish(
             job_id,

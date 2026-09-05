@@ -63,6 +63,8 @@ function renderDialog(overrides: Partial<React.ComponentProps<typeof ExportDialo
         source_fingerprint: "abc",
         complete: true,
         reused_existing_build: false,
+        format: "png_json",
+        godot_package: null,
       })}
       onSaveProfile={vi.fn()}
       onClose={vi.fn()}
@@ -92,6 +94,10 @@ describe("ExportDialog", () => {
     ])
       expect(screen.getByRole("combobox", { name })).toBeInTheDocument();
     expect(screen.getByRole("listbox", { name: "Directions" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Format" })).toBeEnabled();
+    expect(
+      screen.queryByRole("checkbox", { name: "Include AnimatedSprite2D scene" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/128 × 128 px · ground 64, 108/)).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "NPC" })).toHaveFocus();
   });
@@ -108,6 +114,43 @@ describe("ExportDialog", () => {
     expect(screen.getByRole("button", { name: "Export" })).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: "Allow marked incomplete test export" }));
     expect(screen.queryByText(/direction subset requires/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export" })).toBeEnabled();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Format" }), {
+      target: { value: "godot_package" },
+    });
+    expect(screen.getByText(/Godot packages require all eight directions/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export" })).toBeDisabled();
+  });
+
+  it("never lets generic incomplete-test policy bypass Godot source completeness", () => {
+    const incompleteInspection: NpcExportInspection = {
+      ...inspection,
+      bindings: inspection.bindings.map((binding, index) =>
+        index === 0
+          ? {
+              ...binding,
+              ready: false,
+              issue: "a pinned appearance source is missing",
+            }
+          : binding,
+      ),
+    };
+    renderDialog({
+      inspection: incompleteInspection,
+      initialProfile: {
+        ...DEFAULT_EXPORT_PROFILE,
+        format: "godot_package",
+        allowIncompleteTest: true,
+      },
+    });
+
+    expect(screen.getByText(/pinned appearance source is missing/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export" })).toBeDisabled();
+    fireEvent.change(screen.getByRole("combobox", { name: "Format" }), {
+      target: { value: "png_json" },
+    });
+    expect(screen.queryByText(/pinned appearance source is missing/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Export" })).toBeEnabled();
   });
 
@@ -133,7 +176,15 @@ describe("ExportDialog", () => {
         });
         return new Promise<never>((_resolve, reject) => {
           signal.addEventListener("abort", () => {
-            window.setTimeout(() => reject(new ExportCancelledError()), 0);
+            window.setTimeout(
+              () =>
+                reject(
+                  new ExportCancelledError(
+                    "Godot packaging cancelled; previous generic current and previous Godot package unchanged. Validated orphan artifacts may remain.",
+                  ),
+                ),
+              0,
+            );
           });
         });
       },
@@ -143,11 +194,17 @@ describe("ExportDialog", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Padding" }), {
       target: { value: "2" },
     });
+    fireEvent.change(screen.getByRole("combobox", { name: "Format" }), {
+      target: { value: "godot_package" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Include AnimatedSprite2D scene" }));
     fireEvent.click(screen.getByRole("button", { name: "Export" }));
     expect(await screen.findByText("Rendered frame 2 of 160")).toBeInTheDocument();
     expect(captured).toMatchObject({
       character_id: "character-1",
       binding_ids: ["binding-walk", "binding-jump"],
+      format: "godot_package",
+      include_godot_scene: false,
       root_motion_mode: "baked",
       jump_mode: "external",
       profile: { padding_px: 2, individual_frames: false },
@@ -156,7 +213,9 @@ describe("ExportDialog", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel export" }));
     expect(screen.getByRole("button", { name: "Cancelling…" })).toBeDisabled();
-    expect(await screen.findByRole("alert")).toHaveTextContent(/last good build is unchanged/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /previous generic current and previous Godot package unchanged\. Validated orphan artifacts may remain/i,
+    );
     await waitFor(() => expect(screen.getByRole("button", { name: "Export" })).toBeEnabled());
   });
 
@@ -174,6 +233,37 @@ describe("ExportDialog", () => {
     expect(await screen.findByText(/Build build-abc validated/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox", { name: "Individual PNG frames" }));
     expect(screen.queryByText(/build-abc/i)).not.toBeInTheDocument();
+  });
+
+  it("presents the managed Godot package and optional scene returned by native export", async () => {
+    renderDialog({
+      onStart: vi.fn().mockResolvedValue({
+        build: "build-abc",
+        source_fingerprint: "abc",
+        complete: true,
+        reused_existing_build: true,
+        format: "godot_package",
+        godot_package: {
+          package_directory: "village/merchant/_exports/godot/package-abc-scene",
+          animation_names: ["jump_s", "walk_s"],
+          scene: "character.tscn",
+          reused_existing_package: false,
+        },
+      }),
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Format" }), {
+      target: { value: "godot_package" },
+    });
+    expect(screen.getByRole("checkbox", { name: "Include AnimatedSprite2D scene" })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+
+    const packagePath = await screen.findByText(
+      "village/merchant/_exports/godot/package-abc-scene",
+    );
+    const result = packagePath.closest('[role="status"]');
+    expect(result).not.toBeNull();
+    expect(result).toHaveTextContent("sprite_frames.tres");
+    expect(result).toHaveTextContent("character.tscn");
   });
 
   it("blocks every managed write in read-only mode", () => {

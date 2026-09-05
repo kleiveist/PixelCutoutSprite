@@ -10,6 +10,8 @@ use crate::domain::{
 };
 use crate::storage::{JsonStore, StorageError, VaultRoot, VersionStamp};
 
+use super::ExportOutputFormat;
+
 const PROFILE_SCHEMA_VERSION: u32 = 1;
 const PROFILE_DIRECTORY: &str = ".area/export-profiles";
 
@@ -20,6 +22,8 @@ pub struct StoredNpcExportProfile {
     pub profile: ExportProfileSnapshot,
     pub root_motion_mode: ExportRootMotionMode,
     pub jump_mode: ExportJumpMode,
+    pub format: ExportOutputFormat,
+    pub include_godot_scene: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -30,6 +34,8 @@ pub struct SaveNpcExportProfileRequest {
     pub profile: ExportProfileSnapshot,
     pub root_motion_mode: ExportRootMotionMode,
     pub jump_mode: ExportJumpMode,
+    pub format: ExportOutputFormat,
+    pub include_godot_scene: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -70,6 +76,10 @@ struct ExportProfileDocument {
     profile: ExportProfileSnapshot,
     root_motion_mode: ExportRootMotionMode,
     jump_mode: ExportJumpMode,
+    #[serde(default)]
+    format: ExportOutputFormat,
+    #[serde(default = "default_include_godot_scene")]
+    include_godot_scene: bool,
     created_at: UtcTimestamp,
     updated_at: UtcTimestamp,
 }
@@ -117,6 +127,8 @@ impl ExportProfileDocument {
             profile: self.profile.clone(),
             root_motion_mode: self.root_motion_mode,
             jump_mode: self.jump_mode,
+            format: self.format,
+            include_godot_scene: self.include_godot_scene,
         }
     }
 }
@@ -210,6 +222,8 @@ impl ExportProfileService {
                     profile: request.profile,
                     root_motion_mode: request.root_motion_mode,
                     jump_mode: request.jump_mode,
+                    format: request.format,
+                    include_godot_scene: request.include_godot_scene,
                     created_at: now,
                     updated_at: now,
                 },
@@ -230,6 +244,8 @@ impl ExportProfileService {
                         profile: request.profile,
                         root_motion_mode: request.root_motion_mode,
                         jump_mode: request.jump_mode,
+                        format: request.format,
+                        include_godot_scene: request.include_godot_scene,
                         updated_at: now,
                         ..current
                     },
@@ -275,6 +291,10 @@ impl ExportProfileService {
             .map_err(|error| StorageError::io("delete export profile", path.relative(), error))?;
         Ok(())
     }
+}
+
+fn default_include_godot_scene() -> bool {
+    true
 }
 
 fn validate_area(

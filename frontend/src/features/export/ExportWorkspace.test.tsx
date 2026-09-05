@@ -20,6 +20,8 @@ describe("ExportWorkspace", () => {
     const savedProfile: StoredNpcExportProfile = {
       id: storedProfileId,
       revision: 1,
+      format: "godot_package",
+      include_godot_scene: false,
       profile: { ...toProfileSnapshot(DEFAULT_EXPORT_PROFILE), name: "Area sheets" },
       root_motion_mode: "external",
       jump_mode: "baked",
@@ -56,6 +58,8 @@ describe("ExportWorkspace", () => {
       expect(client.saveProfile).toHaveBeenCalledWith("session", "area", {
         profile_id: null,
         expected_revision: null,
+        format: "png_json",
+        include_godot_scene: true,
         profile: expect.objectContaining({ name: "Portable game sheets" }),
         root_motion_mode: "baked",
         jump_mode: "external",
@@ -66,6 +70,10 @@ describe("ExportWorkspace", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Saved profile" }), {
       target: { value: storedProfileId },
     });
+    expect(screen.getByRole("combobox", { name: "Format" })).toHaveValue("godot_package");
+    expect(
+      screen.getByRole("checkbox", { name: "Include AnimatedSprite2D scene" }),
+    ).not.toBeChecked();
     fireEvent.change(screen.getByRole("textbox", { name: "Profile name" }), {
       target: { value: "Updated area sheets" },
     });
@@ -74,6 +82,8 @@ describe("ExportWorkspace", () => {
       expect(client.saveProfile).toHaveBeenLastCalledWith("session", "area", {
         profile_id: storedProfileId,
         expected_revision: 1,
+        format: "godot_package",
+        include_godot_scene: false,
         profile: expect.objectContaining({ name: "Updated area sheets" }),
         root_motion_mode: "external",
         jump_mode: "baked",
@@ -109,6 +119,43 @@ describe("ExportWorkspace", () => {
     );
   });
 
+  it("runs the selected Godot format and exposes its managed native package", async () => {
+    const client = mockExportClient();
+    const onStatus = vi.fn();
+    render(
+      <ExportWorkspace
+        sessionId="session"
+        areaId="area"
+        client={client}
+        npcsClient={mockNpcClient()}
+        onStatus={onStatus}
+      />,
+    );
+    await screen.findByRole("dialog", { name: "Export PNG sheets + JSON" });
+    fireEvent.change(screen.getByRole("combobox", { name: "Format" }), {
+      target: { value: "godot_package" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+
+    await waitFor(() =>
+      expect(client.run).toHaveBeenCalledWith(
+        "session",
+        "area",
+        expect.objectContaining({
+          character_id: characterId,
+          format: "godot_package",
+          include_godot_scene: true,
+        }),
+        expect.any(AbortSignal),
+        expect.any(Function),
+      ),
+    );
+    expect(
+      await screen.findByText("characters/mara/_exports/godot/godot-v1-hash-scene"),
+    ).toBeInTheDocument();
+    expect(onStatus).toHaveBeenCalledWith("Godot package + PNG/JSON published");
+  });
+
   it("never starts a managed export from a read-only vault", async () => {
     const client = mockExportClient();
     render(
@@ -137,17 +184,37 @@ function mockExportClient({
     saveProfile: vi.fn(async (_session, _area, request) => ({
       id: request.profile_id ?? "55555555-5555-4555-8555-555555555555",
       revision: request.expected_revision === null ? 1 : request.expected_revision + 1,
+      format: request.format,
+      include_godot_scene: request.include_godot_scene,
       profile: request.profile,
       root_motion_mode: request.root_motion_mode,
       jump_mode: request.jump_mode,
     })),
     deleteProfile: vi.fn(async () => undefined),
-    run: vi.fn(async () => ({
-      build: "build-hash",
-      source_fingerprint: "a".repeat(64),
-      complete: true,
-      reused_existing_build: false,
-    })),
+    run: vi.fn(async (_session, _area, request) =>
+      request.format === "godot_package"
+        ? {
+            build: "build-hash",
+            source_fingerprint: "a".repeat(64),
+            complete: true,
+            reused_existing_build: false,
+            format: "godot_package" as const,
+            godot_package: {
+              package_directory: "characters/mara/_exports/godot/godot-v1-hash-scene",
+              animation_names: ["walk_s"],
+              scene: "character.tscn",
+              reused_existing_package: false,
+            },
+          }
+        : {
+            build: "build-hash",
+            source_fingerprint: "a".repeat(64),
+            complete: true,
+            reused_existing_build: false,
+            format: "png_json" as const,
+            godot_package: null,
+          },
+    ),
   };
 }
 

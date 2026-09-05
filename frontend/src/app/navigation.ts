@@ -73,7 +73,7 @@ export const navigationItems: readonly NavigationItem[] = [
     route: "export",
     label: "Export",
     eyebrow: "Ship",
-    description: "Build portable PNG sheets and complete JSON metadata.",
+    description: "Build portable PNG/JSON output and Godot packages.",
     available: true,
   },
 ];

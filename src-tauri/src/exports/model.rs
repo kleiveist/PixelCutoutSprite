@@ -111,6 +111,7 @@ pub enum ExportStage {
     Packing,
     Validating,
     Publishing,
+    GodotPackaging,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -227,6 +228,8 @@ pub enum ExportError {
     Image(#[from] image::ImageError),
     #[error("generated build failed validation: {0}")]
     InvalidBuild(String),
+    #[error("Godot package failed validation: {0}")]
+    InvalidGodotPackage(String),
 }
 
 impl ExportError {

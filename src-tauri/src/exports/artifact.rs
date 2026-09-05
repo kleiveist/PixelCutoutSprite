@@ -114,7 +114,7 @@ fn create_file(path: &Path, operation: &'static str) -> Result<File, ExportError
         .map_err(|error| ExportError::io(operation, path, error))
 }
 
-fn safe_existing_child(root: &Path, relative: &Path) -> Result<PathBuf, ExportError> {
+pub(crate) fn safe_existing_child(root: &Path, relative: &Path) -> Result<PathBuf, ExportError> {
     let root = root
         .canonicalize()
         .map_err(|error| ExportError::io("canonicalize build", root, error))?;

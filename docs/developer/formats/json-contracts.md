@@ -264,6 +264,10 @@ and cross-references are reread and checked there. Only then is the directory re
 `build-<source-fingerprint>` and `current.json` replaced. Cancellation or any validation/write
 failure leaves the prior pointer intact and removes only the job's private staging directory.
 
+The optional derived [Godot package](godot-package.md) copies this validated manifest and its
+declared PNG artifacts before generating relative `SpriteFrames` and scene resources. It does not
+replace the generic contract or introduce another source of animation truth.
+
 ## Fixtures and compatibility gate
 
 Complete positive fixtures live in `src-tauri/tests/fixtures/contracts/valid/`; deliberate future,

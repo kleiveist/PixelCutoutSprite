@@ -104,6 +104,34 @@ impl ExportService {
         C: CancellationToken,
         P: ProgressReporter,
     {
+        let outcome = self.build_without_current(
+            output_directory,
+            request,
+            frame_source,
+            cancellation,
+            progress,
+        )?;
+        self.publish_current(output_directory, &outcome, cancellation, progress)?;
+        Ok(outcome)
+    }
+
+    /// Creates or reuses a validated, content-addressed build without changing `current.json`.
+    /// This lets compound exporters finish all derived artifacts before publishing one atomic
+    /// pointer update. A failed or cancelled compound export may leave this immutable build as an
+    /// orphan; a later identical request can validate and reuse it.
+    pub fn build_without_current<S, C, P>(
+        &self,
+        output_directory: &Path,
+        request: &ExportRequest,
+        frame_source: &mut S,
+        cancellation: &C,
+        progress: &mut P,
+    ) -> Result<ExportOutcome, ExportError>
+    where
+        S: FrameSource,
+        C: CancellationToken,
+        P: ProgressReporter,
+    {
         let prepared = self.preflight(request)?;
         progress.report(ExportProgress {
             stage: ExportStage::Preflight,
@@ -157,13 +185,64 @@ impl ExportService {
             progress,
             fingerprint: &fingerprint,
         })?;
-        self.publish_stage(
+        self.publish_build_stage(output.as_path(), &mut stage, fingerprint)
+    }
+
+    /// Publishes `current.json` only after revalidating the referenced managed build.
+    pub fn publish_current<C, P>(
+        &self,
+        output_directory: &Path,
+        outcome: &ExportOutcome,
+        cancellation: &C,
+        progress: &mut P,
+    ) -> Result<(), ExportError>
+    where
+        C: CancellationToken,
+        P: ProgressReporter,
+    {
+        let fingerprint = &outcome.manifest.source_fingerprint;
+        let build_name = format!("build-{}", fingerprint.as_str());
+        if outcome.build.as_str() != build_name {
+            return Err(ExportError::InvalidBuild(
+                "export outcome does not identify its fingerprinted managed build".to_owned(),
+            ));
+        }
+        let output = self
+            .output_root
+            .ensure_directory(output_directory)
+            .map_err(|error| ExportError::InvalidRequest(error.to_string()))?;
+        let build_path = output.as_path().join(&build_name);
+        let published_manifest = validated_fingerprint(&build_path, fingerprint)?;
+        if published_manifest != outcome.manifest {
+            return Err(ExportError::InvalidBuild(
+                "managed build changed after it was prepared for publication".to_owned(),
+            ));
+        }
+        progress.report(ExportProgress {
+            stage: ExportStage::Publishing,
+            completed: 0,
+            total: 1,
+            message: "Updating current.json after successful build validation".to_owned(),
+        });
+        ensure_not_cancelled(cancellation)?;
+        write_current(
             output.as_path(),
-            &mut stage,
-            fingerprint,
-            cancellation,
-            progress,
-        )
+            &CurrentExport {
+                schema_version: 1,
+                format_version: 1,
+                build: outcome.build.clone(),
+                manifest: RelativePath::parse(format!("{build_name}/animation.json"))?,
+                source_fingerprint: fingerprint.clone(),
+                complete: published_manifest.complete,
+            },
+        )?;
+        progress.report(ExportProgress {
+            stage: ExportStage::Publishing,
+            completed: 1,
+            total: 1,
+            message: "Published current.json".to_owned(),
+        });
+        Ok(())
     }
 
     fn assemble_stage<C, P>(
@@ -237,47 +316,17 @@ impl ExportService {
         Ok(fingerprint.clone())
     }
 
-    fn publish_stage<C, P>(
+    fn publish_build_stage(
         &self,
         output: &Path,
         stage: &mut StageGuard,
         fingerprint: Sha256Digest,
-        cancellation: &C,
-        progress: &mut P,
-    ) -> Result<ExportOutcome, ExportError>
-    where
-        C: CancellationToken,
-        P: ProgressReporter,
-    {
+    ) -> Result<ExportOutcome, ExportError> {
         let build_name = format!("build-{}", fingerprint.as_str());
         let build_path = output.join(&build_name);
         let reused_existing_build = publish_build(stage, &build_path, &fingerprint)?;
         let published_manifest = validated_fingerprint(&build_path, &fingerprint)?;
-        ensure_not_cancelled(cancellation)?;
-        progress.report(ExportProgress {
-            stage: ExportStage::Publishing,
-            completed: 0,
-            total: 1,
-            message: "Updating current.json after successful build validation".to_owned(),
-        });
         let build = RelativePath::parse(&build_name)?;
-        write_current(
-            output,
-            &CurrentExport {
-                schema_version: 1,
-                format_version: 1,
-                build: build.clone(),
-                manifest: RelativePath::parse(format!("{build_name}/animation.json"))?,
-                source_fingerprint: fingerprint,
-                complete: published_manifest.complete,
-            },
-        )?;
-        progress.report(ExportProgress {
-            stage: ExportStage::Publishing,
-            completed: 1,
-            total: 1,
-            message: "Published current.json".to_owned(),
-        });
         Ok(ExportOutcome {
             build,
             manifest: published_manifest,

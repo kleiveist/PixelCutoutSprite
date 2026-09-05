@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P16 abgeschlossen; P17 ist der nächste Schritt
+**Implementierung:** P00–P17 abgeschlossen; P18 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -150,6 +150,15 @@ Abbruch und ein ausschließlich `current.json` folgender NPC-Status sind in die 
 integriert. Frei gelieferte Zielpfade werden in P16 nicht als Schreibauthority akzeptiert; der
 verwaltete Vault-Baum bleibt die portable kanonische Ausgabegrenze für P17.
 
+P17 leitet aus genau diesem validierten Build portable Godot-Ressourcen ab. Der native
+`GodotExporter` erzeugt eine `SpriteFrames`-Bibliothek aus `AtlasTexture`-Rechtecken und optional
+eine skript-, kollisions- und skelettfreie `AnimatedSprite2D`-Szene mit gemeinsamem Bodenursprung
+und Nearest-Filter. Inhaltsadressierte Pakete werden vor Wiederverwendung bytegenau gegen Quelle
+und deterministisch neu erzeugten Text geprüft; Symlinks und nicht reguläre Einträge sind verboten.
+Der generische Pointer bleibt bis zur abschließenden Paketvalidierung unverändert. Godot 4.7.2
+importiert Loop- und Once-Ressourcen sowie die optionale Szene im isolierten frischen Projekt aus
+Unicode-/Leerzeichenpfaden und nach cachefreier Verzeichnisverschiebung.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -179,7 +188,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P14](../prompts/pixelcutoutsprite/14.md) | Ausrüstung und optionale Eigenbewegung | Abgeschlossen |
 | [P15](../prompts/pixelcutoutsprite/15.md) | NPC-Dashboard, Mehrfachanimationen und Revisionen | Abgeschlossen |
 | [P16](../prompts/pixelcutoutsprite/16.md) | Generischer PNG-/JSON-Export | Abgeschlossen |
-| [P17](../prompts/pixelcutoutsprite/17.md) | Portables Godot-Paket und echter Importtest | Nicht begonnen |
+| [P17](../prompts/pixelcutoutsprite/17.md) | Portables Godot-Paket und echter Importtest | Abgeschlossen |
 | [P18](../prompts/pixelcutoutsprite/18.md) | Recovery, Autosave und Datenintegrität härten | Nicht begonnen |
 | [P19](../prompts/pixelcutoutsprite/19.md) | Desktop-Usability und Leistung prüfen | Nicht begonnen |
 | [P20](../prompts/pixelcutoutsprite/20.md) | Native Builds, Tooling und Codespaces | Nicht begonnen |
@@ -209,10 +218,11 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P14: mehrteilige starre Ausrüstung, getrennte Zustände, optionale Transformspuren und Acht-Richtungs-Rendering erstellt und gegatet.
 - [x] P15: NPC-Dashboard/-Detail, Mehrfachbindungen, Freigaben, explizite Revisionsübernahme, lokale Overrides sowie Duplizieren/Umbenennen erstellt und gegatet.
 - [x] P16: gemeinsamen Multi-Action-PNG-/JSON-Export, Atlanten, optionale Einzelbilder, Profile, Fingerprint, validierte Veröffentlichung und native Jobs erstellt und gegatet.
+- [x] P17: portable Godot-`SpriteFrames`, optionale sichere Szene, deterministische Paketwiederverwendung, atomaren Jobabschluss und echten cachefreien Godot-4.7.2-Import erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
 - [x] Meilenstein C: Figuren, P12–P15.
-- [ ] Meilenstein D: Spieleinbindung, P16 abgeschlossen; P17 offen.
+- [x] Meilenstein D: Spieleinbindung, P16–P17.
 - [ ] Meilenstein E: belastbare Desktop-Version, P18–P22.
 
 Bei jeder Phasenänderung ergänzen: Datum, tatsächlicher Umfang, betroffene Dateien, Prüfungen und nächster Schritt. Noch nicht geprüfte Plattformen werden nicht als fertig markiert.
@@ -413,6 +423,16 @@ Registry besitzt deshalb das Cancellation-Flag und hält den terminalen Zustand 
 Desktop-Ereignisse als auch für Polling bereit. Navigation wartet auf die native Bestätigung,
 statt nur den Dialog zu schließen.
 
+**2026-09-05 / P17:** Ein bereits vorhandenes Verzeichnis mit passendem Fingerabdruck ist noch
+kein wiederverwendbares Godot-Paket. Manifest, deklarierte PNGs, `SpriteFrames`, optionale Szene
+und Einbindungsanleitung werden erneut gelesen und bytegenau gegen die deterministische Ableitung
+geprüft; Links, Sockets und fremde Dateien schließen Wiederverwendung aus.
+
+**2026-09-05 / P17:** Der Flatpak-Sandbox-`/tmp` ist für einen per `flatpak-spawn --host`
+gestarteten Godot-Prozess nicht derselbe Pfadraum. Der Wegwerftest liegt deshalb unterhalb des
+Checkouts, isoliert trotzdem HOME/XDG vollständig und entfernt seine Daten beim Testende. So prüft
+derselbe Harness sowohl einen direkten Binary-Aufruf als auch den tatsächlichen Host-Runner.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -436,6 +456,7 @@ statt nur den Dialog zu schließen.
 | ADR-018 | Binding-Revisionen werden nur ausdrücklich übernommen; vorhandene Equipment-Keys müssen vollständig in den Ziel-Framebereich passen. | Bewahrt reproduzierbare NPCs und verhindert stilles Abschneiden oder ungefragtes Retiming gemeinsam genutzter Ausrüstung. |
 | ADR-019 | Exportaktualität wird aus einem kanonischen Fingerabdruck der effektiv festgehaltenen Quellen abgeleitet, nicht aus dem jeweils neuesten Katalogstand oder Prüfmetadaten. | Ungenutzte Releases und reine Freigaben dürfen einen visuell unveränderten Build nicht als veraltet markieren. |
 | ADR-020 | Generische Builds werden in einem inhaltsadressierten, verwalteten NPC-/Binding-Ziel veröffentlicht; nur ein validiertes `current.json` bezeichnet den aktuellen Stand. | Verhindert beliebige IPC-Schreibpfade, verwaiste Build-Auswahl und die Beschädigung des letzten guten Exports durch Abbruch oder einen fehlerhaften neuen Build. |
+| ADR-021 | Ein Godot-Job baut zuerst den unveränderlichen generischen Build und das vollständige abgeleitete Paket; erst danach darf derselbe Job `current.json` publizieren. | Ein fehlgeschlagenes oder abgebrochenes Engine-Paket darf keinen nur teilweise erfolgreichen Gesamtzustand als aktuell markieren; sichere inhaltsadressierte Orphans bleiben wiederverwendbar. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -520,6 +541,11 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P16 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 156 Tests und alle Compiler-/Formatgates | Derselbe gespeicherte Outfit-/Equipment-Renderpfad speist Vorschau und Export; aktuelle/incomplete/korrupte Builds, reale PNG-Verifikation und Jobguards sind in der Gesamtsuite enthalten. |
 | 2026-09-05 / P16 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 122 Tests in 32 Dateien und alle Frontend-Gates | Exportprofile, native Jobereignisse plus Polling, genau ein Abbruch, persistente Auswahl, Read-only, Navigation und Ausgabezustände sind abgedeckt; der Build umfasst 109 Module. |
 | 2026-09-05 / P16 | `tools/control.py docs check`, `quality architecture`, `tauri test --cargo --build-dry-run` und stabile Source-Policytests | Linux-Host, Python 3.13.15 | PASS | 142 Dokumentseiten konsistent, TypeScript-AST parst 125 Dateien, Desktopprofil/Cargo/native Dry-Run sind intakt und 16 Repository-Vertragstests bestehen. Die breite Migration einer lokal neueren PyGitIndex-Version wurde nicht übernommen; nur der bestehende dokumentierte Indexvertrag wurde ergänzt. |
+| 2026-09-05 / P17 | fokussierte Godot-, Profil- und echte NPC-/Outfit-Tests | Linux-Host, Rust 1.97.1 | PASS: 45 Tests | Sechs Paketfälle und 36 reale Outfit-/NPC-Fälle belegen portable Ressourcen, optionale Szene, Byte-Reuse, Mutations-/Dateitypschutz, Abbruch, alten Pointer, Retry und den vollständigen P15→Godot-Pfad; drei Profilfälle belegen strikte neue Requests und lesbare alte Speicherstände. |
+| 2026-09-05 / P17 | cachefreier Engine-Import über `flatpak-spawn --host /usr/bin/godot` | Linux-Host, Godot `4.7.2.stable.arch_linux.ed1daf0bf` | PASS: 1 Test in 8.22 s | Isolierte HOME-/XDG-Pfade, Loop und Once, Scene und Resources-only, Namen, Frames, FPS, Atlasrechtecke, externe PNGs, sicherer Szenenbaum, Leerzeichen/Unicode sowie erneuter Import nach Verschieben und Cachelöschung sind tatsächlich geladen. |
+| 2026-09-05 / P17 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 167 Tests, 1 explizit separat ausgeführter Godot-Test und alle Compiler-/Formatgates | Der vollständige Rust-Bestand bleibt grün; der normalerweise ignorierte Engine-Test wurde im vorigen Gate mit der exakt zugesicherten Version ausgeführt. |
+| 2026-09-05 / P17 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 126 Tests in 32 Dateien und alle Frontend-Gates | Format-/Szenenwahl, Profilroundtrip, Vollständigkeitsgate, native snake_case-Daten, Godot-Fortschritt, atomarer Abbruchhinweis, verwaltete Ausgabe und Navigation sind abgedeckt; der Build umfasst 109 Module. |
+| 2026-09-05 / P17 | `tools/control.py docs check`, `quality architecture`, `tauri test --cargo --build-dry-run` und stabile Source-Policytests | Linux-Host, Python 3.13.15 | PASS | Navigation für 90 vom bestehenden Index erfasste Dokumentseiten konsistent, TypeScript-AST parst 125 Dateien, Desktopprofil/Cargo/native Dry-Run sind intakt und 16 Repository-Vertragstests bestehen. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -529,8 +555,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P17 für das portable Godot-Paket und den echten Headless-
-Importtest ausführen.
+**Nächster ausführbarer Schritt:** P18 für Recovery, Autosave und Datenintegrität auf der
+realen Bearbeitungs- und Exportkette ausführen.
 
 ## Outcomes & Retrospective
 
@@ -584,5 +610,10 @@ engine-neutrales JSON-Manifest. Der Desktopdialog speichert bereichseigene Profi
 NPC-Bindings, meldet native Jobfortschritte und wartet bei Abbruch auf Rust. Inhaltsadressierte
 Builds, vollständige Artefaktprüfung und der zuletzt ersetzte `current.json` halten Wiederholung,
 Aktualität, unvollständige Tests und Fehlerzustände voneinander getrennt.
+P17 ergänzt darauf eine kontrollierte Godot-Ableitung, ohne das generische Manifest zur zweiten
+Wahrheit zu machen. Relative Atlasressourcen, optionaler sicherer Szenenbaum, exakte Reuse-
+Prüfung und die verzögerte gemeinsame Pointer-Veröffentlichung sind im nativen Desktopjob
+verbunden. Der reale Godot-4.7.2-Harness beweist den Import ohne Vault, alte Caches oder stabile
+Ausgabepfade und wiederholt ihn nach einer Unicode-Verzeichnisverschiebung.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

@@ -32,7 +32,7 @@ Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository 
 
 ## Aktueller Arbeitsauftrag
 
-P00 bis P16 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
+P00 bis P17 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
 Projekt-Dashboard über ein exakt skaliertes humanoides Gebiet in die Animationsbibliothek.
 Vorlagen, mutable `draft.json`-Arbeitsstände und unveränderliche Freigaben liegen als gewöhnliche
 Dateien in ihrem Bereich. Karten besitzen Dropdown-Filter und explizite Wege zum Dummy sowie zum
@@ -71,8 +71,13 @@ Extrusion, Schatten, optionale Einzelbilder und ausdrücklich markierte Testausg
 rendert zunächst in ein eigenes Staging, validiert dekodierte Pixel und Inhalts-Hashes und ersetzt
 `current.json` erst nach erfolgreicher Veröffentlichung; Abbruch erhält den vorherigen guten
 Pointer. Fortschritt, nativer Abbruch, Read-only-Schutz und Exportaktualität sind in der
-Desktop-Oberfläche verbunden. Der nächste Schritt ist P17 für das portable Godot-Paket und den
-echten Headless-Importtest.
+Desktop-Oberfläche verbunden. Zusätzlich erzeugt derselbe native Job ein vollständig geprüftes,
+inhaltsadressiertes Godot-Paket mit relativen PNG-Verweisen, `SpriteFrames` und optionaler
+`AnimatedSprite2D`-Szene. Der generische `current.json`-Pointer wird dabei erst ersetzt, nachdem
+auch das Godot-Paket validiert ist. Ein cachefreier Headless-Test mit Godot 4.7.2 lädt Loop- und
+Once-Animationen, Atlasrechtecke sowie die optionale Szene aus Verzeichnissen mit Leerzeichen und
+Unicode, entfernt die ursprüngliche Vault-Ausgabe und wiederholt die Prüfung nach dem Verschieben
+des Pakets. Der nächste Schritt ist P18 für Recovery-, Autosave- und Datenintegritätshärtung.
 
 ## Leitentscheidungen
 

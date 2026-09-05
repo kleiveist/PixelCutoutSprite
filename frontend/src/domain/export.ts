@@ -27,6 +27,7 @@ export interface EffectiveSource {
 
 export type ExportRootMotionMode = "baked" | "external";
 export type ExportJumpMode = "baked" | "external";
+export type ExportFormat = "png_json" | "godot_package";
 export type ClippingPolicy = "block" | "warn";
 
 export interface ExportProfileSnapshot {

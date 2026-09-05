@@ -35,9 +35,9 @@ exports/ oder _exports/
     └── frames/                 # nur auf ausdrücklichen Wunsch
 ```
 
-P16 nimmt absichtlich keinen frei über IPC gelieferten Schreibpfad an. Das Studio publiziert
-zunächst in seinem verwalteten, portablen Vault-Baum; die zusätzliche Engine-Paketierung und deren
-portabler Übergabepfad folgen in P17.
+Das Studio nimmt keinen frei über IPC gelieferten Schreibpfad an. Es publiziert in seinem
+verwalteten, portablen Vault-Baum. P17 ergänzt dort das abgeleitete
+[Godot-Paket](../formats/godot-package.md), ohne den generischen Vertrag zu ersetzen.
 
 ## Profile und Vorprüfung
 
@@ -68,9 +68,11 @@ Fingerabdruck.
 
 Frames werden zuerst in einem jobspezifischen Staging-Verzeichnis gerendert, gepackt, vollständig
 dekodiert und gegen Rechtecke sowie RGBA-Hashes geprüft. Erst danach wird der inhaltsadressierte
-Build publiziert und zuletzt `current.json` ersetzt. Ein gleicher Fingerabdruck darf nur einen
-bereits vollständig validierten, pixelgleichen Build wiederverwenden. Verwaiste Build-Ordner und
-beliebige neuere JSON-Dateien werden nicht als aktuelle Ausgabe interpretiert.
+Build publiziert. Ein normaler PNG-/JSON-Job ersetzt zuletzt `current.json`; ein Godot-Job wartet
+damit zusätzlich, bis alle abgeleiteten Ressourcen validiert und publiziert sind. Ein gleicher
+Fingerabdruck darf nur einen bereits vollständig validierten, pixelgleichen Build beziehungsweise
+ein bytegleiches Godot-Paket wiederverwenden. Verwaiste Build-/Paketordner und beliebige neuere
+JSON-Dateien werden nicht als aktuelle Ausgabe interpretiert.
 
 ## Fortschritt und Abbruch
 

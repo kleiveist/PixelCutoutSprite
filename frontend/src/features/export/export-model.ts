@@ -1,6 +1,7 @@
 import type {
   ClippingPolicy,
   Direction,
+  ExportFormat,
   ExportJumpMode,
   ExportProfileSnapshot,
   ExportRootMotionMode,
@@ -15,6 +16,8 @@ export const PAGE_SIZES = [512, 1024, 2048, 4096] as const;
 const PROFILE_KEYS = [
   "id",
   "name",
+  "format",
+  "includeGodotScene",
   "directions",
   "maxPageSizePx",
   "maxPages",
@@ -33,6 +36,8 @@ const PROFILE_KEYS = [
 export interface ExportProfile {
   id: string;
   name: string;
+  format: ExportFormat;
+  includeGodotScene: boolean;
   directions: Direction[];
   maxPageSizePx: (typeof PAGE_SIZES)[number];
   maxPages: number;
@@ -75,6 +80,8 @@ export interface ExportGeometryInput {
 export const DEFAULT_EXPORT_PROFILE: ExportProfile = {
   id: "portable-png-json",
   name: "Portable PNG + JSON",
+  format: "png_json",
+  includeGodotScene: true,
   directions: [...EXPORT_DIRECTIONS],
   maxPageSizePx: 2048,
   maxPages: 64,
@@ -106,6 +113,8 @@ export function validateExportProfile(profile: ExportProfile, frameSizePx?: Pixe
     issues.push("Profile name must contain 1–120 characters without outer whitespace.");
   if (/\p{Cc}/u.test(profile.name))
     issues.push("Profile name must not contain control characters.");
+  if (profile.format !== "png_json" && profile.format !== "godot_package")
+    issues.push("Format must be PNG/JSON or a Godot package.");
   const canonical = EXPORT_DIRECTIONS.filter((direction) => profile.directions.includes(direction));
   if (
     profile.directions.length === 0 ||
@@ -115,6 +124,8 @@ export function validateExportProfile(profile: ExportProfile, frameSizePx?: Pixe
     issues.push("Directions must be unique and use the canonical N through NW order.");
   if (profile.directions.length !== EXPORT_DIRECTIONS.length && !profile.allowIncompleteTest)
     issues.push("A direction subset requires an explicitly marked incomplete test export.");
+  if (profile.format === "godot_package" && profile.directions.length !== EXPORT_DIRECTIONS.length)
+    issues.push("Godot packages require all eight directions.");
   if (!PAGE_SIZES.includes(profile.maxPageSizePx))
     issues.push("Atlas page size must be one of the supported desktop limits.");
   if (!Number.isInteger(profile.paddingPx) || profile.paddingPx < 0 || profile.paddingPx > 64)
@@ -151,6 +162,7 @@ export function validateExportProfile(profile: ExportProfile, frameSizePx?: Pixe
     ["Shadow", profile.includeShadow],
     ["Geometry normalization", profile.normalizeGeometry],
     ["Incomplete-test", profile.allowIncompleteTest],
+    ["Godot scene", profile.includeGodotScene],
   ] as const) {
     if (typeof value !== "boolean") issues.push(`${label} must be a boolean.`);
   }
@@ -253,6 +265,8 @@ export function fromStoredExportProfile(stored: StoredNpcExportProfile): ExportP
   const profile: ExportProfile = {
     id: stored.id,
     name: stored.profile.name,
+    format: stored.format,
+    includeGodotScene: stored.include_godot_scene,
     directions: [...stored.profile.directions],
     maxPageSizePx: size[0] as ExportProfile["maxPageSizePx"],
     maxPages: stored.profile.max_pages,
@@ -290,6 +304,8 @@ export function parseExportProfile(source: string): ExportProfile {
   const candidate: ExportProfile = {
     id: requireString(raw.id, "id"),
     name: requireString(raw.name, "name"),
+    format: requireEnum(raw.format, ["png_json", "godot_package"], "format"),
+    includeGodotScene: requireBoolean(raw.includeGodotScene, "includeGodotScene"),
     directions: requireDirections(raw.directions),
     maxPageSizePx: requireNumber(
       raw.maxPageSizePx,

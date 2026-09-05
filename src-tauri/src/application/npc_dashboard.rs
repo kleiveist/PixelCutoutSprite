@@ -714,6 +714,8 @@ fn managed_current_status(
         profile: current.manifest.profile.clone(),
         root_motion_mode: first_action.root_motion_mode,
         jump_mode: first_action.jump_mode,
+        format: super::ExportOutputFormat::PngJson,
+        include_godot_scene: true,
     };
     let prepared = match NpcExportService.prepare(vault, area_path, request) {
         Ok(prepared) if prepared.output_directory == output => prepared,

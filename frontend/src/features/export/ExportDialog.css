@@ -196,6 +196,11 @@
 
 .export-success {
   color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.export-success code {
+  color: inherit;
 }
 
 .export-dialog-actions {

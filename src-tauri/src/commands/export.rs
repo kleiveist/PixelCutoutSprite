@@ -9,7 +9,7 @@ use crate::application::{
     StoredNpcExportProfile, VaultService,
 };
 use crate::domain::ObjectId;
-use crate::exports::{ExportError, ExportService};
+use crate::exports::ExportError;
 
 use super::outfit::{locked_area_session, refresh};
 
@@ -105,26 +105,20 @@ pub fn start_npc_export<R: Runtime>(
     let job_id = job.job_id;
     tauri::async_runtime::spawn_blocking(move || {
         let result = catch_unwind(AssertUnwindSafe(|| {
-            let mut source = prepared.frame_source;
-            let exporter = ExportService::new(root, env!("CARGO_PKG_VERSION"));
             let mut report = |progress| {
                 let registry = app.state::<ExportJobRegistry>();
                 if let Ok(view) = registry.report(job_id, progress) {
                     let _ = app.emit(EXPORT_PROGRESS_EVENT, view);
                 }
             };
-            exporter.export(
-                &prepared.output_directory,
-                &prepared.request,
-                &mut source,
-                &cancellation,
-                &mut report,
-            )
+            NpcExportService.execute_prepared(&root, prepared, &cancellation, &mut report)
         }));
         let registry = app.state::<ExportJobRegistry>();
         let terminal = match result {
             Ok(Ok(outcome)) => registry.complete(job_id, outcome),
-            Ok(Err(ExportError::Cancelled)) => registry.cancelled(job_id),
+            Ok(Err(crate::application::NpcExportError::Export(ExportError::Cancelled))) => {
+                registry.cancelled(job_id)
+            }
             Ok(Err(error)) => registry.failed(job_id, error.to_string()),
             Err(_) => registry.failed(job_id, "export worker stopped unexpectedly".to_owned()),
         };

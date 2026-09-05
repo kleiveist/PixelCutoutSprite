@@ -13,7 +13,7 @@ describe("workspace navigation", () => {
     expect(routeDetails("export")).toMatchObject({
       label: "Export",
       available: true,
-      description: expect.not.stringMatching(/godot/i),
+      description: expect.stringMatching(/godot/i),
     });
   });
 

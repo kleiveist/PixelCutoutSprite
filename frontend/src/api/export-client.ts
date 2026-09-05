@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 
 import type {
   Direction,
+  ExportFormat,
   ExportJumpMode,
   ExportProfileSnapshot,
   ExportRootMotionMode,
@@ -40,6 +41,8 @@ export interface NpcExportInspection {
 export interface StartNpcExportRequest {
   character_id: string;
   binding_ids: string[];
+  format: ExportFormat;
+  include_godot_scene: boolean;
   profile: ExportProfileSnapshot;
   root_motion_mode: ExportRootMotionMode;
   jump_mode: ExportJumpMode;
@@ -48,6 +51,8 @@ export interface StartNpcExportRequest {
 export interface StoredNpcExportProfile {
   id: string;
   revision: number;
+  format: ExportFormat;
+  include_godot_scene: boolean;
   profile: ExportProfileSnapshot;
   root_motion_mode: ExportRootMotionMode;
   jump_mode: ExportJumpMode;
@@ -56,6 +61,8 @@ export interface StoredNpcExportProfile {
 export interface SaveNpcExportProfileRequest {
   profile_id: string | null;
   expected_revision: number | null;
+  format: ExportFormat;
+  include_godot_scene: boolean;
   profile: ExportProfileSnapshot;
   root_motion_mode: ExportRootMotionMode;
   jump_mode: ExportJumpMode;
@@ -64,7 +71,7 @@ export interface SaveNpcExportProfileRequest {
 export type ExportJobState = "queued" | "running" | "completed" | "cancelled" | "failed";
 
 export interface ExportProgress {
-  stage: "preflight" | "rendering" | "packing" | "validating" | "publishing";
+  stage: "preflight" | "rendering" | "packing" | "validating" | "publishing" | "godot_packaging";
   completed: number;
   total: number;
   message: string;
@@ -75,6 +82,15 @@ export interface ExportJobResult {
   source_fingerprint: string;
   complete: boolean;
   reused_existing_build: boolean;
+  format: ExportFormat;
+  godot_package: GodotPackageResult | null;
+}
+
+export interface GodotPackageResult {
+  package_directory: string;
+  animation_names: string[];
+  scene: string | null;
+  reused_existing_package: boolean;
 }
 
 export interface ExportJobView {
@@ -130,8 +146,8 @@ const TERMINAL_STATES: readonly ExportJobState[] = ["completed", "cancelled", "f
 const POLL_INTERVAL_MS = 200;
 
 export class ExportCancelledError extends Error {
-  constructor() {
-    super("Export cancelled. The last good build is unchanged.");
+  constructor(message = "Export cancelled. The last good build is unchanged.") {
+    super(message);
     this.name = "ExportCancelledError";
   }
 }
@@ -263,9 +279,20 @@ function terminalResult(view: ExportJobView): ExportJobResult {
     case "completed":
       if (!view.result || view.error)
         throw new Error("Native export completed without a valid result.");
+      if (view.result.format !== "png_json" && view.result.format !== "godot_package")
+        throw new Error("Native export completed with an unsupported output format.");
+      if (
+        (view.result.format === "godot_package" && !view.result.godot_package) ||
+        (view.result.format === "png_json" && view.result.godot_package)
+      )
+        throw new Error("Native export completed with mismatched output metadata.");
       return view.result;
     case "cancelled":
-      throw new ExportCancelledError();
+      throw new ExportCancelledError(
+        view.progress?.stage === "godot_packaging"
+          ? "Godot packaging cancelled; previous generic current and previous Godot package unchanged. Validated orphan artifacts may remain."
+          : undefined,
+      );
     case "failed":
       throw new Error(view.error ?? "Native export failed without an error message.");
     default:

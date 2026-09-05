@@ -20,6 +20,7 @@
 - 📦 [Deterministic PNG/JSON export](features/generic-export.md)
 - 🎨 [PixelCutoutSprite Studio specification](features/pixelcutoutsprite-studio.md)
 - 🧾 [Data formats](formats/formats.md)
+- 🎮 [Godot package integration](formats/godot-package.md)
 - 🔐 [JSON contract version 1](formats/json-contracts.md)
 - 🗺️ [Plans](plans/plans.md)
 - 🧭 [PixelCutoutSprite Studio ExecPlan](plans/pixelcutoutsprite-execplan.md)

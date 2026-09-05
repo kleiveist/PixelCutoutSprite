@@ -17,7 +17,8 @@ use crate::domain::{
 };
 use crate::exports::{
     motion_semantic_sha256, CancellationToken, ExportActionInput, ExportError, ExportOutcome,
-    ExportRequest, ExportService, FrameContext, FrameSource, FrameSourceError, ProgressReporter,
+    ExportRequest, ExportService, FrameContext, FrameSource, FrameSourceError, GodotExportOptions,
+    GodotExporter, GodotPackageOutcome, ProgressReporter,
 };
 use crate::storage::{StorageError, VaultRoot};
 
@@ -36,6 +37,16 @@ pub struct StartNpcExportRequest {
     pub profile: ExportProfileSnapshot,
     pub root_motion_mode: ExportRootMotionMode,
     pub jump_mode: ExportJumpMode,
+    pub format: ExportOutputFormat,
+    pub include_godot_scene: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ExportOutputFormat {
+    #[default]
+    PngJson,
+    GodotPackage,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -81,6 +92,15 @@ pub(crate) struct PreparedNpcExport {
     pub(crate) output_directory: PathBuf,
     pub(crate) request: ExportRequest,
     pub(crate) frame_source: PersistedNpcFrameSource,
+    pub(crate) format: ExportOutputFormat,
+    pub(crate) include_godot_scene: bool,
+}
+
+#[derive(Debug)]
+pub struct NpcExportExecutionOutcome {
+    pub generic: ExportOutcome,
+    pub format: ExportOutputFormat,
+    pub godot_package: Option<GodotPackageOutcome>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -168,17 +188,87 @@ impl NpcExportService {
         C: CancellationToken,
         P: ProgressReporter,
     {
+        self.execute(vault, area_path, request, cancellation, progress)
+            .map(|outcome| outcome.generic)
+    }
+
+    pub fn execute<C, P>(
+        &self,
+        vault: &VaultRoot,
+        area_path: &Path,
+        request: StartNpcExportRequest,
+        cancellation: &C,
+        progress: &mut P,
+    ) -> Result<NpcExportExecutionOutcome, NpcExportError>
+    where
+        C: CancellationToken,
+        P: ProgressReporter,
+    {
         let prepared = self.prepare(vault, area_path, request)?;
-        let mut source = prepared.frame_source;
-        ExportService::new(vault.clone(), env!("CARGO_PKG_VERSION"))
-            .export(
-                &prepared.output_directory,
-                &prepared.request,
-                &mut source,
+        self.execute_prepared(vault, prepared, cancellation, progress)
+    }
+
+    pub(crate) fn execute_prepared<C, P>(
+        &self,
+        vault: &VaultRoot,
+        prepared: PreparedNpcExport,
+        cancellation: &C,
+        progress: &mut P,
+    ) -> Result<NpcExportExecutionOutcome, NpcExportError>
+    where
+        C: CancellationToken,
+        P: ProgressReporter,
+    {
+        let PreparedNpcExport {
+            output_directory,
+            request,
+            mut frame_source,
+            format,
+            include_godot_scene,
+        } = prepared;
+        let export_service = ExportService::new(vault.clone(), env!("CARGO_PKG_VERSION"));
+        let (generic, godot_package) = if format == ExportOutputFormat::GodotPackage {
+            let generic = export_service.build_without_current(
+                &output_directory,
+                &request,
+                &mut frame_source,
                 cancellation,
                 progress,
-            )
-            .map_err(Into::into)
+            )?;
+            let generic_build = vault.resolve(&output_directory.join(generic.build.as_str()))?;
+            let package_directory = managed_godot_package_directory(
+                &output_directory,
+                &generic.manifest.source_fingerprint,
+                include_godot_scene,
+            );
+            let godot_package = GodotExporter::new(vault.clone()).export_with_control(
+                generic_build.as_path(),
+                &package_directory,
+                GodotExportOptions {
+                    include_scene: include_godot_scene,
+                },
+                cancellation,
+                progress,
+            )?;
+            // The generic build and derived package are both validated before one final,
+            // cancellation-aware publication of the managed current pointer.
+            export_service.publish_current(&output_directory, &generic, cancellation, progress)?;
+            (generic, Some(godot_package))
+        } else {
+            let generic = export_service.export(
+                &output_directory,
+                &request,
+                &mut frame_source,
+                cancellation,
+                progress,
+            )?;
+            (generic, None)
+        };
+        Ok(NpcExportExecutionOutcome {
+            generic,
+            format,
+            godot_package,
+        })
     }
 
     pub(crate) fn prepare(
@@ -187,6 +277,13 @@ impl NpcExportService {
         area_path: &Path,
         request: StartNpcExportRequest,
     ) -> Result<PreparedNpcExport, NpcExportError> {
+        if request.format == ExportOutputFormat::GodotPackage
+            && request.profile.allow_incomplete_test
+        {
+            return Err(NpcExportError::Invalid(
+                "Godot packages require a complete export; disable incomplete test mode".to_owned(),
+            ));
+        }
         request.profile.validate().map_err(|error| {
             NpcExportError::Invalid(format!("export profile is invalid: {error}"))
         })?;
@@ -338,6 +435,8 @@ impl NpcExportService {
             managed_output_directory(area_path, &snapshot, character.id, &bindings)?;
         Ok(PreparedNpcExport {
             output_directory,
+            format: request.format,
+            include_godot_scene: request.include_godot_scene,
             request: ExportRequest {
                 character_id: character.id,
                 sources,
@@ -356,6 +455,18 @@ impl NpcExportService {
             },
         })
     }
+}
+
+fn managed_godot_package_directory(
+    output_directory: &Path,
+    fingerprint: &Sha256Digest,
+    include_scene: bool,
+) -> PathBuf {
+    output_directory.join("godot-packages").join(format!(
+        "build-{}-{}",
+        fingerprint.as_str(),
+        if include_scene { "scene" } else { "resources" }
+    ))
 }
 
 pub(crate) struct PersistedNpcFrameSource {

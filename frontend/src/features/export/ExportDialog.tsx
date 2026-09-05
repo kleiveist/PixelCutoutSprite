@@ -224,6 +224,8 @@ export function ExportDialog({
         {
           character_id: matchingInspection.character_id,
           binding_ids: selectedBindings.map((binding) => binding.binding_id),
+          format: profile.format,
+          include_godot_scene: profile.format === "godot_package" && profile.includeGodotScene,
           profile: toProfileSnapshot(profile),
           root_motion_mode: profile.rootMotionMode,
           jump_mode: profile.jumpMode,
@@ -305,7 +307,11 @@ export function ExportDialog({
         <header>
           <div>
             <span className="phase-tag">DETERMINISTIC BUILD</span>
-            <h2 id="export-dialog-title">Export PNG sheets + JSON</h2>
+            <h2 id="export-dialog-title">
+              {profile.format === "godot_package"
+                ? "Export Godot package + PNG/JSON"
+                : "Export PNG sheets + JSON"}
+            </h2>
           </div>
           <button
             className="icon-button"
@@ -415,8 +421,15 @@ export function ExportDialog({
               </label>
               <label>
                 Format
-                <select aria-label="Format" value="png_json" disabled>
+                <select
+                  aria-label="Format"
+                  value={profile.format}
+                  onChange={(event) =>
+                    update("format", event.currentTarget.value as ExportProfile["format"])
+                  }
+                >
                   <option value="png_json">PNG sheets + JSON</option>
+                  <option value="godot_package">Godot package + PNG/JSON</option>
                 </select>
               </label>
               <label>
@@ -547,6 +560,14 @@ export function ExportDialog({
               disabled={active}
               onChange={(value) => update("includeShadow", value)}
             />
+            {profile.format === "godot_package" && (
+              <Check
+                label="Include AnimatedSprite2D scene"
+                checked={profile.includeGodotScene}
+                disabled={active}
+                onChange={(value) => update("includeGodotScene", value)}
+              />
+            )}
             <Check
               label="Normalize with transparent padding"
               checked={profile.normalizeGeometry}
@@ -562,7 +583,14 @@ export function ExportDialog({
           </div>
 
           <p className="export-managed-target">
-            Managed target: {bindingId === "all" ? "portable NPC package" : "binding export folder"}
+            Managed target:{" "}
+            {profile.format === "godot_package"
+              ? bindingId === "all"
+                ? "portable Godot NPC package"
+                : "Godot binding package"
+              : bindingId === "all"
+                ? "portable NPC package"
+                : "binding export folder"}
           </p>
           <output className="export-estimate" aria-label="Export estimate">
             {estimate.renderedFrames} frames · {formatPages(estimate.atlasPages)} ·{" "}
@@ -595,9 +623,30 @@ export function ExportDialog({
           )}
           {result && (
             <p className="export-success" role="status">
-              Build {result.build} validated and published
-              {result.complete ? "." : " as an incomplete test."}
-              {result.reused_existing_build ? " Existing deterministic artifacts were reused." : ""}
+              {result.godot_package ? (
+                <>
+                  Godot package <code>{result.godot_package.package_directory}</code> validated and
+                  published with <code>sprite_frames.tres</code>
+                  {result.godot_package.scene ? (
+                    <>
+                      {" "}
+                      and <code>{result.godot_package.scene}</code>
+                    </>
+                  ) : null}
+                  .
+                  {result.godot_package.reused_existing_package
+                    ? " Existing deterministic package artifacts were reused."
+                    : ""}
+                </>
+              ) : (
+                <>
+                  Build {result.build} validated and published
+                  {result.complete ? "." : " as an incomplete test."}
+                  {result.reused_existing_build
+                    ? " Existing deterministic artifacts were reused."
+                    : ""}
+                </>
+              )}
             </p>
           )}
 
@@ -655,11 +704,9 @@ function exportSourceIssues({
   if (readOnly) issues.push("Managed export is unavailable while the vault is read-only.");
   if (!inspection) return issues;
   if (selectedBindings.length === 0) issues.push("Choose at least one animation assignment.");
-  if (
-    selectingAll &&
-    inspection.missing_required_actions.length > 0 &&
-    !profile.allowIncompleteTest
-  )
+  const requiresCompleteSources =
+    profile.format === "godot_package" || !profile.allowIncompleteTest;
+  if (selectingAll && inspection.missing_required_actions.length > 0 && requiresCompleteSources)
     issues.push(
       `The complete NPC package is missing required actions: ${inspection.missing_required_actions.join(", ")}.`,
     );
@@ -667,7 +714,7 @@ function exportSourceIssues({
     issues.push(
       "Selected actions use different frame sizes or ground origins; enable transparent geometry normalization.",
     );
-  if (!profile.allowIncompleteTest) {
+  if (requiresCompleteSources) {
     for (const binding of selectedBindings) {
       const missingSelectedDirections = profile.directions.filter(
         (direction) => !binding.covered_directions.includes(direction),

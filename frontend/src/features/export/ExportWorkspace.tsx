@@ -176,6 +176,8 @@ export function ExportWorkspace({
     const stored = await client.saveProfile(sessionId, areaId, {
       profile_id: existing?.profile.id ?? null,
       expected_revision: existing?.revision ?? null,
+      format: profile.format,
+      include_godot_scene: profile.includeGodotScene,
       profile: toProfileSnapshot(profile),
       root_motion_mode: profile.rootMotionMode,
       jump_mode: profile.jumpMode,
@@ -197,11 +199,11 @@ export function ExportWorkspace({
     <section className="export-workspace" aria-labelledby="export-workspace-title">
       <header>
         <div>
-          <span className="phase-tag">PORTABLE OUTPUT</span>
-          <h1 id="export-workspace-title">PNG + JSON export</h1>
+          <span className="phase-tag">PORTABLE GAME OUTPUT</span>
+          <h1 id="export-workspace-title">PNG, JSON + Godot export</h1>
           <p>
-            Build deterministic atlas pages from exact pinned NPC motions and the reference pixel
-            compositor.
+            Build deterministic atlas pages and portable Godot resources from exact pinned NPC
+            motions and the reference pixel compositor.
           </p>
         </div>
         {readOnly && <span className="export-workspace-read-only">Read-only vault</span>}
@@ -268,9 +270,11 @@ export function ExportWorkspace({
           onStart={async (request, signal, report) => {
             const result = await client.run(sessionId, areaId, request, signal, report);
             onStatus?.(
-              result.complete
-                ? "PNG + JSON export published"
-                : "Marked incomplete test export published",
+              result.godot_package
+                ? "Godot package + PNG/JSON published"
+                : result.complete
+                  ? "PNG + JSON export published"
+                  : "Marked incomplete test export published",
             );
             return result;
           }}

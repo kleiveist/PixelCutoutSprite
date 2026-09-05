@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createExportClient,
-  ExportCancelledError,
   EXPORT_FINISHED_EVENT,
   EXPORT_PROGRESS_EVENT,
   type ExportJobView,
@@ -13,6 +12,8 @@ import {
 const request: StartNpcExportRequest = {
   character_id: "character-1",
   binding_ids: ["binding-1"],
+  format: "godot_package",
+  include_godot_scene: true,
   profile: {
     name: "Compact sheets",
     directions: ["s", "sw", "w", "nw", "n", "ne", "e", "se"],
@@ -49,6 +50,8 @@ describe("export client", () => {
         return {
           id: "profile-1",
           revision: 1,
+          format: "godot_package",
+          include_godot_scene: false,
           profile: request.profile,
           root_motion_mode: "baked",
           jump_mode: "external",
@@ -62,6 +65,8 @@ describe("export client", () => {
     await client.saveProfile("session", "area", {
       profile_id: null,
       expected_revision: null,
+      format: "godot_package",
+      include_godot_scene: false,
       profile: request.profile,
       root_motion_mode: "baked",
       jump_mode: "external",
@@ -79,6 +84,8 @@ describe("export client", () => {
           request: {
             profile_id: null,
             expected_revision: null,
+            format: "godot_package",
+            include_godot_scene: false,
             profile: request.profile,
             root_motion_mode: "baked",
             jump_mode: "external",
@@ -107,10 +114,10 @@ describe("export client", () => {
         const queued = job("queued");
         events.get(EXPORT_PROGRESS_EVENT)?.(
           job("running", {
-            stage: "rendering",
-            completed: 4,
-            total: 8,
-            message: "Rendered 4 of 8",
+            stage: "godot_packaging",
+            completed: 2,
+            total: 4,
+            message: "Validated portable Godot resources",
           }),
         );
         events.get(EXPORT_FINISHED_EVENT)?.(completedJob());
@@ -132,7 +139,7 @@ describe("export client", () => {
 
     expect(result).toEqual(completedJob().result);
     expect(report).toHaveBeenCalledWith(
-      expect.objectContaining({ stage: "rendering", completed: 4 }),
+      expect.objectContaining({ stage: "godot_packaging", completed: 2 }),
     );
     expect(stopped[0]).toHaveBeenCalledOnce();
     expect(stopped[1]).toHaveBeenCalledOnce();
@@ -140,9 +147,16 @@ describe("export client", () => {
 
   it("polls when an event is missed", async () => {
     const calls: string[] = [];
+    const report = vi.fn();
     const runtime = runtimeWith(async (command) => {
       calls.push(command);
-      if (command === "start_npc_export") return job("running");
+      if (command === "start_npc_export")
+        return job("running", {
+          stage: "godot_packaging",
+          completed: 1,
+          total: 4,
+          message: "Copying validated generic artifacts",
+        });
       if (command === "get_npc_export_job") return completedJob();
       throw new Error(`unexpected ${command}`);
     });
@@ -153,10 +167,13 @@ describe("export client", () => {
         "area",
         request,
         new AbortController().signal,
-        vi.fn(),
+        report,
       ),
     ).resolves.toEqual(completedJob().result);
     expect(calls).toEqual(["start_npc_export", "get_npc_export_job"]);
+    expect(report).toHaveBeenCalledWith(
+      expect.objectContaining({ stage: "godot_packaging", completed: 1 }),
+    );
   });
 
   it("turns AbortSignal into exactly one native cancel and waits for cancelled terminal state", async () => {
@@ -165,20 +182,54 @@ describe("export client", () => {
     const runtime = runtimeWith(async (command) => {
       if (command === "start_npc_export") {
         queueMicrotask(() => controller.abort());
-        return job("running");
+        return job("running", {
+          stage: "godot_packaging",
+          completed: 2,
+          total: 4,
+          message: "Validating portable Godot package",
+        });
       }
       if (command === "cancel_npc_export") {
         cancelCalls += 1;
         return job("running");
       }
-      if (command === "get_npc_export_job") return job("cancelled");
+      if (command === "get_npc_export_job")
+        return job("cancelled", {
+          stage: "godot_packaging",
+          completed: 2,
+          total: 4,
+          message: "Validating portable Godot package",
+        });
       throw new Error(`unexpected ${command}`);
     });
 
     await expect(
       createExportClient(runtime).run("session", "area", request, controller.signal, vi.fn()),
-    ).rejects.toBeInstanceOf(ExportCancelledError);
+    ).rejects.toThrow(
+      "Godot packaging cancelled; previous generic current and previous Godot package unchanged. Validated orphan artifacts may remain.",
+    );
     expect(cancelCalls).toBe(1);
+  });
+
+  it("rejects a terminal result whose format and native artifact metadata disagree", async () => {
+    const runtime = runtimeWith(async (command) => {
+      if (command !== "start_npc_export") throw new Error(`unexpected ${command}`);
+      const completed = completedJob();
+      return {
+        ...completed,
+        result: completed.result ? { ...completed.result, godot_package: null } : null,
+      };
+    });
+
+    await expect(
+      createExportClient(runtime).run(
+        "session",
+        "area",
+        request,
+        new AbortController().signal,
+        vi.fn(),
+      ),
+    ).rejects.toThrow(/mismatched output metadata/i);
   });
 });
 
@@ -219,6 +270,13 @@ function completedJob(): ExportJobView {
       source_fingerprint: "a".repeat(64),
       complete: true,
       reused_existing_build: false,
+      format: "godot_package",
+      godot_package: {
+        package_directory: "characters/merchant/_exports/godot/package-hash-scene",
+        animation_names: ["walk_s"],
+        scene: "character.tscn",
+        reused_existing_package: false,
+      },
     },
   };
 }

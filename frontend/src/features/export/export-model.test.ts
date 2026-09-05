@@ -18,6 +18,8 @@ describe("export profiles", () => {
       paddingPx: 2,
       extrudeEdges: true,
       individualFrames: true,
+      format: "godot_package" as const,
+      includeGodotScene: false,
       clippingPolicy: "warn" as const,
       rootMotionMode: "external" as const,
       jumpMode: "baked" as const,
@@ -47,6 +49,8 @@ describe("export profiles", () => {
       { ...valid, extra: true },
       { ...valid, profile: { ...valid.profile, extra: true } },
       { ...valid, profile: { ...valid.profile, includeShadow: "yes" } },
+      { ...valid, profile: { ...valid.profile, format: "unity_package" } },
+      { ...valid, profile: { ...valid.profile, includeGodotScene: "yes" } },
       { ...valid, profile: { ...valid.profile, clippingPolicy: "crop" } },
       { ...valid, profile: { ...valid.profile, rootMotionMode: "automatic" } },
       { ...valid, profile: { ...valid.profile, name: "Bad\u0000name" } },
@@ -98,5 +102,13 @@ describe("export profiles", () => {
         [128, 128],
       ),
     ).toContain("Edge extrusion requires positive padding.");
+    expect(
+      validateExportProfile({
+        ...DEFAULT_EXPORT_PROFILE,
+        format: "godot_package",
+        directions: ["s"],
+        allowIncompleteTest: true,
+      }),
+    ).toContain("Godot packages require all eight directions.");
   });
 });
