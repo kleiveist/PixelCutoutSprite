@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import type { MotionCard, MotionOpenTarget } from "../../domain/animations";
 
@@ -12,6 +12,7 @@ interface MotionCardViewProps {
   onPublish: () => void;
   onArchive: () => void;
   onRemove: () => void;
+  preview?: ReactNode;
 }
 
 export function MotionCardView({
@@ -24,6 +25,7 @@ export function MotionCardView({
   onPublish,
   onArchive,
   onRemove,
+  preview,
 }: MotionCardViewProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const badge = motion.status.replaceAll("_", " ");
@@ -41,12 +43,8 @@ export function MotionCardView({
         if (event.key === "Escape") setMenuOpen(false);
       }}
     >
+      {preview}
       <button className="motion-card-main" type="button" onClick={resolve}>
-        <span className="motion-preview" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </span>
         <span className="motion-card-copy">
           <small>{motion.action_key}</small>
           <strong>{motion.name}</strong>

@@ -33,8 +33,8 @@ The fixed document kinds and their identities are:
 | `area` | area UUID + object revision | Project UUID and exact active profile revision |
 | `profile_revision` | profile UUID + release revision | Area, slots, eight views and mirror pairs |
 | `motion_template` | template UUID + object/draft revisions | Area and immutable released revision numbers |
-| `motion_draft` | template UUID + mutable draft revision | Exact profile, timing, directions, tracks, and last released draft revision |
-| `motion_revision` | template UUID + release revision | Exact profile, timing, directions and tracks |
+| `motion_draft` | template UUID + mutable draft revision | Exact profile, timing, directions, tracks, optional preset semantics, and last released draft revision |
+| `motion_revision` | template UUID + release revision | Exact profile, timing, directions, tracks and optional preset semantics |
 | `asset` | asset UUID + object revision | Area and immutable released revision numbers |
 | `asset_revision` | asset UUID + release revision | Exact profile/slot, relative PNG and SHA-256 |
 | `outfit_draft` | draft UUID + object revision | Area, exact motion/profile and selected assets |
@@ -68,6 +68,11 @@ copies validated content to a new `motion_revision`; it never changes an existin
 - Tracks are direction- and slot-specific. Keyframes are strictly increasing integer indices in
   the exported frame interval. Visibility, sprite-variant, and layer changes use hold
   interpolation; numeric offsets and rotation may also use linear or ease-in/out interpolation.
+- Motion drafts and releases may carry preset semantics. Root motion is explicitly in-place;
+  recommended game speed is metadata. Deterministic numeric helpers identify their slot,
+  property, amplitude, cycles, phase and enabled state and may be baked to ordinary keys. Jump
+  height mode and the optional bounded ground-shadow layer are separate from the fixed ground
+  origin and from the sixteen anatomical profile slots.
 - Atlas rectangles are positive and fully contained in a declared page. Frame action, page,
   direction, and sample references must exist.
 

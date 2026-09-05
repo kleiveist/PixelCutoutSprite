@@ -3,7 +3,7 @@
   min-height: 230px;
   border-top: 1px solid var(--line);
   background: #0d0c10;
-  grid-template-rows: auto auto minmax(120px, 1fr);
+  grid-template-rows: repeat(3, auto) minmax(120px, 1fr);
 }
 
 .timeline-transport,
@@ -14,6 +14,51 @@
   min-height: 42px;
   padding: 6px 12px;
   border-bottom: 1px solid var(--line);
+}
+
+.motion-helpers {
+  display: grid;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: #121016;
+  gap: 7px;
+}
+
+.motion-helper-summary,
+.motion-helper-channel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.motion-helper-summary span,
+.motion-helper-channel span,
+.motion-helper-empty {
+  color: var(--muted);
+  font:
+    10px/1.4 "DM Mono",
+    monospace;
+}
+
+.motion-helper-summary label,
+.motion-helper-channel label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.motion-helper-summary select,
+.motion-helper-channel button {
+  min-height: 28px;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  color: var(--ink);
+}
+
+.motion-helper-channel button {
+  margin-left: auto;
+  padding: 0 9px;
 }
 
 .timeline-transport button,

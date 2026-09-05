@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P10 abgeschlossen; P11 ist der nächste Schritt
+**Implementierung:** P00–P11 abgeschlossen; P12 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -94,6 +94,16 @@ optionale Gesamtbildspiegelung, verwendet Zielprofil und Zielschichten und unter
 von fehlenden Teilen. Der Editor zeigt Ursprung und Lücken, während eine atomare Detach-Aktion
 gespiegelte Tracks in eine eigenständige Richtung kopiert.
 
+P11 ergänzt sechs persistente Startbewegungen, deren wenige normale Keys und benannte
+Hilfskanäle vollständig im Editor veränderbar sind. Walk und Sprint unterscheiden Timing, Pose
+und nur als Metadaten gespeicherte Spielgeschwindigkeit; alle Bewegungen bleiben standardmäßig
+auf der Stelle. Beim Sprung sind Bodenanker, deterministische Höhenkurve und abschaltbarer,
+nichtanatomischer Bodenschatten getrennt. Helper lassen sich verlustfrei in normale Keys
+umwandeln. Sichtbare Bibliothekskarten laden höchstens vier tatsächliche gespeicherte Frames über
+denselben Sampler-/Resolver-/Compositorpfad wie der Editor, einen inhaltsadressierten Byte-LRU und
+eine Reduced-Motion-Regel. Ein geführter Dialog prüft vor der unveränderlichen Freigabe alle acht
+Richtungen.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -117,7 +127,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P08](../prompts/pixelcutoutsprite/08.md) | Direkt bedienbarer Dummy-Editor | Abgeschlossen |
 | [P09](../prompts/pixelcutoutsprite/09.md) | Timeline, Keyframes und deterministisches Sampling | Abgeschlossen |
 | [P10](../prompts/pixelcutoutsprite/10.md) | Acht Richtungen, Spiegelregeln und Schichten | Abgeschlossen |
-| [P11](../prompts/pixelcutoutsprite/11.md) | Bewegungspresets und tatsächliche Kartenvorschauen | Nicht begonnen |
+| [P11](../prompts/pixelcutoutsprite/11.md) | Bewegungspresets und tatsächliche Kartenvorschauen | Abgeschlossen |
 | [P12](../prompts/pixelcutoutsprite/12.md) | PNG-Inventar und Paketimport | Nicht begonnen |
 | [P13](../prompts/pixelcutoutsprite/13.md) | Ausstattungseditor, Feinschliff und NPC-Entwürfe | Nicht begonnen |
 | [P14](../prompts/pixelcutoutsprite/14.md) | Ausrüstung und optionale Eigenbewegung | Nicht begonnen |
@@ -147,8 +157,9 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P08: echten Dummy-Editor, gepinnte Profilauflösung, Transformwerkzeuge, richtungsbezogene History, Compositorvorschau und CAS-Persistenz erstellt und gegatet.
 - [x] P09: vollständige Timeline, reinen Sampler, Onion-Skin-Vorschau, Retiming, gemeinsame History und serialisierte CAS-Autosaves erstellt und gegatet.
 - [x] P10: acht Richtungszustände, anatomische Spiegelung, Zielschichten, sichere Assetregeln, Detach und blockierende Freigabeabdeckung erstellt und gegatet.
+- [x] P11: sechs editierbare Presets, sichtbare/bakebare Helper, getrennte Sprunghöhe/Schatten, echte Lazy-Kartenvorschauen, Inhaltscache und geführte Freigabe erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
-- [ ] Meilenstein B: Bewegungen, P07–P11.
+- [x] Meilenstein B: Bewegungen, P07–P11.
 - [ ] Meilenstein C: Figuren, P12–P15.
 - [ ] Meilenstein D: Spieleinbindung, P16–P17.
 - [ ] Meilenstein E: belastbare Desktop-Version, P18–P22.
@@ -262,6 +273,21 @@ Appearance-Zuordnungen in P12/P13 verbunden.
 Zieltracks sammeln. Die Oberfläche sperrt deren Pose-/Timeline-Mutationen, bis der native
 Detach-Adapter alle Quelltracks in einer gemeinsamen History-Aktion anatomisch gespiegelt hat.
 
+**2026-09-05 / P11:** Ein prozeduraler Helper ist gespeicherte Quelldaten, kein unsichtbarer
+Vorschau-Effekt. Der Sampler addiert ihn deterministisch auf normale Tracks; das Baking sampelt
+alle Ausgabeindizes in die fünf expliziten Quellen und entfernt erst danach den Helper. Dadurch
+bleiben auch die drei P10-Ableitungen pixelgleich und der Vorgang ist normal per History umkehrbar.
+
+**2026-09-05 / P11:** Der Schatten ist keine erfundene siebzehnte Anatomiekomponente. Er wird als
+eigene optionale Presetsemantik hinter den Körper compositiert und ausschließlich am Bodenanker
+positioniert. Externe Sprunghöhe deaktiviert die Kurve für das Bild, bewahrt sie aber als
+Metadatum; so kann das Zielspiel sie verwenden, ohne den Versatz doppelt anzuwenden.
+
+**2026-09-05 / P11:** Eine Kartenminiatur darf weder einen zweiten Renderer noch eine dauerhafte
+Bibliotheks-Tickschleife einführen. Sichtbarkeit löst eine begrenzte Sampleanforderung aus; der
+Cache-Key enthält kanonische effektive Daten statt Zeitstempel. Hover/Fokus takten nur bereits
+geladene PNGs, Reduced Motion fordert genau ein statisches Sample an.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -276,6 +302,7 @@ Detach-Adapter alle Quelltracks in einer gemeinsamen History-Aktion anatomisch g
 | ADR-009 | Rust-JSON-Vertrag v1 ist autoritativ; TypeScript spiegelt DTOs, und unbekannte Felder werden abgewiesen. | Verhindert konkurrierende Validatoren und verlustbehaftete Roundtrips; Zukunftsversionen bleiben unangetastet. |
 | ADR-010 | Humanoid v1 wird deterministisch aus Referenzhöhe und festen Ansichtsrezepten generiert; jede publizierte Größe ist ein neuer Snapshot. | Exakte ganzzahlige Geometrie ist reproduzierbar, benötigt kein manuelles Skelett und verändert gepinnte Bewegungen nicht rückwirkend. |
 | ADR-011 | Pose-, einzelnes Asset- und Gesamtbild-Spiegeln sind drei getrennte APIs; Asset-Fallbacks benötigen eine ausdrückliche Freigabe. | Bewahrt anatomische Links-/Rechts-Identität und verhindert, dass asymmetrische Ausstattung still die Hand oder Richtung wechselt. |
+| ADR-012 | Preset-Helper sind versionierte additive Quelldaten; Kartenvorschauen verwenden gespeicherte Samples und einen inhaltsadressierten Byte-LRU. | Helper bleiben sichtbar, abschaltbar und bakebar, während Karten und Editor nach Änderungen denselben Pixelpfad zeigen, ohne alle Karten permanent zu rendern. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -337,6 +364,10 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P10 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 76 Tests und alle Compiler-/Formatgates | P09-Sampler, P07-Compositor, Richtungsresolver, Vault-Services und sämtliche früheren Verträge bleiben gemeinsam grün. |
 | 2026-09-05 / P10 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 60 Tests und alle Frontend-Gates | Acht Zustände, Dropdownänderung, Zyklusvermeidung, sichtbare Lücken, native Detach-Integration und abgeleitete Read-only-Bearbeitung sind abgedeckt. |
 | 2026-09-05 / P10 | `tools/control.py docs check`, `quality architecture`, `integrate --check --json` und `tauri test --cargo --build-dry-run` | Linux-Host, Python 3.13.15 | PASS | 139 Dokumentseiten konsistent, TypeScript-AST parst 79 Dateien, Desktopprofil und nativer Linux-Buildplan sind intakt. Der zentrale `quality lint` bleibt bis P20 aus den in P09 dokumentierten Toolinggründen offen. |
+| 2026-09-05 / P11 | `cargo test --test motion_presets --locked` | Linux-Host, Rust 1.97.1 | PASS: 9 Tests | Sechs persistente Presets, alle Zielrichtungen, anpassbares Timing, Geschwindigkeitssemantik, Helper-Bake, Sprungbodenanker, getrennter Schatten, Clippingfreiheit, Inhaltsfingerprint, Byte-LRU und pixelgleiche Karten-/Editorframes belegt. |
+| 2026-09-05 / P11 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 87 Tests und alle Compiler-/Formatgates | Presets, Sampler, gemeinsamer Compositor, Richtungsauflösung, Vault- und Bewegungsservices bleiben gemeinsam grün. |
+| 2026-09-05 / P11 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 66 Tests und alle Frontend-Gates | Sichtbarkeitsabhängiges Laden, reduzierte Bewegung, geführte Freigabe, Helpersteuerung, Cacheinvalidierung und die bestehende Editor-/Timelinebedienung sind abgedeckt; der Build umfasst 71 Module. |
+| 2026-09-05 / P11 | `tools/control.py docs check`, `quality architecture` und `tauri test --cargo --build-dry-run` | Linux-Host, Python 3.13.15 | PASS | 140 Dokumentseiten konsistent, TypeScript-AST parst 85 Dateien und der native Linux-Buildplan bleibt intakt. Der zentrale `quality lint` bleibt bis zur P20-Toolingkorrektur wegen des `.tooling-state`-Scans und des inkompatiblen Clippy-Flags `-F warnings` offen; die direkten Produktgates bestehen. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -346,8 +377,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P11 ausführen: Bewegungspresets auf dem gemeinsamen Sampler
-aufbauen und Animationskarten mit echten, ressourcenschonenden Vorschauen versehen.
+**Nächster ausführbarer Schritt:** P12 ausführen: PNG-Inventar, strikte Importprüfung,
+Metadatenvorschläge und wiederholbaren Paketimport auf der bestehenden Vault-Basis aufbauen.
 
 ## Outcomes & Retrospective
 
@@ -375,4 +406,9 @@ P10 löst alle acht Richtungszustände im laufenden Editor auf: kontrollierte Ho
 anatomische Slot-Paarung, Zielprofil-Layer, getrennte Bitmap- und Gesamtbildoperationen, ein
 atomarer Detach-Übergang und eine nicht umgehbare Freigabeprüfung. Eine einseitige Handschuh-
 Fixture durchläuft Resolver, Assetwahl und den P07-Compositor gegen feste RGBA-Goldens.
+P11 macht die Bewegungsbibliothek zu einem vollständigen ersten Demoablauf: Ein Preset wird als
+normaler Entwurf erzeugt, seine benannten Helper können deaktiviert oder in Keys umgewandelt
+werden, und eine unveränderliche Freigabe behält dieselben Semantiken und Samples. Jump hält
+Bodenanker, Höhenkanal und Schatten getrennt. Karten zeigen faul geladene, inhaltsgecachte
+Compositorframes und der Freigabedialog macht jede Richtungslücke vor dem Backend-Gate sichtbar.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

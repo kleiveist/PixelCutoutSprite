@@ -11,6 +11,8 @@ import type { PixelPoint, PixelSize } from "../../domain/common";
 import { MotionCardView } from "./MotionCardView";
 import { MotionCreateDialog } from "./MotionCreateDialog";
 import { MotionFilters } from "./MotionFilters";
+import { LiveMotionCardPreview } from "./LiveMotionCardPreview";
+import { MotionReleaseDialog } from "./MotionReleaseDialog";
 import "./animations.css";
 
 interface AnimationDashboardProps {
@@ -38,6 +40,8 @@ export function AnimationDashboard({
   const [filters, setFilters] = useState(emptyMotionFilters);
   const [creating, setCreating] = useState(false);
   const [removing, setRemoving] = useState<MotionCard | null>(null);
+  const [releasing, setReleasing] = useState<MotionCard | null>(null);
+  const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -64,9 +68,15 @@ export function AnimationDashboard({
     await load();
   }
   async function publish(motion: MotionCard): Promise<void> {
-    const release = await client.publish(sessionId, motion.id);
-    onStatus?.(`${motion.name} dummy released as immutable r${release.revision}`);
-    await load();
+    setPublishing(true);
+    try {
+      const release = await client.publish(sessionId, motion.id);
+      onStatus?.(`${motion.name} dummy released as immutable r${release.revision}`);
+      setReleasing(null);
+      await load();
+    } finally {
+      setPublishing(false);
+    }
   }
 
   return (
@@ -123,10 +133,13 @@ export function AnimationDashboard({
             motion={motion}
             disabled={!dashboard?.writable}
             onOpen={onOpen}
+            preview={
+              <LiveMotionCardPreview client={client} sessionId={sessionId} motion={motion} />
+            }
             onResolveOpen={() => client.resolveOpen(sessionId, motion.id, null)}
             onOpenDummy={() => onOpen({ kind: "dummy_editor", template_id: motion.id })}
             onDuplicate={() => void duplicate(motion).catch((reason) => setError(message(reason)))}
-            onPublish={() => void publish(motion).catch((reason) => setError(message(reason)))}
+            onPublish={() => setReleasing(motion)}
             onArchive={() => void archive(motion).catch((reason) => setError(message(reason)))}
             onRemove={() => setRemoving(motion)}
           />
@@ -181,6 +194,14 @@ export function AnimationDashboard({
             </footer>
           </div>
         </div>
+      )}
+      {releasing && (
+        <MotionReleaseDialog
+          motion={releasing}
+          busy={publishing}
+          onCancel={() => setReleasing(null)}
+          onConfirm={() => void publish(releasing).catch((reason) => setError(message(reason)))}
+        />
       )}
     </section>
   );

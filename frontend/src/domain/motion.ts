@@ -35,6 +35,36 @@ export type TrackProperty =
   "offset_x_px" | "offset_y_px" | "rotation_deg" | "visible" | "sprite_variant" | "layer_delta";
 export type Interpolation = "linear" | "hold" | "ease_in_out";
 export type TrackValue = number | boolean | string;
+export type MotionPresetKind = "idle" | "walk" | "sprint" | "jump" | "interact" | "attack";
+export type RootMotionMode = "in_place";
+export type JumpHeightMode = "not_applicable" | "baked_into_frames" | "external_game_motion";
+export type HelperKind = "body_bob" | "body_sway" | "jump_height" | "follow_through";
+
+export interface MotionHelperChannel {
+  kind: HelperKind;
+  slot_id: string;
+  property: "offset_x_px" | "offset_y_px" | "rotation_deg";
+  amplitude: number;
+  cycles: number;
+  phase: number;
+  enabled: boolean;
+}
+
+export interface MotionSemantics {
+  preset: MotionPresetKind;
+  root_motion: RootMotionMode;
+  recommended_speed_px_per_second: number | null;
+  jump_height_mode: JumpHeightMode;
+  ground_shadow?: GroundShadow | null;
+  helpers: MotionHelperChannel[];
+}
+
+export interface GroundShadow {
+  enabled: boolean;
+  width_px: number;
+  height_px: number;
+  opacity: number;
+}
 
 export interface Keyframe {
   frame: number;
@@ -60,5 +90,6 @@ export interface MotionRevision extends ContractHeader<"motion_revision"> {
   loop_mode: LoopMode;
   directions: DirectionDefinition[];
   tracks: MotionTrack[];
+  semantics?: MotionSemantics | null;
   published_at: UtcTimestamp;
 }

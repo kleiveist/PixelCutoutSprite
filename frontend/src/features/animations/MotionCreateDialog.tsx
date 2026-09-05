@@ -2,6 +2,23 @@ import { useEffect, useRef, useState } from "react";
 
 import type { CreateMotionRequest } from "../../domain/animations";
 import type { PixelPoint, PixelSize } from "../../domain/common";
+import type { LoopMode, MotionPresetKind } from "../../domain/motion";
+
+const presetOptions: Array<{
+  kind: MotionPresetKind;
+  label: string;
+  frames: number;
+  fps: number;
+  loop: LoopMode;
+  note: string;
+}> = [
+  { kind: "idle", label: "Idle", frames: 8, fps: 8, loop: "loop", note: "Subtle breathing" },
+  { kind: "walk", label: "Walk", frames: 12, fps: 12, loop: "loop", note: "48 px/s guide" },
+  { kind: "sprint", label: "Sprint", frames: 8, fps: 16, loop: "loop", note: "88 px/s guide" },
+  { kind: "jump", label: "Jump", frames: 12, fps: 12, loop: "once", note: "Baked height" },
+  { kind: "interact", label: "Interact", frames: 8, fps: 10, loop: "once", note: "Neutral reach" },
+  { kind: "attack", label: "Attack", frames: 6, fps: 12, loop: "once", note: "Neutral strike" },
+];
 
 interface MotionCreateDialogProps {
   areaId: string;
@@ -22,6 +39,7 @@ export function MotionCreateDialog({
 }: MotionCreateDialogProps) {
   const [name, setName] = useState("Walk");
   const [actionKey, setActionKey] = useState("walk");
+  const [presetKind, setPresetKind] = useState<MotionPresetKind | "custom">("walk");
   const [frameCount, setFrameCount] = useState(12);
   const [fps, setFps] = useState(12);
   const [loopMode, setLoopMode] = useState<"loop" | "once">("loop");
@@ -72,6 +90,7 @@ export function MotionCreateDialog({
             frame_size_px: [frameWidth, frameHeight],
             ground_origin_px: [groundX, groundY],
             label_ids: [],
+            preset_kind: presetKind === "custom" ? null : presetKind,
           }).finally(() => setBusy(false));
         }}
       >
@@ -81,6 +100,30 @@ export function MotionCreateDialog({
           <p>Frame canvas and profile height are independent values.</p>
         </header>
         <div className="motion-dialog-grid">
+          <label className="motion-preset-field">
+            Starting motion
+            <select
+              value={presetKind}
+              onChange={(event) => {
+                const next = event.target.value as MotionPresetKind | "custom";
+                setPresetKind(next);
+                const preset = presetOptions.find((candidate) => candidate.kind === next);
+                if (!preset) return;
+                setName(preset.label);
+                setActionKey(preset.kind);
+                setFrameCount(preset.frames);
+                setFps(preset.fps);
+                setLoopMode(preset.loop);
+              }}
+            >
+              {presetOptions.map((preset) => (
+                <option key={preset.kind} value={preset.kind}>
+                  {preset.label} · {preset.note}
+                </option>
+              ))}
+              <option value="custom">Custom empty motion</option>
+            </select>
+          </label>
           <label>
             Name
             <input ref={nameInput} value={name} onChange={(event) => setName(event.target.value)} />

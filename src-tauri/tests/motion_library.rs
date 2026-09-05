@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use pixel_cutout_sprite_studio_lib::animation::{AnimationSampler, PresetKind};
 use pixel_cutout_sprite_studio_lib::application::{
     AreaDetails, AreaService, CreateAreaRequest, CreateMotionRequest, MotionCardStatus,
     MotionOpenTarget, MotionService, ProjectCard, ProjectService, ReviseAreaProfileRequest,
@@ -68,6 +69,7 @@ impl Fixture {
             frame_size_px: None,
             ground_origin_px: None,
             label_ids: Vec::new(),
+            preset_kind: None,
         }
     }
 
@@ -151,6 +153,29 @@ impl Fixture {
 }
 
 #[test]
+fn preset_creation_persists_editable_semantics_and_releases_the_same_motion() {
+    let mut fixture = Fixture::new();
+    let mut request = fixture.request("Guided walk", "walk");
+    request.preset_kind = Some(PresetKind::Walk);
+    request.frame_count = 10;
+    request.fps = 24;
+    let card = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
+    assert_eq!((card.frame_count, card.fps), (10, 24));
+    assert_eq!(card.semantics.as_ref().unwrap().preset, PresetKind::Walk);
+    let draft = MotionService::load_draft(&fixture.service, fixture.session_id, card.id).unwrap();
+    assert_eq!(draft.tracks.len(), 5);
+    for direction in Direction::ALL {
+        AnimationSampler
+            .sample(&draft.sampling_revision(), direction, 0)
+            .unwrap();
+    }
+    let release =
+        MotionService::publish(&mut fixture.service, fixture.session_id, card.id).unwrap();
+    assert_eq!(release.semantics, draft.semantics);
+    assert_eq!(release.tracks, draft.tracks);
+}
+
+#[test]
 fn create_publish_edit_and_republish_keep_every_release_immutable() {
     let mut fixture = Fixture::new();
     let request = fixture.request("Village walk", "walk");
@@ -199,6 +224,7 @@ fn create_publish_edit_and_republish_keep_every_release_immutable() {
             frame_count: draft.frame_count,
             fps: 24,
             loop_mode: draft.loop_mode,
+            semantics: draft.semantics.clone(),
             directions: draft.directions,
             tracks: draft.tracks,
         },
@@ -365,6 +391,7 @@ fn editor_reopens_saved_pose_with_its_exact_pinned_profile() {
             frame_count: draft.frame_count,
             fps: draft.fps,
             loop_mode: draft.loop_mode,
+            semantics: draft.semantics.clone(),
             directions: draft.directions,
             tracks: vec![track.clone()],
         },
@@ -415,6 +442,7 @@ fn saving_rejects_tracks_outside_the_pinned_profile_without_mutating_the_draft()
             frame_count: draft.frame_count,
             fps: draft.fps,
             loop_mode: draft.loop_mode,
+            semantics: draft.semantics.clone(),
             directions: draft.directions.clone(),
             tracks: vec![MotionTrack {
                 direction: Direction::S,
@@ -476,6 +504,7 @@ fn five_source_defaults_and_release_gate_reject_direction_gaps_or_invalid_mirror
             frame_count: draft.frame_count,
             fps: draft.fps,
             loop_mode: draft.loop_mode,
+            semantics: draft.semantics.clone(),
             directions: with_gap,
             tracks: draft.tracks.clone(),
         },
@@ -509,6 +538,7 @@ fn five_source_defaults_and_release_gate_reject_direction_gaps_or_invalid_mirror
             frame_count: saved.frame_count,
             fps: saved.fps,
             loop_mode: saved.loop_mode,
+            semantics: saved.semantics.clone(),
             directions: invalid,
             tracks: saved.tracks.clone(),
         },

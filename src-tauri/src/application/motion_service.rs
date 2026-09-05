@@ -4,12 +4,13 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::animation::{build_preset, configure_preset_timing, PresetContext, PresetKind};
 use crate::directions::DirectionResolver;
 use crate::domain::{
     validate_portable_display_name, ActionKey, AnimationBinding, Area, Character, Direction,
     DirectionDefinition, DirectionMode, DocumentKind, DomainDocument, DomainError, LoopMode,
-    MotionRevision, MotionTemplate, MotionTrack, ObjectId, PixelPoint, PixelSize, ProfileRevision,
-    RevisionRef, TemplateStatus, UtcTimestamp, SCHEMA_VERSION,
+    MotionRevision, MotionSemantics, MotionTemplate, MotionTrack, ObjectId, PixelPoint, PixelSize,
+    ProfileRevision, RevisionRef, TemplateStatus, UtcTimestamp, SCHEMA_VERSION,
 };
 use crate::storage::{
     object_folder, JsonStore, ResolvedPath, StorageError, VaultLayout, VaultRoot, VersionStamp,
@@ -42,6 +43,8 @@ pub struct MotionDraft {
     pub loop_mode: LoopMode,
     pub directions: Vec<DirectionDefinition>,
     pub tracks: Vec<MotionTrack>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub semantics: Option<MotionSemantics>,
     pub updated_at: UtcTimestamp,
 }
 
@@ -86,6 +89,7 @@ impl MotionDraft {
             loop_mode: self.loop_mode,
             directions: self.directions.clone(),
             tracks: self.tracks.clone(),
+            semantics: self.semantics.clone(),
             published_at,
         }
     }
@@ -104,6 +108,8 @@ pub struct CreateMotionRequest {
     pub ground_origin_px: Option<PixelPoint>,
     #[serde(default)]
     pub label_ids: Vec<ObjectId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset_kind: Option<PresetKind>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -118,6 +124,8 @@ pub struct SaveMotionDraftRequest {
     pub loop_mode: LoopMode,
     pub directions: Vec<DirectionDefinition>,
     pub tracks: Vec<MotionTrack>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub semantics: Option<MotionSemantics>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -142,6 +150,7 @@ pub struct MotionCard {
     pub frame_count: u16,
     pub fps: u16,
     pub loop_mode: LoopMode,
+    pub semantics: Option<MotionSemantics>,
     pub direction_coverage: Vec<Direction>,
     pub released_revisions: Vec<u32>,
     pub latest_release: Option<u32>,
@@ -261,6 +270,7 @@ impl MotionService {
             frame_size_px: Some(source.draft.frame_size_px),
             ground_origin_px: Some(source.draft.ground_origin_px),
             label_ids: source.template.label_ids.clone(),
+            preset_kind: None,
         };
         let created = create_motion(&root, &area, request, Some(&source.draft))?;
         vaults.refresh_index(session_id)?;
@@ -311,6 +321,7 @@ impl MotionService {
         location.draft.loop_mode = request.loop_mode;
         location.draft.directions = request.directions;
         location.draft.tracks = request.tracks;
+        location.draft.semantics = request.semantics;
         location.draft.updated_at = now()?;
         location.draft.validate()?;
         let profile = load_motion_profile(&root, &area, location.draft.profile_ref)?;
@@ -565,6 +576,14 @@ fn create_motion(
     }
     let timestamp = now()?;
     let template_id = ObjectId::new();
+    let frame_size_px = request
+        .frame_size_px
+        .unwrap_or(area.area.default_frame_size_px);
+    let ground_origin_px = request
+        .ground_origin_px
+        .unwrap_or(area.area.default_ground_origin_px);
+    let requested_timing = (request.frame_count, request.fps, request.loop_mode);
+    let preset_kind = request.preset_kind;
     let template = MotionTemplate {
         schema_version: SCHEMA_VERSION,
         kind: DocumentKind::MotionTemplate,
@@ -582,10 +601,50 @@ fn create_motion(
         updated_at: timestamp,
     };
     template.validate()?;
-    let (directions, tracks) = source_draft.map_or_else(
-        || (default_direction_definitions(), Vec::new()),
-        |source| (source.directions.clone(), source.tracks.clone()),
-    );
+    let (frame_count, fps, loop_mode, directions, tracks, semantics) =
+        if let Some(source) = source_draft {
+            (
+                source.frame_count,
+                source.fps,
+                source.loop_mode,
+                source.directions.clone(),
+                source.tracks.clone(),
+                source.semantics.clone(),
+            )
+        } else if let Some(kind) = preset_kind {
+            let preset = configure_preset_timing(
+                build_preset(
+                    kind,
+                    &PresetContext {
+                        template_id,
+                        profile_ref: area.area.profile_ref,
+                        published_at: timestamp,
+                        frame_size_px,
+                        ground_origin_px,
+                    },
+                ),
+                requested_timing.0,
+                requested_timing.1,
+                requested_timing.2,
+            );
+            (
+                preset.motion.frame_count,
+                preset.motion.fps,
+                preset.motion.loop_mode,
+                preset.motion.directions,
+                preset.motion.tracks,
+                preset.motion.semantics,
+            )
+        } else {
+            (
+                requested_timing.0,
+                requested_timing.1,
+                requested_timing.2,
+                default_direction_definitions(),
+                Vec::new(),
+                None,
+            )
+        };
     let draft = MotionDraft {
         schema_version: SCHEMA_VERSION,
         kind: MotionDraftKind::MotionDraft,
@@ -593,20 +652,26 @@ fn create_motion(
         revision: 1,
         released_from_draft_revision: None,
         profile_ref: area.area.profile_ref,
-        frame_size_px: request
-            .frame_size_px
-            .unwrap_or(area.area.default_frame_size_px),
-        ground_origin_px: request
-            .ground_origin_px
-            .unwrap_or(area.area.default_ground_origin_px),
-        frame_count: request.frame_count,
-        fps: request.fps,
-        loop_mode: request.loop_mode,
+        frame_size_px,
+        ground_origin_px,
+        frame_count,
+        fps,
+        loop_mode,
         directions,
         tracks,
+        semantics,
         updated_at: timestamp,
     };
     draft.validate()?;
+    let profile = load_motion_profile(root, area, draft.profile_ref)?;
+    let slots = profile
+        .slots
+        .iter()
+        .map(|slot| slot.id.clone())
+        .collect::<HashSet<_>>();
+    let sampling_revision = draft.sampling_revision();
+    sampling_revision.validate(Some(&slots))?;
+    validate_direction_contract(&sampling_revision, &profile, false)?;
     let base = area.folder.join(AREA_ADMIN_DIR).join(TEMPLATE_DIRECTORY);
     root.ensure_directory(&base)?;
     let folder = base.join(object_folder(&template.name, template.id)?);
@@ -698,6 +763,7 @@ fn motion_card(location: &MotionLocation) -> MotionCard {
         frame_count: location.draft.frame_count,
         fps: location.draft.fps,
         loop_mode: location.draft.loop_mode,
+        semantics: location.draft.semantics.clone(),
         direction_coverage: location
             .draft
             .directions

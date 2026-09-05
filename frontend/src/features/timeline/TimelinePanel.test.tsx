@@ -116,4 +116,62 @@ describe("TimelinePanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     expect(onUndo).toHaveBeenCalledOnce();
   });
+
+  it("shows persisted helpers and makes disabling or converting them explicit", () => {
+    const onMotionChange = vi.fn();
+    const onBakeHelper = vi.fn();
+    const preset = {
+      ...clip,
+      semantics: {
+        preset: "walk" as const,
+        root_motion: "in_place" as const,
+        recommended_speed_px_per_second: 48,
+        jump_height_mode: "not_applicable" as const,
+        ground_shadow: { enabled: true, width_px: 28, height_px: 8, opacity: 72 },
+        helpers: [
+          {
+            kind: "body_bob" as const,
+            slot_id: "torso",
+            property: "offset_y_px" as const,
+            amplitude: 2,
+            cycles: 2,
+            phase: 0,
+            enabled: true,
+          },
+        ],
+      },
+    };
+    render(
+      <TimelinePanel
+        motion={preset}
+        frame={0}
+        playing={false}
+        onFrameChange={vi.fn()}
+        onPlayingChange={vi.fn()}
+        onMotionChange={onMotionChange}
+        onBakeHelper={onBakeHelper}
+      />,
+    );
+    expect(screen.getByText("48 px/s recommended game speed")).toBeVisible();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Body bob" }));
+    expect(onMotionChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        semantics: expect.objectContaining({
+          helpers: [expect.objectContaining({ enabled: false })],
+        }),
+      }),
+      "Disable Body bob helper",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Convert to keys" }));
+    expect(onBakeHelper).toHaveBeenCalledWith(0);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Ground shadow" }));
+    expect(onMotionChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        semantics: expect.objectContaining({
+          ground_shadow: expect.objectContaining({ enabled: false }),
+        }),
+      }),
+      "Hide ground shadow",
+    );
+  });
 });

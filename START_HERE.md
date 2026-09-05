@@ -32,7 +32,7 @@ Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository 
 
 ## Aktueller Arbeitsauftrag
 
-P00 bis P10 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
+P00 bis P11 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
 Projekt-Dashboard über ein exakt skaliertes humanoides Gebiet in die Animationsbibliothek.
 Vorlagen, mutable `draft.json`-Arbeitsstände und unveränderliche Freigaben liegen als gewöhnliche
 Dateien in ihrem Bereich. Karten besitzen Dropdown-Filter und explizite Wege zum Dummy sowie zum
@@ -43,8 +43,12 @@ Posen per CAS. Die vollständige Timeline bearbeitet nun spärliche Keyframes, t
 Export den reinen Rust-Sampler, zeigt Nachbarposen und schützt richtungsübergreifende Änderungen
 durch gemeinsame History sowie serialisierte CAS-Autosaves. Ein gemeinsamer Richtungsresolver
 wertet fünf Quellansichten und drei kontrollierte Ableitungen aus, trennt Pose-, Asset- und
-Gesamtbildspiegelung, löst Zielschichten auf und blockiert lückenhafte Freigaben. Der nächste
-Schritt ist P11 für Bewegungspresets und echte Kartenvorschauen.
+Gesamtbildspiegelung, löst Zielschichten auf und blockiert lückenhafte Freigaben. Sechs editierbare
+Startbewegungen speichern sichtbare deterministische Hilfskanäle, auf der Stelle bleibende
+Fortbewegung, Sprunghöhen-/Schattenregeln und Geschwindigkeitsmetadaten. Bibliothekskarten zeigen
+dieselben gespeicherten Compositorframes wie der Editor, laden nur im Sichtbereich, respektieren
+reduzierte Bewegung und führen vor einer unveränderlichen Freigabe durch die Richtungsprüfung.
+Der nächste Schritt ist P12 für das PNG-Inventar und den Paketimport.
 
 ## Leitentscheidungen
 

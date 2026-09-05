@@ -68,6 +68,7 @@ export function MotionDummyEditorRoute({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [directionBusy, setDirectionBusy] = useState<Direction | null>(null);
+  const [helperBusy, setHelperBusy] = useState<number | null>(null);
   const renderSequence = useRef(0);
   const latestDraft = useRef<MotionDraft | null>(null);
   const persistedRevision = useRef(0);
@@ -393,6 +394,7 @@ export function MotionDummyEditorRoute({
         canUndo={history.past.length > 0}
         direction={direction}
         frame={frame}
+        helperReadOnly={!editor.writable || helperBusy !== null}
         motion={draft}
         onionSkin={onionSkin}
         onAddPoseKey={() =>
@@ -410,6 +412,25 @@ export function MotionDummyEditorRoute({
           )
         }
         onAutoKeyChange={setAutoKey}
+        onBakeHelper={(helperIndex) => {
+          const snapshot = structuredClone(draft);
+          setHelperBusy(helperIndex);
+          setError(null);
+          void client
+            .bakeHelper(sessionId, templateId, snapshot, helperIndex)
+            .then((next) => {
+              if (
+                latestDraft.current &&
+                draftContent(latestDraft.current) !== draftContent(snapshot)
+              ) {
+                setError("The motion changed while converting the helper. Retry the action.");
+                return;
+              }
+              commitDraft(next, "Convert motion helper to normal keys");
+            })
+            .catch((reason) => setError(message(reason)))
+            .finally(() => setHelperBusy(null));
+        }}
         onFrameChange={setFrame}
         onMotionChange={commitDraft}
         onOnionSkinChange={setOnionSkin}
@@ -517,6 +538,7 @@ function saveRequest(draft: MotionDraft, expectedRevision: number) {
     loop_mode: draft.loop_mode,
     directions: draft.directions,
     tracks: draft.tracks,
+    semantics: draft.semantics,
   };
 }
 

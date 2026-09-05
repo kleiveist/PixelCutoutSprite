@@ -54,6 +54,7 @@ fn motion(loop_mode: LoopMode, tracks: Vec<MotionTrack>) -> MotionRevision {
         loop_mode,
         directions: directions(),
         tracks,
+        semantics: None,
         published_at: UtcTimestamp::parse("2026-09-05T10:00:00Z").unwrap(),
     }
 }

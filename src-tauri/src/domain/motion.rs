@@ -133,6 +133,156 @@ pub enum Interpolation {
     EaseInOut,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MotionPresetKind {
+    Idle,
+    Walk,
+    Sprint,
+    Jump,
+    Interact,
+    Attack,
+}
+
+impl MotionPresetKind {
+    pub const ALL: [Self; 6] = [
+        Self::Idle,
+        Self::Walk,
+        Self::Sprint,
+        Self::Jump,
+        Self::Interact,
+        Self::Attack,
+    ];
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RootMotionMode {
+    InPlace,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JumpHeightMode {
+    NotApplicable,
+    BakedIntoFrames,
+    ExternalGameMotion,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HelperKind {
+    BodyBob,
+    BodySway,
+    JumpHeight,
+    FollowThrough,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MotionHelperChannel {
+    pub kind: HelperKind,
+    pub slot_id: SlotId,
+    pub property: TrackProperty,
+    pub amplitude: f64,
+    pub cycles: f64,
+    pub phase: f64,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MotionSemantics {
+    pub preset: MotionPresetKind,
+    pub root_motion: RootMotionMode,
+    pub recommended_speed_px_per_second: Option<u16>,
+    pub jump_height_mode: JumpHeightMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ground_shadow: Option<GroundShadow>,
+    pub helpers: Vec<MotionHelperChannel>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GroundShadow {
+    pub enabled: bool,
+    pub width_px: u16,
+    pub height_px: u16,
+    pub opacity: u8,
+}
+
+impl MotionSemantics {
+    fn validate(&self, profile_slots: Option<&HashSet<SlotId>>) -> Result<(), DomainError> {
+        if self
+            .recommended_speed_px_per_second
+            .is_some_and(|speed| speed == 0 || speed > 4096)
+        {
+            return Err(DomainError::invalid(
+                "motion_revision.semantics.recommended_speed_px_per_second",
+                "must be within 1..=4096 when present",
+            ));
+        }
+        if self.ground_shadow.is_some_and(|shadow| {
+            !(1..=512).contains(&shadow.width_px)
+                || !(1..=128).contains(&shadow.height_px)
+                || shadow.opacity == 0
+        }) {
+            return Err(DomainError::invalid(
+                "motion_revision.semantics.ground_shadow",
+                "shadow width, height, and opacity must be positive and bounded",
+            ));
+        }
+        let mut channels = HashSet::new();
+        for (index, helper) in self.helpers.iter().enumerate() {
+            if !matches!(
+                helper.property,
+                TrackProperty::OffsetXPx | TrackProperty::OffsetYPx | TrackProperty::RotationDeg
+            ) {
+                return Err(DomainError::invalid(
+                    format!("motion_revision.semantics.helpers[{index}].property"),
+                    "helpers require a continuous numeric property",
+                ));
+            }
+            if !helper.amplitude.is_finite()
+                || helper.amplitude.abs() > 4096.0
+                || !helper.cycles.is_finite()
+                || !(0.0..=64.0).contains(&helper.cycles)
+                || !helper.phase.is_finite()
+                || helper.phase.abs() > 1024.0
+            {
+                return Err(DomainError::invalid(
+                    format!("motion_revision.semantics.helpers[{index}]"),
+                    "helper amplitude, cycles, or phase is outside the supported range",
+                ));
+            }
+            if profile_slots.is_some_and(|slots| !slots.contains(&helper.slot_id)) {
+                return Err(DomainError::MissingReference {
+                    path: format!("motion_revision.semantics.helpers[{index}].slot_id"),
+                    target: helper.slot_id.to_string(),
+                });
+            }
+            if !channels.insert((helper.kind, helper.slot_id.clone(), helper.property)) {
+                return Err(DomainError::DuplicateId(format!(
+                    "motion_revision.helper:{:?}:{}:{:?}",
+                    helper.kind, helper.slot_id, helper.property
+                )));
+            }
+        }
+        if self.jump_height_mode == JumpHeightMode::ExternalGameMotion
+            && self
+                .helpers
+                .iter()
+                .any(|helper| helper.kind == HelperKind::JumpHeight && helper.enabled)
+        {
+            return Err(DomainError::invalid(
+                "motion_revision.semantics.jump_height_mode",
+                "external jump height cannot keep an enabled baked height helper",
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum TrackValue {
@@ -192,6 +342,38 @@ impl MotionTrack {
     }
 }
 
+impl MotionHelperChannel {
+    pub fn sample(&self, frame: u16, frame_count: u16) -> f64 {
+        if !self.enabled || frame_count == 0 {
+            return 0.0;
+        }
+        let progress = f64::from(frame) / f64::from(frame_count);
+        match self.kind {
+            HelperKind::JumpHeight => {
+                -self.amplitude * (progress * std::f64::consts::PI).sin().max(0.0)
+            }
+            _ => {
+                self.amplitude * (std::f64::consts::TAU * self.cycles * progress + self.phase).sin()
+            }
+        }
+    }
+
+    pub fn bake(&self, direction: Direction, frame_count: u16) -> MotionTrack {
+        MotionTrack {
+            direction,
+            slot_id: self.slot_id.clone(),
+            property: self.property,
+            interpolation: Interpolation::Linear,
+            keys: (0..frame_count)
+                .map(|frame| Keyframe {
+                    frame,
+                    value: TrackValue::Number(self.sample(frame, frame_count)),
+                })
+                .collect(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MotionRevision {
@@ -207,6 +389,8 @@ pub struct MotionRevision {
     pub loop_mode: LoopMode,
     pub directions: Vec<DirectionDefinition>,
     pub tracks: Vec<MotionTrack>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub semantics: Option<MotionSemantics>,
     pub published_at: UtcTimestamp,
 }
 
@@ -244,6 +428,9 @@ impl MotionRevision {
             ));
         }
         self.validate_directions()?;
+        if let Some(semantics) = &self.semantics {
+            semantics.validate(profile_slots)?;
+        }
         let mut channels = HashSet::new();
         for (index, track) in self.tracks.iter().enumerate() {
             track.validate(

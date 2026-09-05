@@ -77,6 +77,8 @@ function client(data: MotionEditorData): MotionClient {
         ),
       }),
     ),
+    bakeHelper: vi.fn(async (_session, _template, currentDraft) => currentDraft),
+    cardPreview: vi.fn(),
     saveDraft: vi.fn(async (_session, request) => ({
       ...data.draft,
       revision: data.draft.revision + 1,

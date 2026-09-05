@@ -9,7 +9,7 @@ evidence. A phase checkbox or file name alone is not evidence.
 
 | ID | Requirement | Primary phases | Implementation evidence |
 |---|---|---|---|
-| RQ-01 | Pixel-art RPG animation focus | P07–P11 | P07: PNG-only RGBA8 compositor preserves hard pixel edges with nearest sampling and no mesh deformation; editors and presets follow |
+| RQ-01 | Pixel-art RPG animation focus | P07–P11 | P07: PNG-only RGBA8 compositor preserves hard pixel edges with nearest sampling and no mesh deformation; P11 supplies deterministic pixel-cutout Idle/Walk/Sprint/Jump/Interact/Attack starting motions without skeleton or AI requirements |
 | RQ-02 | Native desktop app; no mobile or web product | P01, P20 | P01: native Tauri 2 shell starts on Linux; only bundled WebView content and `core:default`; packaging matrix remains P20 |
 | RQ-03 | Project dashboard after opening a vault | P03–P04 | P04: `App` routes an opened Vault directly to `ProjectDashboard`; app and dashboard tests cover the transition, empty state and cards |
 | RQ-04 | Projects are folders | P03–P04 | P04: `ProjectService` creates a distinct safe folder and `.project/{project.json,labels.json,cache,transactions,backups,trash}`; filesystem integration tests cover reopen, rename, copy and trash |
@@ -18,7 +18,7 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-07 | User-defined areas | P05 | P05: `AreaService` creates freely named filesystem areas, lists cards per project and reopens them; `area_profiles` proves the `NPCs` round trip |
 | RQ-08 | Area-level size and body profile | P02, P05 | P05: each area stores height, exact humanoid profile revision, eight-way model, default frame/ground origin and project-label IDs; size changes publish and pin a new snapshot |
 | RQ-09 | Animations are actionable cards | P06 | P06: `AnimationDashboard` cards expose open, duplicate, release, archive, trash and timing/coverage state; DOM and Vault tests exercise the actions |
-| RQ-10 | Cards show real motion previews | P06, P11 | P06 reserves a bounded preview surface; actual sampled compositor previews remain P11 |
+| RQ-10 | Cards show real motion previews | P06, P11 | P11 cards lazily request actual saved sampler/resolver/compositor PNGs, animate only on visible hover/focus/activation, honor reduced motion and invalidate a 32 MiB LRU by effective-content fingerprint; encoded card/editor equality is tested |
 | RQ-11 | New animation opens the dummy editor | P06, P08 | P06 routes the new stable template ID; P08 loads that draft and its pinned profile into the real compositor-backed editor route |
 | RQ-12 | Released animation opens outfitting | P06, P13 | P06 routing sends a released revision to an explicit outfit/NPC chooser; P13 supplies the editor |
 | RQ-13 | Dummy remains directly accessible | P06, P08 | P06 cards expose visible and context-menu paths; P08 resolves either path to the same persistent editor, including read-only state and save errors |
@@ -29,7 +29,7 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-18 | Frame count, FPS and frame surface | P06, P09 | P06 stores and validates frame count, FPS, loop, frame canvas and ground origin independently from inherited profile height; P09 keeps preview speed separate and requires an explicit keep/distribute/truncate choice when frame count changes |
 | RQ-19 | Sparse keyframes generate samples | P09, P11 | P09: pure Rust `AnimationSampler` evaluates hold/linear/ease, shortest-path angles, discrete values and exact `0..N-1` loops independently of evaluation order; preview uses the sampled compositor path and deterministic Goldens cover sparse-key boundaries |
 | RQ-20 | Eight directions with controlled reuse | P10 | P10: shared `DirectionResolver` supports five-source/three-mirror and eight-explicit setups, rejects cycles/front-back/non-opposite mirrors, anatomically swaps paired poses, resolves target layers/assets separately, detaches derived tracks atomically and blocks release gaps; asymmetric eight-way RGBA Goldens and editor tests cover the contract |
-| RQ-21 | Walk, sprint, jump and more motions | P11 | Planned |
+| RQ-21 | Walk, sprint, jump and more motions | P11 | P11 persists editable Idle, Walk, Sprint, Jump, Interact and Attack presets with distinct timing/poses, in-place root mode, game-speed metadata, visible/bakeable helpers and independent jump height, ground anchor and optional shadow |
 | RQ-22 | Inventory for source sprites | P12 | Planned |
 | RQ-23 | Metadata-based slot suggestions | P12–P13 | Planned |
 | RQ-24 | Inventory, Dress and Fine-tune modes | P13 | Planned |
@@ -48,4 +48,4 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-37 | Compact PNG sheets; loose frames optional | P16 | Planned |
 | RQ-38 | Generic integration and Godot output | P16–P17 | Planned |
 | RQ-39 | No required manual bone/skeleton setup | P05, P08, P22 | P05 generates all parent links and pivots; P08 opens those attached parts directly for pose editing and contains no skeleton/Bone2D setup step |
-| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P10 implemented in order and gated; P11 is next |
+| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P11 implemented in order and gated; P12 is next |

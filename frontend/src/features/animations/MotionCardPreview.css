@@ -1,0 +1,32 @@
+.motion-card-preview {
+  display: grid;
+  min-height: 150px;
+  margin: 0;
+  place-items: center;
+  border: 1px solid var(--line);
+  background-color: #141219;
+  background-image:
+    linear-gradient(#25222b 1px, transparent 1px),
+    linear-gradient(90deg, #25222b 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+.motion-card-preview img {
+  width: 128px;
+  height: 128px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.motion-card-preview > span,
+.motion-card-preview figcaption {
+  color: var(--muted);
+  font:
+    9px/1 "DM Mono",
+    monospace;
+}
+
+.motion-card-preview figcaption {
+  align-self: end;
+  margin: -18px 0 9px;
+}

@@ -17,6 +17,8 @@ pub enum SampleError {
     InvalidDirection(Direction),
     #[error("track value does not match {0:?}")]
     InvalidTrackValue(TrackProperty),
+    #[error("helper channel cannot target {0:?}")]
+    InvalidHelperProperty(TrackProperty),
     #[error("retiming to {new_frame_count} frames would remove {affected_keys} key(s)")]
     RetimeConfirmationRequired {
         new_frame_count: u16,
@@ -106,6 +108,18 @@ impl AnimationSampler {
                 .or_insert_with(|| SampledSlot::neutral(track.slot_id.clone()));
             apply_value(slot, track.property, value)?;
         }
+        if let Some(semantics) = &motion.semantics {
+            for helper in semantics.helpers.iter().filter(|helper| helper.enabled) {
+                let slot = slots
+                    .entry(helper.slot_id.to_string())
+                    .or_insert_with(|| SampledSlot::neutral(helper.slot_id.clone()));
+                apply_helper_value(
+                    slot,
+                    helper.property,
+                    helper.sample(sample_index, motion.frame_count),
+                )?;
+            }
+        }
         Ok(SampledPose {
             requested_direction: direction,
             source_direction,
@@ -170,6 +184,20 @@ impl AnimationSampler {
         result.tracks.retain(|track| !track.keys.is_empty());
         Ok(result)
     }
+}
+
+fn apply_helper_value(
+    slot: &mut SampledSlot,
+    property: TrackProperty,
+    value: f64,
+) -> Result<(), SampleError> {
+    match property {
+        TrackProperty::OffsetXPx => slot.offset_x_px += value,
+        TrackProperty::OffsetYPx => slot.offset_y_px += value,
+        TrackProperty::RotationDeg => slot.rotation_deg += value,
+        _ => return Err(SampleError::InvalidHelperProperty(property)),
+    }
+    Ok(())
 }
 
 fn resolve_source(

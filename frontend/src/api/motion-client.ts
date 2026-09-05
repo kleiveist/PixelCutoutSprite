@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   CreateMotionRequest,
   MotionCard,
+  MotionCardPreviewData,
   MotionDashboardData,
   MotionDraft,
   MotionEditorData,
@@ -40,6 +41,17 @@ export interface MotionClient {
     draft: MotionDraft,
     direction: Direction,
   ): Promise<MotionDraft>;
+  bakeHelper(
+    sessionId: string,
+    templateId: string,
+    draft: MotionDraft,
+    helperIndex: number,
+  ): Promise<MotionDraft>;
+  cardPreview(
+    sessionId: string,
+    templateId: string,
+    reducedMotion: boolean,
+  ): Promise<MotionCardPreviewData>;
   saveDraft(sessionId: string, request: SaveMotionDraftRequest): Promise<MotionDraft>;
   publish(sessionId: string, templateId: string): Promise<MotionRevision>;
   setArchived(
@@ -95,6 +107,21 @@ export const motionClient: MotionClient = {
       templateId,
       draft,
       direction,
+    });
+  },
+  bakeHelper(sessionId, templateId, draft, helperIndex) {
+    return invoke<MotionDraft>("bake_motion_helper", {
+      sessionId,
+      templateId,
+      draft,
+      helperIndex,
+    });
+  },
+  cardPreview(sessionId, templateId, reducedMotion) {
+    return invoke<MotionCardPreviewData>("get_motion_card_preview", {
+      sessionId,
+      templateId,
+      reducedMotion,
     });
   },
   saveDraft(sessionId, request) {

@@ -30,6 +30,7 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     builder
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(application::VaultService::default()))
+        .manage(Mutex::new(animation::PreviewCache::new(32 * 1024 * 1024)))
         .invoke_handler(tauri::generate_handler![
             desktop_identity,
             commands::inspect_vault,
@@ -63,6 +64,8 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::render_motion_dummy,
             commands::render_motion_sample,
             commands::detach_motion_direction,
+            commands::bake_motion_helper,
+            commands::get_motion_card_preview,
             commands::save_motion_draft,
             commands::publish_motion,
             commands::set_motion_archived,

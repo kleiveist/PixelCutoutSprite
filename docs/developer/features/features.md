@@ -11,5 +11,6 @@
 - 🕹️ [Reusable dummy motion editor](dummy-editor.md)
 - ⏱️ [Timeline and deterministic sampling](timeline-and-sampling.md)
 - 🧭 [Eight-direction resolution](eight-direction-resolution.md)
+- 🏃 [Motion presets and stored card previews](motion-presets-and-previews.md)
 
 <!-- AUTO-GENERATED:docs-index END -->

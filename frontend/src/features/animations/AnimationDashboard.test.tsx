@@ -59,6 +59,14 @@ function mockClient(): MotionClient {
     renderDummy: vi.fn(),
     renderSample: vi.fn(),
     detachDirection: vi.fn(),
+    bakeHelper: vi.fn(),
+    cardPreview: vi.fn(async () => ({
+      frame_urls: ["data:image/png;base64,cG5n"],
+      sample_indices: [0],
+      fps: 1,
+      direction: "s" as const,
+      clipping_count: 0,
+    })),
     saveDraft: vi.fn(),
     publish: vi.fn(async (): Promise<MotionRevision> => ({
       schema_version: 1,
@@ -169,6 +177,55 @@ describe("AnimationDashboard", () => {
     fireEvent.change(screen.getByRole("spinbutton", { name: "FPS" }), { target: { value: "24" } });
     fireEvent.click(submit);
     await waitFor(() => expect(client.create).toHaveBeenCalled());
+    expect(client.create).toHaveBeenCalledWith(
+      "session",
+      expect.objectContaining({ preset_kind: "walk" }),
+    );
     expect(onOpen).toHaveBeenCalledWith({ kind: "dummy_editor", template_id: draft.id });
+  });
+
+  it("checks all direction coverage before creating an immutable release", async () => {
+    const client = mockClient();
+    render(
+      <AnimationDashboard
+        sessionId="session"
+        areaId={released.area_id}
+        defaultFrameSize={[128, 128]}
+        defaultGroundOrigin={[64, 108]}
+        client={client}
+        onOpen={vi.fn()}
+      />,
+    );
+    await screen.findByText("Jump");
+    const actions = screen.getByRole("group", { name: "Actions for Jump" });
+    fireEvent.click(within(actions).getByRole("button", { name: "Release dummy" }));
+    expect(screen.getByRole("dialog", { name: "Release Jump?" })).toHaveTextContent(
+      "All eight directions resolve",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Release immutable revision" }));
+    await waitFor(() => expect(client.publish).toHaveBeenCalledWith("session", draft.id));
+  });
+
+  it("blocks guided release when a stored direction is missing", async () => {
+    const client = mockClient();
+    vi.mocked(client.dashboard).mockResolvedValue({
+      ...dashboard,
+      motions: [{ ...draft, direction_coverage: ["s"] }],
+    });
+    render(
+      <AnimationDashboard
+        sessionId="session"
+        areaId={released.area_id}
+        defaultFrameSize={[128, 128]}
+        defaultGroundOrigin={[64, 108]}
+        client={client}
+        onOpen={vi.fn()}
+      />,
+    );
+    await screen.findByText("Jump");
+    fireEvent.click(screen.getByRole("button", { name: "Release dummy" }));
+    expect(screen.getByRole("button", { name: "Release immutable revision" })).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("resolve every direction");
+    expect(client.publish).not.toHaveBeenCalled();
   });
 });

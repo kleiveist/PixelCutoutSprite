@@ -1,5 +1,11 @@
 import type { Direction, PixelPoint, PixelSize, RevisionRef, UUID, UtcTimestamp } from "./common";
-import type { DirectionDefinition, LoopMode, MotionTrack } from "./motion";
+import type {
+  DirectionDefinition,
+  LoopMode,
+  MotionPresetKind,
+  MotionSemantics,
+  MotionTrack,
+} from "./motion";
 import type { ProfileRevision } from "./profile";
 
 export type MotionCardStatus = "new" | "released" | "unpublished_changes" | "archived";
@@ -20,6 +26,7 @@ export interface MotionDraft {
   loop_mode: LoopMode;
   directions: DirectionDefinition[];
   tracks: MotionTrack[];
+  semantics?: MotionSemantics | null;
   updated_at: UtcTimestamp;
 }
 
@@ -33,6 +40,7 @@ export interface SaveMotionDraftRequest {
   loop_mode: LoopMode;
   directions: DirectionDefinition[];
   tracks: MotionTrack[];
+  semantics?: MotionSemantics | null;
 }
 
 export interface MotionCard {
@@ -47,6 +55,7 @@ export interface MotionCard {
   frame_count: number;
   fps: number;
   loop_mode: LoopMode;
+  semantics?: MotionSemantics | null;
   direction_coverage: Direction[];
   released_revisions: number[];
   latest_release: number | null;
@@ -79,6 +88,14 @@ export interface SampledDummyPreview extends DummyPreview {
   sample_index: number;
 }
 
+export interface MotionCardPreviewData {
+  frame_urls: string[];
+  sample_indices: number[];
+  fps: number;
+  direction: Direction;
+  clipping_count: number;
+}
+
 export type EditablePoseDto = Record<
   string,
   {
@@ -101,6 +118,7 @@ export interface CreateMotionRequest {
   frame_size_px: PixelSize | null;
   ground_origin_px: PixelPoint | null;
   label_ids: UUID[];
+  preset_kind?: MotionPresetKind | null;
 }
 
 export type MotionOpenTarget =

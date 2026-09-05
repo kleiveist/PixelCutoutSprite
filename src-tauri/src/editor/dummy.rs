@@ -9,7 +9,9 @@ use crate::animation::{AnimationSampler, SampleError};
 use crate::directions::{
     DirectionError, DirectionResolver, DirectionalPose, SampledSlot as DirectionSampledSlot,
 };
-use crate::domain::{Direction, MotionRevision, PixelPoint, PixelSize, ProfileRevision, SlotId};
+use crate::domain::{
+    Direction, GroundShadow, MotionRevision, PixelPoint, PixelSize, ProfileRevision, SlotId,
+};
 use crate::render::{
     PixelCompositor, RenderError, RenderPart, RenderRequest, RenderTransform, RenderedFrame,
 };
@@ -76,6 +78,15 @@ pub struct SampledDummyPreview {
     pub sample_index: u16,
 }
 
+#[derive(Debug, Clone)]
+pub struct CompiledSampledDummy {
+    pub frame: RenderedFrame,
+    pub pose: EditablePose,
+    pub source_direction: Direction,
+    pub mirror_parity: bool,
+    pub sample_index: u16,
+}
+
 /// Compiles the neutral colored dummy through the same PixelCompositor used by export. Grid,
 /// handles, names, focus rings and onion-skin helpers are UI overlays and cannot enter this API.
 pub fn render_dummy(
@@ -84,6 +95,24 @@ pub fn render_dummy(
     direction: Direction,
     frame_size_px: PixelSize,
     ground_origin_px: PixelPoint,
+) -> Result<RenderedFrame, DummyCompileError> {
+    render_dummy_with_shadow(
+        profile,
+        pose,
+        direction,
+        frame_size_px,
+        ground_origin_px,
+        None,
+    )
+}
+
+fn render_dummy_with_shadow(
+    profile: &ProfileRevision,
+    pose: &EditablePose,
+    direction: Direction,
+    frame_size_px: PixelSize,
+    ground_origin_px: PixelPoint,
+    ground_shadow: Option<GroundShadow>,
 ) -> Result<RenderedFrame, DummyCompileError> {
     let view = profile
         .views
@@ -101,7 +130,25 @@ pub fn render_dummy(
         .enumerate()
         .map(|(layer, slot)| (slot, layer as i32))
         .collect::<HashMap<_, _>>();
-    let mut parts = Vec::with_capacity(profile.slots.len());
+    let mut parts = Vec::with_capacity(profile.slots.len() + usize::from(ground_shadow.is_some()));
+    if let Some(shadow) = ground_shadow.filter(|shadow| shadow.enabled) {
+        parts.push(RenderPart {
+            slot_id: SlotId::parse("ground_shadow").expect("bundled shadow id is valid"),
+            parent_id: None,
+            profile: RenderTransform::IDENTITY,
+            motion: RenderTransform::IDENTITY,
+            fitting: RenderTransform::IDENTITY,
+            local_override: RenderTransform::IDENTITY,
+            pivot_px: (
+                f64::from(shadow.width_px) / 2.0,
+                f64::from(shadow.height_px) / 2.0,
+            ),
+            visible: true,
+            layer: -1_000,
+            mirror_bitmap_x: false,
+            bitmap: ground_shadow_bitmap(shadow),
+        });
+    }
     for (index, slot) in profile.slots.iter().enumerate() {
         let base = transforms
             .get(&slot.id)
@@ -146,6 +193,24 @@ pub fn render_sampled_dummy(
     direction: Direction,
     sample_index: u16,
 ) -> Result<SampledDummyPreview, DummyCompileError> {
+    let compiled = compile_sampled_dummy(profile, motion, direction, sample_index)?;
+    let rendered = encode_dummy_preview(compiled.frame)?;
+    Ok(SampledDummyPreview {
+        data_url: rendered.data_url,
+        clipping: rendered.clipping,
+        pose: compiled.pose,
+        source_direction: compiled.source_direction,
+        mirror_parity: compiled.mirror_parity,
+        sample_index: compiled.sample_index,
+    })
+}
+
+pub fn compile_sampled_dummy(
+    profile: &ProfileRevision,
+    motion: &MotionRevision,
+    direction: Direction,
+    sample_index: u16,
+) -> Result<CompiledSampledDummy, DummyCompileError> {
     let resolver = DirectionResolver::new(motion, profile)?;
     let direction_resolution = resolver.resolve(direction)?;
     let sampled = AnimationSampler.sample(motion, direction_resolution.source, sample_index)?;
@@ -193,16 +258,21 @@ pub fn render_sampled_dummy(
             )
         })
         .collect::<EditablePose>();
-    let rendered = encode_dummy_preview(render_dummy(
+    let ground_shadow = motion
+        .semantics
+        .as_ref()
+        .and_then(|semantics| semantics.ground_shadow)
+        .filter(|shadow| shadow.enabled);
+    let frame = render_dummy_with_shadow(
         profile,
         &pose,
         direction,
         motion.frame_size_px,
         motion.ground_origin_px,
-    )?)?;
-    Ok(SampledDummyPreview {
-        data_url: rendered.data_url,
-        clipping: rendered.clipping,
+        ground_shadow,
+    )?;
+    Ok(CompiledSampledDummy {
+        frame,
         pose,
         source_direction: direction_resolution.source,
         mirror_parity: direction_resolution.pose_mirrored,
@@ -242,4 +312,21 @@ fn dummy_color(index: usize, optional: bool) -> Rgba<u8> {
         color[2],
         if optional { 210 } else { 255 },
     ])
+}
+
+fn ground_shadow_bitmap(shadow: GroundShadow) -> RgbaImage {
+    let mut image = RgbaImage::new(u32::from(shadow.width_px), u32::from(shadow.height_px));
+    let width = i64::from(shadow.width_px);
+    let height = i64::from(shadow.height_px);
+    let limit = width * width * height * height;
+    for y in 0..height {
+        for x in 0..width {
+            let dx = 2 * x + 1 - width;
+            let dy = 2 * y + 1 - height;
+            if dx * dx * height * height + dy * dy * width * width <= limit {
+                image.put_pixel(x as u32, y as u32, Rgba([18, 17, 22, shadow.opacity]));
+            }
+        }
+    }
+    image
 }

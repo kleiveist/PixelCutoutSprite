@@ -210,6 +210,7 @@ fn sampled_preview_uses_the_pure_sampler_pose_and_is_repeatable() {
                 },
             ],
         }],
+        semantics: None,
         published_at: UtcTimestamp::parse("2026-09-05T10:00:00Z").unwrap(),
     };
     let first = render_sampled_dummy(&profile, &motion, Direction::S, 3).unwrap();

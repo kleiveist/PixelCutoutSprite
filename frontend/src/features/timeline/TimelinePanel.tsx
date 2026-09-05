@@ -4,7 +4,12 @@ import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
 import "./TimelinePanel.css";
 
 import type { Direction } from "../../domain/common";
-import type { Interpolation, MotionTrack } from "../../domain/motion";
+import type {
+  Interpolation,
+  JumpHeightMode,
+  MotionSemantics,
+  MotionTrack,
+} from "../../domain/motion";
 import {
   applyConfirmedRetime,
   copyKeys,
@@ -23,6 +28,7 @@ import {
 type PlayableMotion = TimelineMotion & {
   fps: number;
   loop_mode: "loop" | "once";
+  semantics?: MotionSemantics | null;
 };
 
 interface TimelinePanelProps<T extends PlayableMotion> {
@@ -33,6 +39,7 @@ interface TimelinePanelProps<T extends PlayableMotion> {
   autoKey?: boolean;
   onionSkin?: boolean;
   readOnly?: boolean;
+  helperReadOnly?: boolean;
   canUndo?: boolean;
   canRedo?: boolean;
   onFrameChange: (frame: number) => void;
@@ -44,6 +51,7 @@ interface TimelinePanelProps<T extends PlayableMotion> {
   onUndo?: () => void;
   onRedo?: () => void;
   onSave?: () => void;
+  onBakeHelper?: (helperIndex: number) => void;
 }
 
 export function TimelinePanel<T extends PlayableMotion>({
@@ -54,6 +62,7 @@ export function TimelinePanel<T extends PlayableMotion>({
   autoKey: controlledAutoKey,
   onionSkin: controlledOnionSkin,
   readOnly = false,
+  helperReadOnly = readOnly,
   canUndo = false,
   canRedo = false,
   onFrameChange,
@@ -65,6 +74,7 @@ export function TimelinePanel<T extends PlayableMotion>({
   onUndo,
   onRedo,
   onSave,
+  onBakeHelper,
 }: TimelinePanelProps<T>) {
   const [localAutoKey, setLocalAutoKey] = useState(false);
   const [localOnionSkin, setLocalOnionSkin] = useState(true);
@@ -202,6 +212,12 @@ export function TimelinePanel<T extends PlayableMotion>({
         }}
         onMotionChange={onMotionChange}
       />
+      <MotionHelpers
+        motion={motion}
+        readOnly={helperReadOnly}
+        onMotionChange={onMotionChange}
+        onBakeHelper={onBakeHelper}
+      />
       <div className="timeline-commands">
         <button type="button" disabled={readOnly || !onAddPoseKey} onClick={onAddPoseKey}>
           Add/update pose key
@@ -315,6 +331,130 @@ export function TimelinePanel<T extends PlayableMotion>({
       )}
     </section>
   );
+}
+
+function MotionHelpers<T extends PlayableMotion>({
+  motion,
+  readOnly,
+  onMotionChange,
+  onBakeHelper,
+}: {
+  motion: T;
+  readOnly: boolean;
+  onMotionChange: (motion: T, label: string) => void;
+  onBakeHelper?: (helperIndex: number) => void;
+}) {
+  const semantics = motion.semantics;
+  if (!semantics) return <span className="timeline-helper-spacer" aria-hidden="true" />;
+
+  function setJumpHeightMode(mode: JumpHeightMode): void {
+    const helpers = semantics!.helpers.map((helper) =>
+      helper.kind === "jump_height" ? { ...helper, enabled: mode === "baked_into_frames" } : helper,
+    );
+    onMotionChange(
+      {
+        ...motion,
+        semantics: { ...semantics!, jump_height_mode: mode, helpers },
+      },
+      mode === "external_game_motion"
+        ? "Use external game jump height"
+        : "Bake jump height into frames",
+    );
+  }
+
+  return (
+    <section className="motion-helpers" aria-label="Motion helpers">
+      <div className="motion-helper-summary">
+        <strong>{label(semantics.preset)} preset</strong>
+        <span>In-place root motion</span>
+        {semantics.recommended_speed_px_per_second && (
+          <span>{semantics.recommended_speed_px_per_second} px/s recommended game speed</span>
+        )}
+        {semantics.jump_height_mode !== "not_applicable" && (
+          <label>
+            Jump height
+            <select
+              aria-label="Jump height handling"
+              disabled={readOnly}
+              value={semantics.jump_height_mode}
+              onChange={(event) => setJumpHeightMode(event.target.value as JumpHeightMode)}
+            >
+              <option value="baked_into_frames">Baked into frames</option>
+              <option value="external_game_motion">External game motion</option>
+            </select>
+          </label>
+        )}
+        {semantics.ground_shadow && (
+          <label>
+            <input
+              type="checkbox"
+              checked={semantics.ground_shadow.enabled}
+              disabled={readOnly}
+              onChange={(event) =>
+                onMotionChange(
+                  {
+                    ...motion,
+                    semantics: {
+                      ...semantics,
+                      ground_shadow: {
+                        ...semantics.ground_shadow!,
+                        enabled: event.target.checked,
+                      },
+                    },
+                  },
+                  `${event.target.checked ? "Show" : "Hide"} ground shadow`,
+                )
+              }
+            />
+            Ground shadow
+          </label>
+        )}
+      </div>
+      {semantics.helpers.length === 0 ? (
+        <span className="motion-helper-empty">
+          No procedural helpers; every pose is a normal key.
+        </span>
+      ) : (
+        semantics.helpers.map((helper, index) => (
+          <div className="motion-helper-channel" key={`${helper.kind}-${helper.slot_id}-${index}`}>
+            <label>
+              <input
+                type="checkbox"
+                checked={helper.enabled}
+                disabled={readOnly}
+                onChange={(event) => {
+                  const helpers = semantics.helpers.map((candidate, candidateIndex) =>
+                    candidateIndex === index
+                      ? { ...candidate, enabled: event.target.checked }
+                      : candidate,
+                  );
+                  onMotionChange(
+                    { ...motion, semantics: { ...semantics, helpers } },
+                    `${event.target.checked ? "Enable" : "Disable"} ${label(helper.kind)} helper`,
+                  );
+                }}
+              />
+              {label(helper.kind)}
+            </label>
+            <span>
+              {helper.slot_id} · {label(helper.property)} · {helper.amplitude}px/deg
+            </span>
+            <button
+              type="button"
+              disabled={readOnly || !helper.enabled || !onBakeHelper}
+              onClick={() => onBakeHelper?.(index)}
+            >
+              Convert to keys
+            </button>
+          </div>
+        ))
+      )}
+    </section>
+  );
+}
+
+function label(value: string): string {
+  return value.replaceAll("_", " ").replace(/^./, (character) => character.toUpperCase());
 }
 
 interface TransportProps<T extends PlayableMotion> {

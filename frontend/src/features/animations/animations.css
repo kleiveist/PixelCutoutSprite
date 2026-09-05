@@ -56,31 +56,24 @@
   color: inherit;
   display: grid;
   gap: 12px;
-  grid-template-columns: 76px 1fr auto;
+  grid-template-columns: 1fr auto;
   padding: 14px;
   text-align: left;
   width: 100%;
 }
-.motion-preview {
-  align-items: end;
-  background:
-    repeating-linear-gradient(0deg, #15191f 0 7px, #242a33 8px),
-    repeating-linear-gradient(90deg, transparent 0 7px, rgba(255, 255, 255, 0.07) 8px);
-  display: flex;
-  height: 64px;
-  justify-content: center;
-  image-rendering: pixelated;
+.live-motion-preview {
+  position: relative;
+  padding: 10px 10px 0;
 }
-.motion-preview i {
-  background: #e8ff68;
-  display: block;
-  height: 28px;
-  margin: 0 1px;
-  width: 8px;
+.live-motion-preview .motion-card-preview {
+  min-height: 132px;
 }
-.motion-preview i:nth-child(2) {
-  height: 44px;
-  width: 18px;
+.motion-preview-source {
+  position: absolute;
+  right: 18px;
+  bottom: 8px;
+  color: #aeb6c0;
+  font-size: 0.62rem;
 }
 .motion-card-copy {
   display: grid;
@@ -180,6 +173,9 @@
   display: grid;
   gap: 5px;
 }
+.motion-preset-field {
+  grid-column: 1 / -1;
+}
 .motion-dialog-grid small {
   align-self: end;
 }
@@ -191,6 +187,21 @@
 }
 .motion-validation {
   color: #ff9a9a;
+}
+.release-checklist {
+  display: grid;
+  padding: 0;
+  gap: 8px;
+  list-style: none;
+}
+.release-checklist li {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 3px solid #ff795e;
+  background: rgba(255, 255, 255, 0.03);
+}
+.release-checklist li[data-valid="true"] {
+  border-left-color: var(--accent, #e8ff68);
 }
 @media (max-width: 1000px) {
   .motion-filters {
