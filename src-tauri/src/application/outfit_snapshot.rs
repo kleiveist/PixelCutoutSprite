@@ -3,9 +3,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::domain::{
-    parse_document, AnimationBinding, Appearance, Area, Asset, AssetRevision, Character,
-    CharacterStatus, DomainDocument, MotionRevision, MotionTemplate, ObjectId, OutfitDraft,
-    OutfitDraftStatus, OutfitFitting, ProfileRevision, RevisionRef, SlotRef,
+    parse_document, AnimationBinding, Appearance, Area, Asset, AssetKind, AssetRevision, Character,
+    CharacterStatus, Direction, DirectionFit, DomainDocument, Equipment, EquipmentMotionTrack,
+    EquipmentPart, MotionRevision, MotionTemplate, ObjectId, OutfitDraft, OutfitDraftStatus,
+    OutfitFitting, ProfileRevision, RevisionRef, SlotId, SlotRef,
 };
 use crate::storage::{JsonStore, VaultRoot};
 
@@ -30,6 +31,15 @@ pub(super) struct AreaSnapshot {
     pub(super) appearance_paths: HashMap<ObjectId, PathBuf>,
     pub(super) bindings: Vec<AnimationBinding>,
     pub(super) binding_paths: HashMap<ObjectId, PathBuf>,
+}
+
+struct EquipmentPieceInput<'a> {
+    id: ObjectId,
+    anchor_slot: &'a SlotId,
+    base_asset: &'a SlotRef,
+    enabled: bool,
+    fits: &'a [DirectionFit],
+    tracks: &'a [EquipmentMotionTrack],
 }
 
 impl AreaSnapshot {
@@ -187,7 +197,7 @@ impl AreaSnapshot {
         profile_ref: RevisionRef,
         draft: &OutfitDraft,
     ) -> Vec<OutfitAssetOption> {
-        let pinned = draft
+        let mut pinned = draft
             .fittings
             .iter()
             .flat_map(|fitting| {
@@ -199,6 +209,12 @@ impl AreaSnapshot {
                 )
             })
             .collect::<Vec<_>>();
+        for item in &draft.equipment {
+            push_equipment_piece_references(&item.asset, &item.fit_by_direction, &mut pinned);
+            for part in &item.additional_parts {
+                push_equipment_piece_references(&part.asset, &part.fit_by_direction, &mut pinned);
+            }
+        }
         self.inventory_with_pins(profile_ref, &pinned)
     }
 
@@ -384,6 +400,12 @@ impl AreaSnapshot {
                 ));
             }
         }
+        self.validate_equipment_references(
+            &draft.equipment,
+            draft.profile_ref,
+            draft.template_ref,
+            false,
+        )?;
         Ok(())
     }
 
@@ -409,6 +431,182 @@ impl AreaSnapshot {
         {
             return Err(AppearanceServiceError::InvalidState(
                 "outfit draft references an incompatible or unapproved direction image".to_owned(),
+            ));
+        }
+        Ok(revision)
+    }
+
+    pub(super) fn validate_equipment_references(
+        &self,
+        equipment: &[Equipment],
+        profile_ref: RevisionRef,
+        template_ref: RevisionRef,
+        require_complete: bool,
+    ) -> Result<(), AppearanceServiceError> {
+        let (_, motion, profile) = self.workflow(template_ref)?;
+        if profile.reference() != profile_ref {
+            return Err(AppearanceServiceError::InvalidState(
+                "equipment profile does not match the active outfit workflow".to_owned(),
+            ));
+        }
+        for item in equipment {
+            self.validate_equipment_piece(
+                EquipmentPieceInput {
+                    id: item.id,
+                    anchor_slot: &item.anchor_slot,
+                    base_asset: &item.asset,
+                    enabled: item.enabled,
+                    fits: &item.fit_by_direction,
+                    tracks: &item.own_motion_tracks,
+                },
+                profile,
+                motion,
+                require_complete,
+            )?;
+            for part in &item.additional_parts {
+                self.validate_equipment_part(part, profile, motion, require_complete)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_equipment_part(
+        &self,
+        part: &EquipmentPart,
+        profile: &ProfileRevision,
+        motion: &MotionRevision,
+        require_complete: bool,
+    ) -> Result<(), AppearanceServiceError> {
+        self.validate_equipment_piece(
+            EquipmentPieceInput {
+                id: part.id,
+                anchor_slot: &part.anchor_slot,
+                base_asset: &part.asset,
+                enabled: part.enabled,
+                fits: &part.fit_by_direction,
+                tracks: &part.own_motion_tracks,
+            },
+            profile,
+            motion,
+            require_complete,
+        )
+    }
+
+    fn validate_equipment_piece(
+        &self,
+        part: EquipmentPieceInput<'_>,
+        profile: &ProfileRevision,
+        motion: &MotionRevision,
+        require_complete: bool,
+    ) -> Result<(), AppearanceServiceError> {
+        if !profile
+            .slots
+            .iter()
+            .any(|slot| slot.id == *part.anchor_slot)
+        {
+            return Err(AppearanceServiceError::InvalidState(format!(
+                "equipment part {} references unknown anchor slot {}",
+                part.id, part.anchor_slot
+            )));
+        }
+        self.validate_equipment_asset(part.base_asset, profile.reference(), part.anchor_slot)?;
+        for fit in part.fits {
+            let reference = fit.asset.as_ref().unwrap_or(part.base_asset);
+            let revision =
+                self.validate_equipment_asset(reference, profile.reference(), part.anchor_slot)?;
+            if fit.asset.is_some() && revision.direction != fit.direction {
+                return Err(AppearanceServiceError::InvalidState(format!(
+                    "equipment part {} has an incompatible {:?} direction image",
+                    part.id, fit.direction
+                )));
+            }
+            if fit
+                .variant_fittings
+                .iter()
+                .any(|variant| variant.variant == revision.variant)
+            {
+                return Err(AppearanceServiceError::InvalidState(format!(
+                    "equipment part {} defines sprite variant {} more than once",
+                    part.id, revision.variant
+                )));
+            }
+            for variant in &fit.variant_fittings {
+                let variant_revision = self.validate_equipment_asset(
+                    &variant.asset,
+                    profile.reference(),
+                    part.anchor_slot,
+                )?;
+                if variant_revision.direction != fit.direction
+                    || variant_revision.variant != variant.variant
+                {
+                    return Err(AppearanceServiceError::InvalidState(format!(
+                        "equipment part {} has an incompatible {:?} sprite variant {}",
+                        part.id, fit.direction, variant.variant
+                    )));
+                }
+            }
+        }
+        for track in part.tracks {
+            if track.keys.iter().any(|key| key.frame >= motion.frame_count) {
+                return Err(AppearanceServiceError::InvalidState(format!(
+                    "equipment part {} has a motion key outside 0..{}",
+                    part.id, motion.frame_count
+                )));
+            }
+        }
+        if require_complete && part.enabled {
+            let complete = Direction::ALL.into_iter().all(|direction| {
+                part.fits.iter().any(|fit| {
+                    if fit.direction != direction {
+                        return false;
+                    }
+                    let reference = fit.asset.as_ref().unwrap_or(part.base_asset);
+                    self.validate_equipment_asset(reference, profile.reference(), part.anchor_slot)
+                        .is_ok_and(|revision| {
+                            revision.profile_ref == profile.reference()
+                                && revision.slot_id == *part.anchor_slot
+                                && revision.direction == direction
+                        })
+                })
+            });
+            if !complete {
+                return Err(AppearanceServiceError::InvalidState(format!(
+                    "enabled equipment part {} needs an explicit compatible image in all eight directions",
+                    part.id
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_equipment_asset(
+        &self,
+        reference: &SlotRef,
+        profile_ref: RevisionRef,
+        anchor_slot: &SlotId,
+    ) -> Result<&AssetRevision, AppearanceServiceError> {
+        let revision = self.require_asset_revision(reference)?;
+        if revision.profile_ref != profile_ref || revision.slot_id != *anchor_slot {
+            return Err(AppearanceServiceError::InvalidState(
+                "equipment image must match its profile and anchor slot".to_owned(),
+            ));
+        }
+        let asset = self
+            .assets
+            .iter()
+            .find(|asset| asset.id == reference.asset_id)
+            .ok_or_else(|| {
+                AppearanceServiceError::InvalidState(
+                    "equipment image has no owning asset manifest".to_owned(),
+                )
+            })?;
+        if !matches!(
+            asset.asset_kind,
+            AssetKind::Armour | AssetKind::Accessory | AssetKind::Equipment
+        ) {
+            return Err(AppearanceServiceError::InvalidState(
+                "only armour, accessory, or equipment assets can become equipment pieces"
+                    .to_owned(),
             ));
         }
         Ok(revision)
@@ -491,6 +689,24 @@ impl AreaSnapshot {
         }
         sort_fittings(&mut result);
         Ok(result)
+    }
+}
+
+fn push_equipment_piece_references(
+    base: &SlotRef,
+    fits: &[DirectionFit],
+    references: &mut Vec<SlotRef>,
+) {
+    references.push(base.clone());
+    for fit in fits {
+        if let Some(asset) = &fit.asset {
+            references.push(asset.clone());
+        }
+        references.extend(
+            fit.variant_fittings
+                .iter()
+                .map(|variant| variant.asset.clone()),
+        );
     }
 }
 

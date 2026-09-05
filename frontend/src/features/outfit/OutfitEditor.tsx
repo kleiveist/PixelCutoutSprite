@@ -36,6 +36,8 @@ import {
   spriteVariantsFor,
   variantFittingFor,
 } from "./outfit-state";
+import { EquipmentPanel } from "./EquipmentPanel";
+import { isEquipmentAsset } from "./equipment-state";
 import { DressMode, FineTuneMode, InventoryMode, ModeTab } from "./OutfitModes";
 import { OutfitPreview } from "./OutfitPreview";
 import { OutfitTargetChooser } from "./OutfitTargetChooser";
@@ -705,7 +707,7 @@ function ActiveOutfitEditor({
   async function autoAssign(): Promise<void> {
     if (!beginCommand()) return;
     const assets = inventory
-      .filter((item) => selectedAssets.has(assetKey(item.asset)))
+      .filter((item) => selectedAssets.has(assetKey(item.asset)) && !isEquipmentAsset(item))
       .map((item) => item.asset);
     if (assets.length === 0) {
       endCommand();
@@ -945,37 +947,57 @@ function ActiveOutfitEditor({
             />
           )}
           {mode === "dress" && (
-            <DressMode
-              inventory={inventory}
-              selected={selectedAssets}
-              missing={missing}
-              saveState={commandBusy ? "saving" : history.saveState}
-              fallbackOptions={fallbackOptions}
-              onToggle={(key) => setSelectedAssets(toggleSet(selectedAssets, key))}
-              onAutoAssign={() => void autoAssign()}
-              onApproveFallback={(approval) => {
-                const source = fittingFor(
-                  history.present,
-                  approval.slot_id,
-                  approval.source_direction,
-                );
-                const sourceVariant = variantFittingFor(source, approval.variant);
-                const sourceReference = sourceVariant?.asset ?? source?.asset;
-                const sourceAsset = source
-                  ? inventory.find(
-                      (item) =>
-                        sourceReference !== undefined &&
-                        assetKey(item.asset) === assetKey(sourceReference) &&
-                        item.variant === approval.variant,
-                    )
-                  : undefined;
-                if (sourceAsset) {
-                  edit(
-                    approveAssetFallback(history.present, approval, sourceAsset.image_size_px[0]),
-                  );
+            <div className="outfit-dress-workspace">
+              <DressMode
+                inventory={inventory}
+                selected={selectedAssets}
+                missing={missing}
+                saveState={commandBusy ? "saving" : history.saveState}
+                fallbackOptions={fallbackOptions}
+                selectedBodyCount={
+                  inventory.filter(
+                    (item) => selectedAssets.has(assetKey(item.asset)) && !isEquipmentAsset(item),
+                  ).length
                 }
-              }}
-            />
+                onToggle={(key) => setSelectedAssets(toggleSet(selectedAssets, key))}
+                onAutoAssign={() => void autoAssign()}
+                onApproveFallback={(approval) => {
+                  const source = fittingFor(
+                    history.present,
+                    approval.slot_id,
+                    approval.source_direction,
+                  );
+                  const sourceVariant = variantFittingFor(source, approval.variant);
+                  const sourceReference = sourceVariant?.asset ?? source?.asset;
+                  const sourceAsset = source
+                    ? inventory.find(
+                        (item) =>
+                          sourceReference !== undefined &&
+                          assetKey(item.asset) === assetKey(sourceReference) &&
+                          item.variant === approval.variant,
+                      )
+                    : undefined;
+                  if (sourceAsset) {
+                    edit(
+                      approveAssetFallback(history.present, approval, sourceAsset.image_size_px[0]),
+                    );
+                  }
+                }}
+              />
+              <EquipmentPanel
+                inventory={inventory}
+                selected={selectedAssets}
+                equipment={history.present.equipment}
+                direction={direction}
+                frame={frame}
+                onDirection={(value) => {
+                  setDirection(value);
+                  setFrame(0);
+                }}
+                onChange={(equipment) => edit({ ...history.present, equipment })}
+                onClearSelection={() => setSelectedAssets(new Set())}
+              />
+            </div>
           )}
           {mode === "fine_tune" && (
             <FineTuneMode

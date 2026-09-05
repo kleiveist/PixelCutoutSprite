@@ -5,16 +5,17 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::animation::{AnimationSampler, SampleError};
+use crate::animation::{AnimationSampler, EquipmentSampleError, SampleError};
 use crate::directions::{
     DirectionError, DirectionResolver, DirectionalPose, SampledSlot as DirectionSampledSlot,
 };
 use crate::domain::{
     AnimationBinding, Appearance, AssetKind, AssetRevision, Character, CharacterStatus, Direction,
-    DirectionFit, DocumentKind, DomainDocument, DomainError, MotionRevision, MotionTemplate,
-    ObjectId, OutfitDraft, OutfitDraftStatus, OutfitFitting, OutfitLocalOverride, PixelPoint,
-    PixelSize, ProfileRevision, RelativePath, RevisionRef, Sha256Digest, SlotAppearance, SlotId,
-    SlotRef, SpriteVariantFitting, Transform2D, UtcTimestamp, SCHEMA_VERSION,
+    DirectionFit, DocumentKind, DomainDocument, DomainError, Equipment, MotionRevision,
+    MotionTemplate, ObjectId, OutfitDraft, OutfitDraftStatus, OutfitFitting, OutfitLocalOverride,
+    PixelPoint, PixelSize, ProfileRevision, RelativePath, RevisionRef, Sha256Digest,
+    SlotAppearance, SlotId, SlotRef, SpriteVariantFitting, Transform2D, UtcTimestamp,
+    SCHEMA_VERSION,
 };
 use crate::render::{ClippingNotice, RenderError, RenderTransform};
 use crate::storage::{JsonStore, SaveState, StorageError, VaultRoot};
@@ -31,6 +32,8 @@ pub enum AppearanceServiceError {
     Sample(#[from] SampleError),
     #[error(transparent)]
     Direction(#[from] DirectionError),
+    #[error(transparent)]
+    EquipmentSample(#[from] EquipmentSampleError),
     #[error(transparent)]
     Render(#[from] RenderError),
     #[error("outfit image could not be decoded: {0}")]
@@ -130,6 +133,8 @@ pub struct OutfitDraftEdits {
     #[serde(default)]
     pub asset_fallback_approvals: Vec<crate::domain::AssetFallbackApproval>,
     pub local_overrides: Vec<OutfitLocalOverride>,
+    #[serde(default)]
+    pub equipment: Vec<Equipment>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -235,6 +240,7 @@ impl AppearanceService {
             asset_fallback_approvals: Vec::new(),
             fittings: Vec::new(),
             local_overrides: Vec::new(),
+            equipment: Vec::new(),
             created_at: now,
             updated_at: now,
         };
@@ -309,6 +315,7 @@ impl AppearanceService {
                 Some(Sha256Digest::parse(loaded_appearance.stamp.sha256)?);
             draft.fittings = snapshot.fittings_from_appearance(&appearance)?;
             draft.asset_fallback_approvals = appearance.asset_fallback_approvals.clone();
+            draft.equipment = appearance.equipment.clone();
             draft.selected_assets = selected_assets(&draft.fittings);
             let matching_bindings = snapshot
                 .bindings
@@ -440,6 +447,25 @@ impl AppearanceService {
         let mut requested = HashMap::<(SlotId, Direction), Vec<(SlotRef, AssetRevision)>>::new();
         for asset_ref in assets {
             let revision = snapshot.require_assignable_asset_revision(&asset_ref)?;
+            let asset_kind = snapshot
+                .assets
+                .iter()
+                .find(|asset| asset.id == asset_ref.asset_id)
+                .map(|asset| asset.asset_kind)
+                .ok_or_else(|| {
+                    AppearanceServiceError::InvalidState(
+                        "selected image has no owning asset manifest".to_owned(),
+                    )
+                })?;
+            if matches!(
+                asset_kind,
+                AssetKind::Armour | AssetKind::Accessory | AssetKind::Equipment
+            ) {
+                return Err(AppearanceServiceError::InvalidState(
+                    "armour, accessory, and equipment images must be added as equipment pieces"
+                        .to_owned(),
+                ));
+            }
             if revision.profile_ref != draft.profile_ref || revision.slot_id != asset_ref.slot_id {
                 return Err(AppearanceServiceError::InvalidState(format!(
                     "asset {} r{} is incompatible with this outfit profile or slot",
@@ -597,6 +623,7 @@ impl AppearanceService {
                 fittings,
                 asset_fallback_approvals: approvals,
                 local_overrides: draft.local_overrides.clone(),
+                equipment: draft.equipment.clone(),
             },
         )
     }
@@ -653,6 +680,7 @@ impl AppearanceService {
         edits
             .local_overrides
             .sort_by_key(|item| (item.slot_id.to_string(), direction_rank(item.direction)));
+        sort_equipment(&mut edits.equipment);
         let snapshot = AreaSnapshot::load(vault, area_path)?;
         let baseline = snapshot.require_draft(draft_id)?;
         if baseline.revision != expected_revision {
@@ -736,6 +764,18 @@ impl AppearanceService {
             };
             snapshot.require_assignable_asset_revision(source_asset)?;
         }
+        snapshot.validate_equipment_references(
+            &edits.equipment,
+            baseline.profile_ref,
+            baseline.template_ref,
+            false,
+        )?;
+        let pinned_equipment = equipment_asset_references(&baseline.equipment);
+        for reference in equipment_asset_references(&edits.equipment) {
+            if !pinned_equipment.contains(&reference) {
+                snapshot.require_assignable_asset_revision(reference)?;
+            }
+        }
         let path = snapshot.draft_paths.get(&draft_id).ok_or_else(|| {
             AppearanceServiceError::InvalidState("outfit draft path is missing".to_owned())
         })?;
@@ -755,6 +795,7 @@ impl AppearanceService {
         current.fittings = edits.fittings;
         current.asset_fallback_approvals = edits.asset_fallback_approvals;
         current.local_overrides = edits.local_overrides;
+        current.equipment = edits.equipment;
         current.selected_assets = selected_assets(&current.fittings);
         current.revision = current.revision.checked_add(1).ok_or_else(|| {
             AppearanceServiceError::InvalidState("outfit revision overflow".to_owned())
@@ -867,7 +908,7 @@ pub(super) fn appearance_from_draft(
         name: "Default".to_owned(),
         slots,
         asset_fallback_approvals: draft.asset_fallback_approvals.clone(),
-        equipment: Vec::new(),
+        equipment: draft.equipment.clone(),
         created_at: timestamp,
         updated_at: timestamp,
     })
@@ -1083,6 +1124,54 @@ fn sort_variant_fittings(variants: &mut [SpriteVariantFitting]) {
             .then(left.asset.asset_id.cmp(&right.asset.asset_id))
             .then(left.asset.revision.cmp(&right.asset.revision))
     });
+}
+
+pub(super) fn sort_equipment(equipment: &mut [Equipment]) {
+    for item in equipment {
+        sort_equipment_piece(&mut item.fit_by_direction, &mut item.own_motion_tracks);
+        for part in &mut item.additional_parts {
+            sort_equipment_piece(&mut part.fit_by_direction, &mut part.own_motion_tracks);
+        }
+    }
+}
+
+fn sort_equipment_piece(
+    fits: &mut [DirectionFit],
+    tracks: &mut [crate::domain::EquipmentMotionTrack],
+) {
+    for fit in fits.iter_mut() {
+        sort_variant_fittings(&mut fit.variant_fittings);
+    }
+    fits.sort_by_key(|fit| direction_rank(fit.direction));
+    tracks.sort_by_key(|track| direction_rank(track.direction));
+    for track in tracks {
+        track.keys.sort_by_key(|key| key.frame);
+    }
+}
+
+fn equipment_asset_references(equipment: &[Equipment]) -> Vec<&SlotRef> {
+    let mut references = Vec::new();
+    for item in equipment {
+        push_equipment_piece_references(&item.asset, &item.fit_by_direction, &mut references);
+        for part in &item.additional_parts {
+            push_equipment_piece_references(&part.asset, &part.fit_by_direction, &mut references);
+        }
+    }
+    references
+}
+
+fn push_equipment_piece_references<'a>(
+    base: &'a SlotRef,
+    fits: &'a [DirectionFit],
+    references: &mut Vec<&'a SlotRef>,
+) {
+    references.push(base);
+    for fit in fits {
+        if let Some(asset) = &fit.asset {
+            references.push(asset);
+        }
+        references.extend(fit.variant_fittings.iter().map(|variant| &variant.asset));
+    }
 }
 
 pub(super) fn direction_rank(direction: Direction) -> u8 {

@@ -23,6 +23,7 @@
       "direction": "s",
       "asset": {"asset_id": "55555555-5555-4555-8555-555555555555", "revision": 1, "slot_id": "hand_l"},
       "pivot_px": [4, 2],
+      "variant_fittings": [],
       "transform": {"offset_px": [0, 0], "rotation_deg": 0},
       "visible": true,
       "layer_delta": 0
@@ -31,6 +32,7 @@
   "local_overrides": [
     {"slot_id": "hand_l", "direction": "s", "transform": {"offset_px": [0, 0], "rotation_deg": 0}}
   ],
+  "equipment": [],
   "created_at": "2026-09-05T09:11:00Z",
   "updated_at": "2026-09-05T09:11:00Z"
 }

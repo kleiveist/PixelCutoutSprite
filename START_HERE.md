@@ -54,7 +54,7 @@ zu übernehmen. Strikte Pakete, Einzel-PNGs und Sheet-Ausschnitte werden vor dem
 Slot, Richtung, Maße, Pivot, Alpha, Größe und sichere Pfade geprüft. Größenabweichungen bleiben
 unverändert oder werden nur nach sichtbarer Wahl aufgefüllt beziehungsweise pixelgenau skaliert;
 Originale, Inhalts-Hashes, Revisionen, Verwendungen und Archivstatus überleben das Wiederöffnen.
-Der nächste Schritt ist P14 für Ausrüstung, Anheftung und optionale Eigenbewegung.
+Der nächste Schritt ist P15 für NPC-Dashboard, Mehrfachanimationen und Revisionen.
 
 ## Leitentscheidungen
 

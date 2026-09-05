@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     validate_kind_revision, validate_name, validate_schema, Direction, DocumentKind, DomainError,
-    ObjectId, PixelPoint, PixelSize, RelativePath, RevisionRef, Sha256Digest, SlotId, SlotRef,
-    Transform2D, UtcTimestamp,
+    Equipment, ObjectId, PixelPoint, PixelSize, RelativePath, RevisionRef, Sha256Digest, SlotId,
+    SlotRef, Transform2D, UtcTimestamp,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -264,6 +264,8 @@ pub struct OutfitDraft {
     pub fittings: Vec<OutfitFitting>,
     #[serde(default)]
     pub local_overrides: Vec<OutfitLocalOverride>,
+    #[serde(default)]
+    pub equipment: Vec<Equipment>,
     pub created_at: UtcTimestamp,
     pub updated_at: UtcTimestamp,
 }
@@ -423,6 +425,7 @@ impl OutfitDraft {
                 "a local override requires an assigned image for the same slot and direction",
             ));
         }
+        super::characters::validate_equipment_list(&self.equipment, "outfit_draft.equipment")?;
         Ok(())
     }
 }

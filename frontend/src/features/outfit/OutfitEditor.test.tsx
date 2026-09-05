@@ -18,6 +18,9 @@ const ids = {
   profile: "33333333-3333-4333-8333-333333333333",
   template: "44444444-4444-4444-8444-444444444444",
   asset: "55555555-5555-4555-8555-555555555555",
+  armourUpper: "11111111-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+  armourLower: "11111111-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
+  accessory: "11111111-aaaa-4aaa-8aaa-aaaaaaaaaaa3",
   character: "66666666-6666-4666-8666-666666666666",
   appearance: "77777777-7777-4777-8777-777777777777",
   draft: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
@@ -72,6 +75,7 @@ function editorContext(withFitting = false): OutfitEditorContext {
       asset_fallback_approvals: [],
       fittings,
       local_overrides: [],
+      equipment: [],
       created_at: "2026-09-05T09:00:00Z",
       updated_at: "2026-09-05T09:00:00Z",
     },
@@ -123,29 +127,70 @@ function editorContext(withFitting = false): OutfitEditorContext {
           pivot_px: [1, 1],
           base_transform: { offset_px: [0, -1], rotation_deg: 0 },
         },
+        {
+          id: "torso_upper",
+          parent_id: null,
+          optional: true,
+          size_px: [2, 2],
+          pivot_px: [1, 1],
+          base_transform: { offset_px: [0, -2], rotation_deg: 0 },
+        },
+        {
+          id: "torso_lower",
+          parent_id: null,
+          optional: true,
+          size_px: [2, 2],
+          pivot_px: [1, 1],
+          base_transform: { offset_px: [0, -1], rotation_deg: 0 },
+        },
       ],
       views: [],
       mirror_pairs: [],
       published_at: "2026-09-05T09:00:00Z",
     },
-    inventory: allDirections.map((direction) => ({
-      asset: assetRef(direction),
-      name: `Hand ${direction.toUpperCase()}`,
-      asset_kind: "body",
-      direction,
-      variant: "base",
-      assignable: true,
-      sprite_mirroring_allowed: true,
-      pivot_px: [1, 1],
-      image_size_px: [2, 2],
-      source_file: `.area/assets/${direction}/source.png`,
-    })),
+    inventory: [
+      ...allDirections.map((direction) => ({
+        asset: assetRef(direction),
+        name: `Hand ${direction.toUpperCase()}`,
+        asset_kind: "body" as const,
+        direction,
+        variant: "base",
+        assignable: true,
+        sprite_mirroring_allowed: true,
+        pivot_px: [1, 1] as [number, number],
+        image_size_px: [2, 2] as [number, number],
+        source_file: `.area/assets/${direction}/source.png`,
+      })),
+      equipmentOption(ids.armourUpper, "Upper armour", "torso_upper", "armour"),
+      equipmentOption(ids.armourLower, "Lower armour", "torso_lower", "armour"),
+      equipmentOption(ids.accessory, "Sash charm", "hand_l", "accessory"),
+    ],
     available_labels: [
       { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2", name: "Villagers", color: "#ffcc66" },
     ],
     affected_binding_count: withFitting ? 1 : 0,
     missing_required_slots: [],
     save_state: "saved",
+  };
+}
+
+function equipmentOption(
+  assetId: string,
+  name: string,
+  slotId: string,
+  assetKind: "armour" | "accessory" | "equipment",
+) {
+  return {
+    asset: { asset_id: assetId, revision: 1, slot_id: slotId },
+    name,
+    asset_kind: assetKind,
+    direction: "s" as const,
+    variant: "base",
+    assignable: true,
+    sprite_mirroring_allowed: false,
+    pivot_px: [1, 1] as [number, number],
+    image_size_px: [2, 2] as [number, number],
+    source_file: `.area/assets/${assetId}/source.png`,
   };
 }
 
@@ -409,7 +454,7 @@ describe("OutfitEditor", () => {
     const context: OutfitEditorContext = {
       ...base,
       inventory: base.inventory.map((item) =>
-        item.direction === "s" ? { ...item, assignable: false } : item,
+        item.asset.asset_id === ids.asset ? { ...item, assignable: false } : item,
       ),
     };
     const client = mockClient(context);
@@ -787,5 +832,64 @@ describe("OutfitEditor", () => {
       expect(client.applyToNpc).toHaveBeenCalledWith("session", ids.area, ids.draft, 1),
     );
     expect(await screen.findByText("NPC updated")).toBeInTheDocument();
+  });
+
+  it("builds one segmented rigid equipment object from selected slot images", async () => {
+    const client = mockClient();
+    await openNew(client);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Upper armour (S)" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Lower armour (S)" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Equipment name" }), {
+      target: { value: "Segmented cuirass" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Create from selected equipment images \(2\)/ }),
+    );
+    expect(screen.getByText(/not deformed across joints/i)).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Rigid piece" })).toHaveTextContent("torso_lower");
+    expect(screen.getByRole("combobox", { name: "Rigid piece" })).toHaveTextContent("torso_upper");
+    await waitFor(() => {
+      const equipment = vi.mocked(client.autosave).mock.calls.at(-1)?.[4].equipment;
+      expect(equipment).toHaveLength(1);
+      expect(equipment?.[0].name).toBe("Segmented cuirass");
+      expect(equipment?.[0].additional_parts).toHaveLength(1);
+    });
+  });
+
+  it("keeps enabled, follow mode, own motion, and retained track values independent", async () => {
+    const client = mockClient();
+    await openNew(client);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Sash charm (S)" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Create from selected equipment images \(1\)/ }),
+    );
+    const ownOffset = screen.getByRole("spinbutton", { name: "Own offset X" });
+    expect(ownOffset).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Own motion enabled" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Direction track enabled" }));
+    expect(ownOffset).toBeEnabled();
+    fireEvent.change(ownOffset, { target: { value: "2" } });
+    await waitFor(() =>
+      expect(
+        vi.mocked(client.autosave).mock.calls.at(-1)?.[4].equipment[0].own_motion_tracks[0].keys[0]
+          .transform.offset_px,
+      ).toEqual([2, 0]),
+    );
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Equipment enabled" }));
+    expect(screen.getByText(/Hidden · values retained/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Own motion enabled" }));
+    expect(ownOffset).toBeDisabled();
+    fireEvent.change(screen.getByRole("combobox", { name: "Follow mode" }), {
+      target: { value: "root" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Equipment enabled" }));
+    expect(screen.getByText(/Following figure root · own motion off/)).toBeInTheDocument();
+    await waitFor(() => {
+      const part = vi.mocked(client.autosave).mock.calls.at(-1)![4].equipment[0];
+      expect(part.follow_mode).toBe("root");
+      expect(part.own_motion_enabled).toBe(false);
+      expect(part.own_motion_tracks[0].keys[0].transform.offset_px).toEqual([2, 0]);
+    });
   });
 });

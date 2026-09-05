@@ -7,6 +7,7 @@ import type {
   AssetKind,
   Character,
   Direction,
+  Equipment,
   MotionRevision,
   MotionTemplate,
   OutfitDraft,
@@ -90,6 +91,7 @@ export interface OutfitDraftEdits {
   fittings: OutfitFitting[];
   asset_fallback_approvals: AssetFallbackApproval[];
   local_overrides: OutfitLocalOverride[];
+  equipment: Equipment[];
 }
 
 export interface OutfitPreviewFrame {

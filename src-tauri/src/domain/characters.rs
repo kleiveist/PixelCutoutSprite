@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     validate_kind_revision, validate_name, validate_schema, ActionKey, AssetFallbackApproval,
-    Direction, DocumentKind, DomainError, ObjectId, PixelPoint, RevisionRef, SlotId, SlotRef,
-    SpriteVariantFitting, Transform2D, UtcTimestamp,
+    Direction, DocumentKind, DomainError, Interpolation, ObjectId, PixelPoint, RevisionRef, SlotId,
+    SlotRef, SpriteVariantFitting, Transform2D, UtcTimestamp,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -83,6 +83,9 @@ impl Character {
 #[serde(rename_all = "snake_case")]
 pub enum FollowMode {
     Slot,
+    Root,
+    /// Compatibility value from the provisional v1 contract. It is evaluated exactly like
+    /// `Root`: the part follows the figure origin, never a fixed screen/world coordinate.
     World,
 }
 
@@ -140,6 +143,61 @@ pub struct SlotAppearance {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct EquipmentMotionKey {
+    pub frame: u16,
+    pub transform: Transform2D,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EquipmentMotionTrack {
+    pub direction: Direction,
+    pub enabled: bool,
+    pub interpolation: Interpolation,
+    pub keys: Vec<EquipmentMotionKey>,
+}
+
+impl EquipmentMotionTrack {
+    fn validate(&self, path: &str) -> Result<(), DomainError> {
+        if self.keys.is_empty() {
+            return Err(DomainError::invalid(
+                format!("{path}.keys"),
+                "must retain at least one deterministic transform key",
+            ));
+        }
+        let mut previous = None;
+        for (index, key) in self.keys.iter().enumerate() {
+            if previous.is_some_and(|frame| key.frame <= frame) {
+                return Err(DomainError::invalid(
+                    format!("{path}.keys[{index}].frame"),
+                    "must be strictly increasing and unique",
+                ));
+            }
+            key.transform
+                .validate(&format!("{path}.keys[{index}].transform"))?;
+            previous = Some(key.frame);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EquipmentPart {
+    pub id: ObjectId,
+    pub name: String,
+    pub anchor_slot: SlotId,
+    pub asset: SlotRef,
+    pub enabled: bool,
+    pub follow_mode: FollowMode,
+    pub own_motion_enabled: bool,
+    pub fit_by_direction: Vec<DirectionFit>,
+    #[serde(default)]
+    pub own_motion_tracks: Vec<EquipmentMotionTrack>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Equipment {
     pub id: ObjectId,
     pub name: String,
@@ -149,6 +207,25 @@ pub struct Equipment {
     pub follow_mode: FollowMode,
     pub own_motion_enabled: bool,
     pub fit_by_direction: Vec<DirectionFit>,
+    #[serde(default)]
+    pub own_motion_tracks: Vec<EquipmentMotionTrack>,
+    /// Additional rigid pieces in the same logical equipment object. The top-level fields remain
+    /// the primary piece so provisional schema-v1 files continue to decode unchanged.
+    #[serde(default)]
+    pub additional_parts: Vec<EquipmentPart>,
+}
+
+impl Equipment {
+    fn validate_primary(&self, path: &str) -> Result<(), DomainError> {
+        validate_equipment_piece(
+            path,
+            &self.name,
+            &self.anchor_slot,
+            &self.asset,
+            &self.fit_by_direction,
+            &self.own_motion_tracks,
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -226,41 +303,7 @@ impl Appearance {
                 ));
             }
         }
-        let mut equipment_ids = HashSet::new();
-        for (index, equipment) in self.equipment.iter().enumerate() {
-            validate_name(
-                &format!("appearance.equipment[{index}].name"),
-                &equipment.name,
-            )?;
-            SlotId::parse(equipment.anchor_slot.as_str())?;
-            equipment
-                .asset
-                .validate(&format!("appearance.equipment[{index}].asset"))?;
-            if !equipment_ids.insert(equipment.id) {
-                return Err(DomainError::DuplicateId(format!(
-                    "appearance.equipment:{}",
-                    equipment.id
-                )));
-            }
-            validate_fits(
-                &equipment.fit_by_direction,
-                &format!("appearance.equipment[{index}]"),
-            )?;
-            if equipment.fit_by_direction.iter().any(|fit| {
-                fit.asset
-                    .as_ref()
-                    .is_some_and(|asset| asset.slot_id != equipment.asset.slot_id)
-                    || fit
-                        .variant_fittings
-                        .iter()
-                        .any(|variant| variant.asset.slot_id != equipment.asset.slot_id)
-            }) {
-                return Err(DomainError::invalid(
-                    format!("appearance.equipment[{index}].fit_by_direction.asset"),
-                    "direction assets must match the equipment slot",
-                ));
-            }
-        }
+        validate_equipment_list(&self.equipment, "appearance.equipment")?;
         Ok(())
     }
 }
@@ -340,6 +383,82 @@ fn validate_fits(fits: &[DirectionFit], path: &str) -> Result<(), DomainError> {
             return Err(DomainError::DuplicateId(format!(
                 "{path}.direction:{:?}",
                 fit.direction
+            )));
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_equipment_list(
+    equipment: &[Equipment],
+    path: &str,
+) -> Result<(), DomainError> {
+    let mut identities = HashSet::new();
+    for (index, item) in equipment.iter().enumerate() {
+        let item_path = format!("{path}[{index}]");
+        if !identities.insert(item.id) {
+            return Err(DomainError::DuplicateId(format!("equipment:{}", item.id)));
+        }
+        item.validate_primary(&item_path)?;
+        for (part_index, part) in item.additional_parts.iter().enumerate() {
+            if !identities.insert(part.id) {
+                return Err(DomainError::DuplicateId(format!(
+                    "equipment_part:{}",
+                    part.id
+                )));
+            }
+            validate_equipment_piece(
+                &format!("{item_path}.additional_parts[{part_index}]"),
+                &part.name,
+                &part.anchor_slot,
+                &part.asset,
+                &part.fit_by_direction,
+                &part.own_motion_tracks,
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_equipment_piece(
+    path: &str,
+    name: &str,
+    anchor_slot: &SlotId,
+    asset: &SlotRef,
+    fits: &[DirectionFit],
+    motion_tracks: &[EquipmentMotionTrack],
+) -> Result<(), DomainError> {
+    validate_name(&format!("{path}.name"), name)?;
+    SlotId::parse(anchor_slot.as_str())?;
+    asset.validate(&format!("{path}.asset"))?;
+    if asset.slot_id != *anchor_slot {
+        return Err(DomainError::invalid(
+            format!("{path}.asset.slot_id"),
+            "must match the equipment anchor slot",
+        ));
+    }
+    validate_fits(fits, path)?;
+    if fits.iter().any(|fit| {
+        fit.asset
+            .as_ref()
+            .is_some_and(|fit| fit.slot_id != *anchor_slot)
+            || fit
+                .variant_fittings
+                .iter()
+                .any(|variant| variant.asset.slot_id != *anchor_slot)
+    }) {
+        return Err(DomainError::invalid(
+            format!("{path}.fit_by_direction.asset"),
+            "direction assets must match the equipment anchor slot",
+        ));
+    }
+    let mut directions = HashSet::new();
+    for (index, track) in motion_tracks.iter().enumerate() {
+        track.validate(&format!("{path}.own_motion_tracks[{index}]"))?;
+        if !directions.insert(track.direction) {
+            return Err(DomainError::DuplicateId(format!(
+                "{path}.own_motion_track:{:?}",
+                track.direction
             )));
         }
     }

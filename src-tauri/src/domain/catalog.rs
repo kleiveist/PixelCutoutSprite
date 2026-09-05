@@ -1,10 +1,17 @@
 use std::collections::{HashMap, HashSet};
 
 use super::{
-    AnimationBinding, Appearance, Area, Asset, AssetRevision, Character, DomainDocument,
-    DomainError, ExportManifest, Label, LabelScope, MotionRevision, MotionTemplate, ObjectId,
-    OutfitDraft, ProfileRevision, Project, RevisionRef, Vault,
+    AnimationBinding, Appearance, Area, Asset, AssetKind, AssetRevision, Character, DirectionFit,
+    DomainDocument, DomainError, Equipment, ExportManifest, Label, LabelScope, MotionRevision,
+    MotionTemplate, ObjectId, OutfitDraft, ProfileRevision, Project, RevisionRef, SlotId, SlotRef,
+    Vault,
 };
+
+struct EquipmentAssetInput<'a> {
+    anchor_slot: &'a SlotId,
+    base_asset: &'a SlotRef,
+    fits: &'a [DirectionFit],
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct DomainCatalog {
@@ -284,99 +291,183 @@ impl DomainCatalog {
             }
         }
         for draft in &self.outfit_drafts {
-            require(&index.areas, draft.area_id, "outfit_draft.area_id")?;
-            let motion = require_revision(
-                &index.motions,
-                draft.template_ref,
-                "outfit_draft.template_ref",
-            )?;
-            if motion.profile_ref != draft.profile_ref {
-                return incompatible("outfit_draft.profile_ref", "must match the motion profile");
-            }
-            for selected in &draft.selected_assets {
-                let revision = require_asset_revision(
-                    &index.asset_revisions,
-                    selected.asset_id,
-                    selected.revision,
-                )?;
-                if revision.profile_ref != draft.profile_ref || revision.slot_id != selected.slot_id
-                {
+            self.validate_outfit_draft_assets(draft, index)?;
+        }
+        Ok(())
+    }
+
+    fn validate_outfit_draft_assets(
+        &self,
+        draft: &OutfitDraft,
+        index: &CatalogIndex<'_>,
+    ) -> Result<(), DomainError> {
+        require(&index.areas, draft.area_id, "outfit_draft.area_id")?;
+        let motion = require_revision(
+            &index.motions,
+            draft.template_ref,
+            "outfit_draft.template_ref",
+        )?;
+        if motion.profile_ref != draft.profile_ref {
+            return incompatible("outfit_draft.profile_ref", "must match the motion profile");
+        }
+        let profile = require_revision(
+            &index.profiles,
+            draft.profile_ref,
+            "outfit_draft.profile_ref",
+        )?;
+        self.validate_outfit_fittings(draft, profile, index)?;
+        self.validate_equipment_assets(
+            &draft.equipment,
+            draft.profile_ref,
+            &profile.slots.iter().map(|slot| &slot.id).collect(),
+            index,
+            "outfit_draft.equipment",
+        )?;
+        for equipment in &draft.equipment {
+            for track in equipment.own_motion_tracks.iter().chain(
+                equipment
+                    .additional_parts
+                    .iter()
+                    .flat_map(|part| part.own_motion_tracks.iter()),
+            ) {
+                if track.keys.iter().any(|key| key.frame >= motion.frame_count) {
                     return incompatible(
-                        "outfit_draft.selected_assets",
-                        "asset must match the draft profile and declared slot",
+                        "outfit_draft.equipment.own_motion_tracks",
+                        "motion key must be inside the active frame sequence",
                     );
                 }
             }
-            let profile = require_revision(
-                &index.profiles,
-                draft.profile_ref,
-                "outfit_draft.profile_ref",
+        }
+        if let Some(character_id) = draft.character_id {
+            let character = require(&index.characters, character_id, "outfit_draft.character_id")?;
+            if character.area_id != draft.area_id || character.profile_ref != draft.profile_ref {
+                return incompatible(
+                    "outfit_draft.character_id",
+                    "character must belong to the same area and profile",
+                );
+            }
+        }
+        if let Some(appearance_id) = draft.appearance_id {
+            let appearance = require(
+                &index.appearances,
+                appearance_id,
+                "outfit_draft.appearance_id",
             )?;
-            for fitting in &draft.fittings {
-                if !profile.slots.iter().any(|slot| slot.id == fitting.slot_id) {
-                    return missing("outfit_draft.fittings.slot_id", fitting.slot_id.to_string());
-                }
-                let revision = require_asset_revision(
+            if Some(appearance.character_id) != draft.character_id
+                || appearance.profile_ref != draft.profile_ref
+            {
+                return incompatible(
+                    "outfit_draft.appearance_id",
+                    "appearance must belong to the selected character and profile",
+                );
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_outfit_fittings(
+        &self,
+        draft: &OutfitDraft,
+        profile: &ProfileRevision,
+        index: &CatalogIndex<'_>,
+    ) -> Result<(), DomainError> {
+        for selected in &draft.selected_assets {
+            let revision = require_asset_revision(
+                &index.asset_revisions,
+                selected.asset_id,
+                selected.revision,
+            )?;
+            if revision.profile_ref != draft.profile_ref || revision.slot_id != selected.slot_id {
+                return incompatible(
+                    "outfit_draft.selected_assets",
+                    "asset must match the draft profile and declared slot",
+                );
+            }
+        }
+        for fitting in &draft.fittings {
+            if !profile.slots.iter().any(|slot| slot.id == fitting.slot_id) {
+                return missing("outfit_draft.fittings.slot_id", fitting.slot_id.to_string());
+            }
+            let revision = require_asset_revision(
+                &index.asset_revisions,
+                fitting.asset.asset_id,
+                fitting.asset.revision,
+            )?;
+            let approved_fallback = draft.asset_fallback_approvals.iter().any(|approval| {
+                approval.slot_id == fitting.slot_id
+                    && approval.target_direction == fitting.direction
+                    && approval.source_direction == revision.direction
+                    && approval.variant == revision.variant
+                    && revision.sprite_mirroring_allowed
+            });
+            if revision.profile_ref != draft.profile_ref
+                || revision.slot_id != fitting.slot_id
+                || (revision.direction != fitting.direction && !approved_fallback)
+            {
+                return incompatible(
+                    "outfit_draft.fittings.asset",
+                    "direction asset must be exact or have an explicit mirror approval",
+                );
+            }
+            for variant in &fitting.variant_fittings {
+                let variant_revision = require_asset_revision(
                     &index.asset_revisions,
-                    fitting.asset.asset_id,
-                    fitting.asset.revision,
+                    variant.asset.asset_id,
+                    variant.asset.revision,
                 )?;
                 let approved_fallback = draft.asset_fallback_approvals.iter().any(|approval| {
                     approval.slot_id == fitting.slot_id
                         && approval.target_direction == fitting.direction
-                        && approval.source_direction == revision.direction
-                        && approval.variant == revision.variant
-                        && revision.sprite_mirroring_allowed
+                        && approval.source_direction == variant_revision.direction
+                        && approval.variant == variant.variant
+                        && variant_revision.sprite_mirroring_allowed
                 });
-                if revision.profile_ref != draft.profile_ref
-                    || revision.slot_id != fitting.slot_id
-                    || (revision.direction != fitting.direction && !approved_fallback)
+                if variant.variant == revision.variant
+                    || variant.variant != variant_revision.variant
+                    || variant_revision.profile_ref != draft.profile_ref
+                    || variant_revision.slot_id != fitting.slot_id
+                    || (variant_revision.direction != fitting.direction && !approved_fallback)
                 {
                     return incompatible(
-                        "outfit_draft.fittings.asset",
-                        "direction asset must be exact or have an explicit mirror approval",
+                        "outfit_draft.fittings.variant_fittings.asset",
+                        "named variant must be unique, match its asset metadata, and use an exact or explicitly approved mirror direction",
                     );
-                }
-                for variant in &fitting.variant_fittings {
-                    let variant_revision = require_asset_revision(
-                        &index.asset_revisions,
-                        variant.asset.asset_id,
-                        variant.asset.revision,
-                    )?;
-                    let approved_fallback = draft.asset_fallback_approvals.iter().any(|approval| {
-                        approval.slot_id == fitting.slot_id
-                            && approval.target_direction == fitting.direction
-                            && approval.source_direction == variant_revision.direction
-                            && approval.variant == variant.variant
-                            && variant_revision.sprite_mirroring_allowed
-                    });
-                    if variant.variant == revision.variant
-                        || variant.variant != variant_revision.variant
-                        || variant_revision.profile_ref != draft.profile_ref
-                        || variant_revision.slot_id != fitting.slot_id
-                        || (variant_revision.direction != fitting.direction && !approved_fallback)
-                    {
-                        return incompatible(
-                            "outfit_draft.fittings.variant_fittings.asset",
-                            "named variant must be unique, match its asset metadata, and use an exact or explicitly approved mirror direction",
-                        );
-                    }
                 }
             }
-            for approval in &draft.asset_fallback_approvals {
-                if !profile.slots.iter().any(|slot| slot.id == approval.slot_id) {
-                    return missing(
-                        "outfit_draft.asset_fallback_approvals.slot_id",
-                        approval.slot_id.to_string(),
-                    );
-                }
-                let source = draft
-                    .fittings
+        }
+        for approval in &draft.asset_fallback_approvals {
+            if !profile.slots.iter().any(|slot| slot.id == approval.slot_id) {
+                return missing(
+                    "outfit_draft.asset_fallback_approvals.slot_id",
+                    approval.slot_id.to_string(),
+                );
+            }
+            let source = draft
+                .fittings
+                .iter()
+                .find(|fitting| {
+                    fitting.slot_id == approval.slot_id
+                        && fitting.direction == approval.source_direction
+                })
+                .ok_or_else(|| DomainError::MissingReference {
+                    path: "outfit_draft.asset_fallback_approvals".to_owned(),
+                    target: format!(
+                        "{}:{:?}:{}",
+                        approval.slot_id, approval.source_direction, approval.variant
+                    ),
+                })?;
+            let base_revision = require_asset_revision(
+                &index.asset_revisions,
+                source.asset.asset_id,
+                source.asset.revision,
+            )?;
+            let revision = if base_revision.variant == approval.variant {
+                base_revision
+            } else {
+                let variant = source
+                    .variant_fittings
                     .iter()
-                    .find(|fitting| {
-                        fitting.slot_id == approval.slot_id
-                            && fitting.direction == approval.source_direction
-                    })
+                    .find(|variant| variant.variant == approval.variant)
                     .ok_or_else(|| DomainError::MissingReference {
                         path: "outfit_draft.asset_fallback_approvals".to_owned(),
                         target: format!(
@@ -384,84 +475,38 @@ impl DomainCatalog {
                             approval.slot_id, approval.source_direction, approval.variant
                         ),
                     })?;
-                let base_revision = require_asset_revision(
+                require_asset_revision(
                     &index.asset_revisions,
-                    source.asset.asset_id,
-                    source.asset.revision,
-                )?;
-                let revision = if base_revision.variant == approval.variant {
-                    base_revision
-                } else {
-                    let variant = source
-                        .variant_fittings
-                        .iter()
-                        .find(|variant| variant.variant == approval.variant)
-                        .ok_or_else(|| DomainError::MissingReference {
-                            path: "outfit_draft.asset_fallback_approvals".to_owned(),
-                            target: format!(
-                                "{}:{:?}:{}",
-                                approval.slot_id, approval.source_direction, approval.variant
-                            ),
-                        })?;
-                    require_asset_revision(
-                        &index.asset_revisions,
-                        variant.asset.asset_id,
-                        variant.asset.revision,
-                    )?
-                };
-                if revision.profile_ref != draft.profile_ref
-                    || revision.slot_id != approval.slot_id
-                    || revision.direction != approval.source_direction
-                    || revision.variant != approval.variant
-                    || !revision.sprite_mirroring_allowed
-                {
-                    return incompatible(
-                        "outfit_draft.asset_fallback_approvals",
-                        "approved fallback source must be compatible, exact, and mirrorable",
-                    );
-                }
+                    variant.asset.asset_id,
+                    variant.asset.revision,
+                )?
+            };
+            if revision.profile_ref != draft.profile_ref
+                || revision.slot_id != approval.slot_id
+                || revision.direction != approval.source_direction
+                || revision.variant != approval.variant
+                || !revision.sprite_mirroring_allowed
+            {
+                return incompatible(
+                    "outfit_draft.asset_fallback_approvals",
+                    "approved fallback source must be compatible, exact, and mirrorable",
+                );
             }
-            for local in &draft.local_overrides {
-                if !profile.slots.iter().any(|slot| slot.id == local.slot_id) {
-                    return missing(
-                        "outfit_draft.local_overrides.slot_id",
-                        local.slot_id.to_string(),
-                    );
-                }
-                if !draft.fittings.iter().any(|fitting| {
-                    fitting.slot_id == local.slot_id && fitting.direction == local.direction
-                }) {
-                    return incompatible(
-                        "outfit_draft.local_overrides",
-                        "override must target an assigned slot and direction",
-                    );
-                }
+        }
+        for local in &draft.local_overrides {
+            if !profile.slots.iter().any(|slot| slot.id == local.slot_id) {
+                return missing(
+                    "outfit_draft.local_overrides.slot_id",
+                    local.slot_id.to_string(),
+                );
             }
-            if let Some(character_id) = draft.character_id {
-                let character =
-                    require(&index.characters, character_id, "outfit_draft.character_id")?;
-                if character.area_id != draft.area_id || character.profile_ref != draft.profile_ref
-                {
-                    return incompatible(
-                        "outfit_draft.character_id",
-                        "character must belong to the same area and profile",
-                    );
-                }
-            }
-            if let Some(appearance_id) = draft.appearance_id {
-                let appearance = require(
-                    &index.appearances,
-                    appearance_id,
-                    "outfit_draft.appearance_id",
-                )?;
-                if Some(appearance.character_id) != draft.character_id
-                    || appearance.profile_ref != draft.profile_ref
-                {
-                    return incompatible(
-                        "outfit_draft.appearance_id",
-                        "appearance must belong to the selected character and profile",
-                    );
-                }
+            if !draft.fittings.iter().any(|fitting| {
+                fitting.slot_id == local.slot_id && fitting.direction == local.direction
+            }) {
+                return incompatible(
+                    "outfit_draft.local_overrides",
+                    "override must target an assigned slot and direction",
+                );
             }
         }
         Ok(())
@@ -648,62 +693,126 @@ impl DomainCatalog {
                 );
             }
         }
-        for equipment in &appearance.equipment {
-            if !slots.contains(&equipment.anchor_slot) {
-                return missing(
-                    "appearance.equipment.anchor_slot",
-                    equipment.anchor_slot.to_string(),
-                );
-            }
-            let base_revision = require_asset_revision(
-                &index.asset_revisions,
-                equipment.asset.asset_id,
-                equipment.asset.revision,
-            )?;
-            if base_revision.profile_ref != appearance.profile_ref {
-                return incompatible(
-                    "appearance.equipment.asset",
-                    "asset profile is incompatible",
-                );
-            }
-            for fit in &equipment.fit_by_direction {
-                let base_reference = fit.asset.as_ref().unwrap_or(&equipment.asset);
-                let base_revision = require_asset_revision(
-                    &index.asset_revisions,
-                    base_reference.asset_id,
-                    base_reference.revision,
-                )?;
-                if fit.asset.is_some()
-                    && (base_revision.profile_ref != appearance.profile_ref
-                        || base_revision.slot_id != equipment.asset.slot_id
-                        || base_revision.direction != fit.direction)
-                {
-                    return incompatible(
-                        "appearance.equipment.fit_by_direction.asset",
-                        "direction asset must match profile, equipment slot, and direction",
+        self.validate_equipment_assets(
+            &appearance.equipment,
+            appearance.profile_ref,
+            &slots,
+            index,
+            "appearance.equipment",
+        )?;
+        Ok(())
+    }
+
+    fn validate_equipment_assets(
+        &self,
+        equipment: &[Equipment],
+        profile_ref: RevisionRef,
+        slots: &HashSet<&SlotId>,
+        index: &CatalogIndex<'_>,
+        path: &str,
+    ) -> Result<(), DomainError> {
+        for item in equipment {
+            let mut pieces = vec![EquipmentAssetInput {
+                anchor_slot: &item.anchor_slot,
+                base_asset: &item.asset,
+                fits: &item.fit_by_direction,
+            }];
+            pieces.extend(
+                item.additional_parts
+                    .iter()
+                    .map(|part| EquipmentAssetInput {
+                        anchor_slot: &part.anchor_slot,
+                        base_asset: &part.asset,
+                        fits: &part.fit_by_direction,
+                    }),
+            );
+            for piece in pieces {
+                if !slots.contains(piece.anchor_slot) {
+                    return missing(
+                        &format!("{path}.anchor_slot"),
+                        piece.anchor_slot.to_string(),
                     );
                 }
-                for variant in &fit.variant_fittings {
-                    let variant_revision = require_asset_revision(
+                self.validate_equipment_asset(
+                    piece.base_asset,
+                    piece.anchor_slot,
+                    profile_ref,
+                    index,
+                    path,
+                )?;
+                for fit in piece.fits {
+                    if let Some(asset) = &fit.asset {
+                        let revision = self.validate_equipment_asset(
+                            asset,
+                            piece.anchor_slot,
+                            profile_ref,
+                            index,
+                            path,
+                        )?;
+                        if revision.direction != fit.direction {
+                            return incompatible(
+                                &format!("{path}.fit_by_direction.asset"),
+                                "direction asset must match its fit direction",
+                            );
+                        }
+                    }
+                    let base_reference = fit.asset.as_ref().unwrap_or(piece.base_asset);
+                    let base_revision = require_asset_revision(
                         &index.asset_revisions,
-                        variant.asset.asset_id,
-                        variant.asset.revision,
+                        base_reference.asset_id,
+                        base_reference.revision,
                     )?;
-                    if variant.variant == base_revision.variant
-                        || variant.variant != variant_revision.variant
-                        || variant_revision.profile_ref != appearance.profile_ref
-                        || variant_revision.slot_id != equipment.asset.slot_id
-                        || variant_revision.direction != fit.direction
-                    {
-                        return incompatible(
-                            "appearance.equipment.fit_by_direction.variant_fittings.asset",
-                            "named equipment variant must be unique and match its exact asset metadata",
-                        );
+                    for variant in &fit.variant_fittings {
+                        let variant_revision = self.validate_equipment_asset(
+                            &variant.asset,
+                            piece.anchor_slot,
+                            profile_ref,
+                            index,
+                            path,
+                        )?;
+                        if variant.variant == base_revision.variant
+                            || variant.variant != variant_revision.variant
+                            || variant_revision.direction != fit.direction
+                        {
+                            return incompatible(
+                                &format!("{path}.fit_by_direction.variant_fittings.asset"),
+                                "named equipment variant must be unique and match its exact asset metadata",
+                            );
+                        }
                     }
                 }
             }
         }
         Ok(())
+    }
+
+    fn validate_equipment_asset<'a>(
+        &self,
+        reference: &SlotRef,
+        anchor_slot: &SlotId,
+        profile_ref: RevisionRef,
+        index: &'a CatalogIndex<'_>,
+        path: &str,
+    ) -> Result<&'a AssetRevision, DomainError> {
+        let revision = require_asset_revision(
+            &index.asset_revisions,
+            reference.asset_id,
+            reference.revision,
+        )?;
+        let asset = require(&index.assets, reference.asset_id, &format!("{path}.asset"))?;
+        if revision.profile_ref != profile_ref
+            || revision.slot_id != *anchor_slot
+            || !matches!(
+                asset.asset_kind,
+                AssetKind::Armour | AssetKind::Accessory | AssetKind::Equipment
+            )
+        {
+            return incompatible(
+                &format!("{path}.asset"),
+                "equipment asset must be armour/accessory/equipment and match profile and slot",
+            );
+        }
+        Ok(revision)
     }
 
     fn validate_bindings(&self, index: &CatalogIndex<'_>) -> Result<(), DomainError> {

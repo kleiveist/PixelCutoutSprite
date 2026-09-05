@@ -142,6 +142,7 @@ export function editsFromDraft(draft: OutfitDraft): OutfitDraftEdits {
     fittings: draft.fittings ?? [],
     asset_fallback_approvals: draft.asset_fallback_approvals ?? [],
     local_overrides: draft.local_overrides ?? [],
+    equipment: draft.equipment ?? [],
   });
 }
 
@@ -361,6 +362,31 @@ function cloneEdits(edits: OutfitDraftEdits): OutfitDraftEdits {
     local_overrides: edits.local_overrides.map((item) => ({
       ...item,
       transform: cloneTransform(item.transform),
+    })),
+    equipment: edits.equipment.map((item) => ({
+      ...cloneEquipmentPart(item),
+      additional_parts: item.additional_parts.map(cloneEquipmentPart),
+    })),
+  };
+}
+
+function cloneEquipmentPart<T extends import("../../domain").EquipmentPart>(part: T): T {
+  return {
+    ...part,
+    asset: { ...part.asset },
+    fit_by_direction: part.fit_by_direction.map((fit) => ({
+      ...fit,
+      asset: fit.asset ? { ...fit.asset } : fit.asset,
+      pivot_px: fit.pivot_px ? [...fit.pivot_px] : fit.pivot_px,
+      variant_fittings: (fit.variant_fittings ?? []).map(cloneVariantFitting),
+      transform: cloneTransform(fit.transform),
+    })),
+    own_motion_tracks: part.own_motion_tracks.map((track) => ({
+      ...track,
+      keys: track.keys.map((key) => ({
+        ...key,
+        transform: cloneTransform(key.transform),
+      })),
     })),
   };
 }

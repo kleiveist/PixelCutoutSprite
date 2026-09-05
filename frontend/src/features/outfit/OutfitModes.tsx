@@ -61,6 +61,7 @@ export function DressMode({
   missing,
   saveState,
   fallbackOptions,
+  selectedBodyCount,
   onToggle,
   onAutoAssign,
   onApproveFallback,
@@ -70,6 +71,7 @@ export function DressMode({
   missing: ReturnType<typeof missingRequiredSlots>;
   saveState: string;
   fallbackOptions: AssetFallbackApproval[];
+  selectedBodyCount: number;
   onToggle: (key: string) => void;
   onAutoAssign: () => void;
   onApproveFallback: (approval: AssetFallbackApproval) => void;
@@ -84,10 +86,10 @@ export function DressMode({
         <button
           type="button"
           className="primary-button"
-          disabled={selected.size === 0 || saveState !== "saved"}
+          disabled={selectedBodyCount === 0 || saveState !== "saved"}
           onClick={onAutoAssign}
         >
-          Auto-assign selected images
+          Auto-assign selected body/clothing images
         </button>
       </div>
       {saveState !== "saved" && (
@@ -179,7 +181,12 @@ function MissingParts({
                 .filter(
                   (option) =>
                     option.slot_id === item.slot_id &&
-                    item.missing_directions.includes(option.target_direction),
+                    (item.missing_directions.includes(option.target_direction) ||
+                      item.missing_variants.some(
+                        (missingVariant) =>
+                          missingVariant.direction === option.target_direction &&
+                          missingVariant.variant === option.variant,
+                      )),
                 )
                 .map((option) => (
                   <button

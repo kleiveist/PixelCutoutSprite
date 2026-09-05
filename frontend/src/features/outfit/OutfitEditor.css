@@ -134,6 +134,73 @@
   grid-column: 2;
 }
 
+.outfit-dress-workspace,
+.equipment-panel,
+.equipment-inspector {
+  display: grid;
+  gap: 1rem;
+}
+
+.equipment-panel {
+  margin-top: 1.25rem;
+  border-top: 1px solid #40516a;
+  padding-top: 1.25rem;
+}
+
+.equipment-rigid-warning {
+  border-left: 3px solid #e5a44f;
+  background: #332d25;
+  padding: 0.75rem;
+}
+
+.equipment-create-row,
+.equipment-state-grid,
+.equipment-key-row {
+  display: flex;
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.equipment-create-row label,
+.equipment-state-grid label {
+  display: grid;
+  flex: 1;
+  gap: 0.3rem;
+}
+
+.equipment-count,
+.equipment-state {
+  border: 1px solid #52647d;
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+}
+
+.equipment-state {
+  justify-self: start;
+  margin: 0;
+}
+
+.equipment-help {
+  margin: 0;
+  color: #aebed2;
+}
+
+.equipment-motion-controls {
+  display: grid;
+  gap: 0.8rem;
+  border: 1px solid #52647d;
+  border-radius: 0.5rem;
+  padding: 0.9rem;
+}
+
+.equipment-motion-controls:disabled {
+  opacity: 0.58;
+}
+
+.equipment-key-row {
+  justify-content: space-between;
+}
+
 .outfit-missing ul {
   display: grid;
   gap: 0.35rem;
@@ -316,5 +383,11 @@
 
   .outfit-form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .equipment-create-row,
+  .equipment-state-grid {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

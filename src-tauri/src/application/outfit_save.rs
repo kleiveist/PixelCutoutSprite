@@ -118,6 +118,12 @@ fn validate_save(
     }
     validate_project_labels(vault, snapshot.area.project_id, &request.label_ids)?;
     snapshot.validate_draft_references(&draft)?;
+    snapshot.validate_equipment_references(
+        &draft.equipment,
+        draft.profile_ref,
+        draft.template_ref,
+        true,
+    )?;
     let action_key = snapshot.workflow(draft.template_ref)?.0.action_key.clone();
     Ok(ValidatedSave {
         draft,

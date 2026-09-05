@@ -42,6 +42,7 @@ fn existing_npc_apply_writes_only_the_edited_scope_and_a_noop_only_assigns_the_d
                     direction: Direction::S,
                     transform: transform(3, 0, 0.0),
                 }],
+                equipment: existing.draft.equipment.clone(),
             },
         )
         .unwrap();
@@ -114,6 +115,7 @@ fn existing_npc_apply_writes_only_the_edited_scope_and_a_noop_only_assigns_the_d
                 fittings,
                 asset_fallback_approvals: existing.draft.asset_fallback_approvals.clone(),
                 local_overrides: existing.draft.local_overrides.clone(),
+                equipment: existing.draft.equipment.clone(),
             },
         )
         .unwrap();
@@ -194,6 +196,7 @@ fn existing_npc_apply_writes_only_the_edited_scope_and_a_noop_only_assigns_the_d
                 fittings: existing.draft.fittings.clone(),
                 asset_fallback_approvals: vec![approval.clone()],
                 local_overrides: existing.draft.local_overrides.clone(),
+                equipment: existing.draft.equipment.clone(),
             },
         )
         .unwrap();

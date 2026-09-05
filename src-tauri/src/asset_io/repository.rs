@@ -319,18 +319,10 @@ pub fn asset_usage_count(catalog: &DomainCatalog, asset_id: ObjectId) -> usize {
                     })
             });
             slot_use
-                || appearance.equipment.iter().any(|item| {
-                    item.asset.asset_id == asset_id
-                        || item.fit_by_direction.iter().any(|fit| {
-                            fit.asset
-                                .as_ref()
-                                .is_some_and(|reference| reference.asset_id == asset_id)
-                                || fit
-                                    .variant_fittings
-                                    .iter()
-                                    .any(|variant| variant.asset.asset_id == asset_id)
-                        })
-                })
+                || appearance
+                    .equipment
+                    .iter()
+                    .any(|item| equipment_uses_asset(item, asset_id))
         })
         .count();
     let draft_uses = catalog
@@ -348,9 +340,38 @@ pub fn asset_usage_count(catalog: &DomainCatalog, asset_id: ObjectId) -> usize {
                             .iter()
                             .any(|variant| variant.asset.asset_id == asset_id)
                 })
+                || draft
+                    .equipment
+                    .iter()
+                    .any(|item| equipment_uses_asset(item, asset_id))
         })
         .count();
     appearance_uses + draft_uses
+}
+
+fn equipment_uses_asset(item: &crate::domain::Equipment, asset_id: ObjectId) -> bool {
+    piece_uses_asset(&item.asset, &item.fit_by_direction, asset_id)
+        || item
+            .additional_parts
+            .iter()
+            .any(|part| piece_uses_asset(&part.asset, &part.fit_by_direction, asset_id))
+}
+
+fn piece_uses_asset(
+    base: &crate::domain::SlotRef,
+    fits: &[crate::domain::DirectionFit],
+    asset_id: ObjectId,
+) -> bool {
+    base.asset_id == asset_id
+        || fits.iter().any(|fit| {
+            fit.asset
+                .as_ref()
+                .is_some_and(|reference| reference.asset_id == asset_id)
+                || fit
+                    .variant_fittings
+                    .iter()
+                    .any(|variant| variant.asset.asset_id == asset_id)
+        })
 }
 
 fn copy_image(source: &Path, destination: &Path) -> Result<(), AssetRepositoryError> {

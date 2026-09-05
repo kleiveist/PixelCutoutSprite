@@ -198,15 +198,26 @@ fn profile_document(
     hand: SlotId,
     timestamp: UtcTimestamp,
 ) -> ProfileRevision {
+    let torso_upper = SlotId::parse("torso_upper").unwrap();
+    let torso_lower = SlotId::parse("torso_lower").unwrap();
+    let head = SlotId::parse("head").unwrap();
     let views = Direction::ALL
         .into_iter()
         .map(|direction| DirectionView {
             direction,
-            layer_order: vec![hand.clone()],
-            base_transforms: vec![ViewTransform {
-                slot_id: hand.clone(),
-                transform: transform(0, 0, if direction == Direction::S { 90.0 } else { 0.0 }),
-            }],
+            layer_order: vec![
+                head.clone(),
+                torso_upper.clone(),
+                torso_lower.clone(),
+                hand.clone(),
+            ],
+            base_transforms: test_view_transforms(
+                direction,
+                &hand,
+                &torso_upper,
+                &torso_lower,
+                &head,
+            ),
         })
         .collect();
     ProfileRevision {
@@ -217,18 +228,48 @@ fn profile_document(
         area_id,
         name: "Humanoid 80 px".to_owned(),
         reference_height_px: 80,
-        slots: vec![SlotDefinition {
-            id: hand,
-            parent_id: None,
-            optional: false,
-            size_px: PixelSize(1, 1),
-            pivot_px: PixelPoint(0, 0),
-            base_transform: transform(0, 0, 0.0),
-        }],
+        slots: vec![
+            test_slot(hand, false),
+            test_slot(torso_upper, true),
+            test_slot(torso_lower, true),
+            test_slot(head, true),
+        ],
         views,
         mirror_pairs: Vec::new(),
         published_at: timestamp,
     }
+}
+
+fn test_slot(id: SlotId, optional: bool) -> SlotDefinition {
+    SlotDefinition {
+        id,
+        parent_id: None,
+        optional,
+        size_px: PixelSize(1, 1),
+        pivot_px: PixelPoint(0, 0),
+        base_transform: transform(0, 0, 0.0),
+    }
+}
+
+fn test_view_transforms(
+    direction: Direction,
+    hand: &SlotId,
+    torso_upper: &SlotId,
+    torso_lower: &SlotId,
+    head: &SlotId,
+) -> Vec<ViewTransform> {
+    [
+        (hand, 0, if direction == Direction::S { 90.0 } else { 0.0 }),
+        (torso_upper, 1, 0.0),
+        (torso_lower, 2, 0.0),
+        (head, -1, 0.0),
+    ]
+    .into_iter()
+    .map(|(slot, y, rotation)| ViewTransform {
+        slot_id: slot.clone(),
+        transform: transform(0, y, rotation),
+    })
+    .collect()
 }
 
 fn template_document(
@@ -278,7 +319,22 @@ fn motion_document(
                 source: None,
             })
             .collect(),
-        tracks: Vec::new(),
+        tracks: vec![MotionTrack {
+            direction: Direction::E,
+            slot_id: SlotId::parse("hand_l").unwrap(),
+            property: TrackProperty::OffsetXPx,
+            interpolation: Interpolation::Linear,
+            keys: vec![
+                Keyframe {
+                    frame: 0,
+                    value: TrackValue::Number(0.0),
+                },
+                Keyframe {
+                    frame: 1,
+                    value: TrackValue::Number(1.0),
+                },
+            ],
+        }],
         semantics: None,
         published_at: timestamp,
     }
@@ -494,6 +550,136 @@ fn install_duplicate_binding(root: &VaultRoot, saved: &SavedNpc) {
     );
 }
 
+fn seed_equipment_assets(
+    fixture: &OutfitFixture,
+    prefix: &str,
+    slot: &str,
+    kind: AssetKind,
+    palette: u8,
+) -> Vec<(Direction, SlotRef)> {
+    let slot_id = SlotId::parse(slot).unwrap();
+    Direction::ALL
+        .into_iter()
+        .map(|direction| {
+            let asset_id = ObjectId::new();
+            let name = format!("{prefix}-{}", direction_name(direction));
+            let source_relative = format!(".area/assets/{name}/source.png");
+            let source = fixture
+                .root
+                .resolve(&Path::new(AREA_PATH).join(&source_relative))
+                .unwrap();
+            fs::create_dir_all(source.as_path().parent().unwrap()).unwrap();
+            RgbaImage::from_pixel(1, 1, Rgba(equipment_color(palette, direction)))
+                .save(source.as_path())
+                .unwrap();
+            let mut asset = asset_document(asset_id, fixture.area_id, &name, timestamp());
+            asset.name = name.clone();
+            asset.original_name = format!("{name}.png");
+            asset.asset_kind = kind;
+            write_document(
+                &fixture.root,
+                Path::new(AREA_PATH).join(format!(".area/assets/{name}/asset.json")),
+                DomainDocument::Asset(asset),
+            );
+            write_document(
+                &fixture.root,
+                Path::new(AREA_PATH).join(format!(".area/assets/{name}/revision.json")),
+                DomainDocument::AssetRevision(asset_revision_document(
+                    asset_id,
+                    fixture.profile_ref,
+                    &slot_id,
+                    direction,
+                    source_relative,
+                    timestamp(),
+                )),
+            );
+            (
+                direction,
+                SlotRef {
+                    asset_id,
+                    revision: 1,
+                    slot_id: slot_id.clone(),
+                },
+            )
+        })
+        .collect()
+}
+
+fn equipment_color(palette: u8, direction: Direction) -> [u8; 4] {
+    let direction_index = Direction::ALL
+        .iter()
+        .position(|candidate| *candidate == direction)
+        .unwrap() as u8;
+    [palette, 30 + direction_index, 220 - direction_index, 255]
+}
+
+fn equipment_piece(
+    name: &str,
+    slot: &str,
+    assets: &[(Direction, SlotRef)],
+    offset_y: i16,
+    layers: impl Fn(Direction) -> i16,
+) -> EquipmentPart {
+    EquipmentPart {
+        id: ObjectId::new(),
+        name: name.to_owned(),
+        anchor_slot: SlotId::parse(slot).unwrap(),
+        asset: assets[0].1.clone(),
+        enabled: true,
+        follow_mode: FollowMode::Slot,
+        own_motion_enabled: false,
+        fit_by_direction: assets
+            .iter()
+            .map(|(direction, asset)| DirectionFit {
+                direction: *direction,
+                asset: Some(asset.clone()),
+                pivot_px: Some(PixelPoint(0, 0)),
+                variant_fittings: Vec::new(),
+                transform: transform(0, offset_y, 0.0),
+                visible: true,
+                layer_delta: layers(*direction),
+            })
+            .collect(),
+        own_motion_tracks: Vec::new(),
+    }
+}
+
+fn equipment_from_parts(name: &str, mut parts: Vec<EquipmentPart>) -> Equipment {
+    let primary = parts.remove(0);
+    Equipment {
+        id: primary.id,
+        name: name.to_owned(),
+        anchor_slot: primary.anchor_slot,
+        asset: primary.asset,
+        enabled: primary.enabled,
+        follow_mode: primary.follow_mode,
+        own_motion_enabled: primary.own_motion_enabled,
+        fit_by_direction: primary.fit_by_direction,
+        own_motion_tracks: primary.own_motion_tracks,
+        additional_parts: parts,
+    }
+}
+
+fn equipment_track(direction: Direction, enabled: bool, x_at_end: i16) -> EquipmentMotionTrack {
+    EquipmentMotionTrack {
+        direction,
+        enabled,
+        interpolation: Interpolation::Linear,
+        keys: vec![
+            EquipmentMotionKey {
+                frame: 0,
+                transform: transform(0, 0, 0.0),
+            },
+            EquipmentMotionKey {
+                frame: 1,
+                transform: transform(x_at_end, 0, 12.0),
+            },
+        ],
+    }
+}
+
+#[path = "outfit_workflow/equipment.rs"]
+mod outfit_equipment;
 fn write_document(root: &VaultRoot, relative: PathBuf, document: DomainDocument) {
     fs::create_dir_all(root.path().join(&relative).parent().unwrap()).unwrap();
     JsonStore::default()

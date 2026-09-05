@@ -38,15 +38,41 @@ export interface SlotAppearance {
   fit_by_direction: DirectionFit[];
 }
 
+export interface EquipmentMotionKey {
+  frame: number;
+  transform: Transform2D;
+}
+
+export interface EquipmentMotionTrack {
+  direction: Direction;
+  enabled: boolean;
+  interpolation: "linear" | "hold" | "ease_in_out";
+  keys: EquipmentMotionKey[];
+}
+
+export interface EquipmentPart {
+  id: UUID;
+  name: string;
+  anchor_slot: string;
+  asset: SlotRef;
+  enabled: boolean;
+  follow_mode: "slot" | "root" | "world";
+  own_motion_enabled: boolean;
+  fit_by_direction: DirectionFit[];
+  own_motion_tracks: EquipmentMotionTrack[];
+}
+
 export interface Equipment {
   id: UUID;
   name: string;
   anchor_slot: string;
   asset: SlotRef;
   enabled: boolean;
-  follow_mode: "slot" | "world";
+  follow_mode: "slot" | "root" | "world";
   own_motion_enabled: boolean;
   fit_by_direction: DirectionFit[];
+  own_motion_tracks: EquipmentMotionTrack[];
+  additional_parts: EquipmentPart[];
 }
 
 export interface Appearance extends MutableDocument<"appearance"> {

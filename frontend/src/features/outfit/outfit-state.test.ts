@@ -49,6 +49,7 @@ function draft(): OutfitDraft {
     asset_fallback_approvals: [],
     fittings: [],
     local_overrides: [],
+    equipment: [],
     created_at: "2026-09-05T09:00:00Z",
     updated_at: "2026-09-05T09:00:00Z",
   };
@@ -134,6 +135,7 @@ describe("outfit completeness", () => {
       fittings: [fitting],
       asset_fallback_approvals: [],
       local_overrides: [],
+      equipment: [],
     });
     expect(missing).toEqual([
       {
@@ -172,6 +174,7 @@ describe("sprite-variant mirror approvals", () => {
         fittings: [source, target],
         asset_fallback_approvals: [],
         local_overrides: [],
+        equipment: [],
       },
       {
         slot_id: "hand_l",

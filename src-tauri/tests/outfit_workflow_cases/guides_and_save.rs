@@ -10,27 +10,26 @@ fn preview_guides_follow_direction_parent_hierarchy_and_sampled_frame_motion() {
     let DomainDocument::ProfileRevision(mut profile) = loaded.value else {
         panic!("fixture profile path has the wrong document kind");
     };
-    profile.slots[0].parent_id = Some(torso.clone());
-    profile.slots.insert(
-        0,
-        SlotDefinition {
-            id: torso.clone(),
-            parent_id: None,
-            optional: true,
-            size_px: PixelSize(2, 2),
-            pivot_px: PixelPoint(1, 1),
-            base_transform: transform(0, 0, 0.0),
-        },
-    );
+    profile
+        .slots
+        .iter_mut()
+        .find(|slot| slot.id.as_str() == "hand_l")
+        .unwrap()
+        .parent_id = Some(torso.clone());
+    let torso_slot = profile
+        .slots
+        .iter_mut()
+        .find(|slot| slot.id == torso)
+        .unwrap();
+    torso_slot.size_px = PixelSize(2, 2);
+    torso_slot.pivot_px = PixelPoint(1, 1);
+    torso_slot.base_transform = transform(0, 0, 0.0);
     for view in &mut profile.views {
-        view.layer_order.insert(0, torso.clone());
-        view.base_transforms.insert(
-            0,
-            ViewTransform {
-                slot_id: torso.clone(),
-                transform: transform(0, 0, 0.0),
-            },
-        );
+        view.base_transforms
+            .iter_mut()
+            .find(|item| item.slot_id == torso)
+            .unwrap()
+            .transform = transform(0, 0, 0.0);
     }
     JsonStore::default()
         .compare_and_swap(
@@ -162,8 +161,11 @@ fn outfit_preview_keeps_the_released_ground_shadow_anchored_outside_profile_guid
         .rgba
         .chunks_exact(4)
         .any(|pixel| pixel == [18, 17, 22, 77]));
-    assert_eq!(preview.guides.len(), 1);
-    assert_eq!(preview.guides[0].slot_id.as_str(), "hand_l");
+    assert_eq!(preview.guides.len(), 4);
+    assert!(preview
+        .guides
+        .iter()
+        .any(|guide| guide.slot_id.as_str() == "hand_l"));
     assert!(!preview.guides_included);
 }
 
@@ -278,6 +280,7 @@ fn saving_creates_stable_character_appearance_and_first_binding_without_copying_
             direction: Direction::S,
             transform: transform(1, 0, 2.0),
         }],
+        equipment: existing.draft.equipment.clone(),
     };
     existing_edits
         .fittings

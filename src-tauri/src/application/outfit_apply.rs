@@ -157,7 +157,6 @@ pub(super) fn apply_to_existing_npc(
     let mut proposed_appearance =
         appearance_from_draft(&draft, character_id, appearance_id, timestamp)?;
     proposed_appearance.name = current_appearance.name.clone();
-    proposed_appearance.equipment = current_appearance.equipment.clone();
     proposed_appearance.created_at = current_appearance.created_at;
     let appearance_changed = proposed_appearance.slots != current_appearance.slots
         || proposed_appearance.equipment != current_appearance.equipment

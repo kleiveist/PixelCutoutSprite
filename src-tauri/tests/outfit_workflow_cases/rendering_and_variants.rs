@@ -228,16 +228,19 @@ fn preview_resolves_mirrored_pose_but_keeps_the_exact_target_asset_unmirrored() 
         .unwrap();
     west.mode = DirectionMode::Mirrored;
     west.source = Some(Direction::E);
-    motion.tracks.push(MotionTrack {
-        direction: Direction::E,
-        slot_id: SlotId::parse("hand_l").unwrap(),
-        property: TrackProperty::OffsetXPx,
-        interpolation: Interpolation::Linear,
-        keys: vec![Keyframe {
-            frame: 0,
-            value: TrackValue::Number(1.0),
-        }],
-    });
+    let east_offset = motion
+        .tracks
+        .iter_mut()
+        .find(|track| {
+            track.direction == Direction::E
+                && track.slot_id.as_str() == "hand_l"
+                && track.property == TrackProperty::OffsetXPx
+        })
+        .unwrap();
+    east_offset.keys = vec![Keyframe {
+        frame: 0,
+        value: TrackValue::Number(1.0),
+    }];
     JsonStore::default()
         .compare_and_swap(
             &motion_path,
@@ -352,6 +355,7 @@ fn approved_mirror_target_keeps_an_independent_target_local_fitting() {
                     direction: Direction::W,
                     transform: transform(0, 1, 0.0),
                 }],
+                equipment: assigned.draft.equipment.clone(),
             },
         )
         .unwrap();

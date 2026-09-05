@@ -70,6 +70,14 @@ after two idle seconds the native autosave validates exact asset references and 
 loaded document stamp before incrementing its revision. Saving does not clear the session's
 Undo/Redo history, and a failed or conflicting write retains the current in-memory edits.
 
+P14 includes the complete equipment graph in that same CAS-protected draft payload: logical
+objects, rigid subparts, direction images and optional transform tracks are not sidecar state.
+Asset references must resolve to compatible area-owned armour/accessory/equipment revisions.
+Disabled pieces and tracks remain serialized unchanged. First-time NPC save copies this authored
+equipment into the Default Appearance while leaving every imported PNG in its area asset folder;
+it creates no extra anatomy, database row or equipment-specific file tree. The future P16 export
+must consume this persisted Appearance through the same compositor used by preview.
+
 ## Durability boundary
 
 The staged-write ordering and failure behavior are exercised on Linux. No cross-platform atomic

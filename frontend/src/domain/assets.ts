@@ -11,6 +11,7 @@ import type {
   UUID,
   UtcTimestamp,
 } from "./common";
+import type { Equipment } from "./characters";
 
 export type AssetKind = "body" | "clothing" | "armour" | "accessory" | "equipment";
 
@@ -90,4 +91,5 @@ export interface OutfitDraft extends MutableDocument<"outfit_draft"> {
   asset_fallback_approvals: AssetFallbackApproval[];
   fittings: OutfitFitting[];
   local_overrides: OutfitLocalOverride[];
+  equipment: Equipment[];
 }

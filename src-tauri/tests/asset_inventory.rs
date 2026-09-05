@@ -102,6 +102,7 @@ impl Fixture {
             asset_fallback_approvals: Vec::new(),
             fittings: Vec::new(),
             local_overrides: Vec::new(),
+            equipment: Vec::new(),
             created_at: timestamp,
             updated_at: timestamp,
         };

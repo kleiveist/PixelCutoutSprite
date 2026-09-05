@@ -27,6 +27,7 @@ fn confirmed_direction_images_auto_assign_and_the_unnamed_draft_resumes() {
         fittings: assigned.draft.fittings.clone(),
         asset_fallback_approvals: assigned.draft.asset_fallback_approvals.clone(),
         local_overrides: Vec::new(),
+        equipment: assigned.draft.equipment.clone(),
     };
     edits.fittings[0].transform = transform(2, -1, 3.5);
     let saved = AppearanceService
@@ -52,6 +53,7 @@ fn confirmed_direction_images_auto_assign_and_the_unnamed_draft_resumes() {
                 fittings: saved.draft.fittings.clone(),
                 asset_fallback_approvals: saved.draft.asset_fallback_approvals.clone(),
                 local_overrides: Vec::new(),
+                equipment: saved.draft.equipment.clone(),
             },
         ),
         Err(AppearanceServiceError::RevisionConflict { .. })
@@ -147,6 +149,7 @@ fn described_package_import_flows_through_fitting_resume_and_first_npc_save() {
                 fittings,
                 asset_fallback_approvals: Vec::new(),
                 local_overrides: Vec::new(),
+                equipment: assigned.draft.equipment.clone(),
             },
         )
         .unwrap();
@@ -254,6 +257,7 @@ fn new_assignments_reject_archived_or_unreleased_assets_but_existing_pins_remain
                     }],
                     asset_fallback_approvals: Vec::new(),
                     local_overrides: Vec::new(),
+                    equipment: Vec::new(),
                 },
             ),
             Err(AppearanceServiceError::InvalidState(message))
@@ -300,6 +304,7 @@ fn new_assignments_reject_archived_or_unreleased_assets_but_existing_pins_remain
                 fittings,
                 asset_fallback_approvals: assigned.draft.asset_fallback_approvals,
                 local_overrides: assigned.draft.local_overrides,
+                equipment: assigned.draft.equipment,
             },
         )
         .expect("an already-pinned archived revision remains editable");
@@ -367,6 +372,7 @@ fn preview_applies_direction_image_shared_fitting_and_binding_override_without_g
             direction: Direction::S,
             transform: transform(0, 1, 0.0),
         }],
+        equipment: assigned.draft.equipment.clone(),
     };
     let south = AppearanceService
         .render_preview(

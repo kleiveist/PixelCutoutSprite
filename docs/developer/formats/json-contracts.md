@@ -37,7 +37,7 @@ The fixed document kinds and their identities are:
 | `motion_revision` | template UUID + release revision | Exact profile, timing, directions, tracks and optional preset semantics |
 | `asset` | asset UUID + object revision | Area and immutable released revision numbers |
 | `asset_revision` | asset UUID + release revision | Exact profile/slot, relative PNG and SHA-256 |
-| `outfit_draft` | draft UUID + object revision | Area, exact motion/profile, directional fittings and local overrides |
+| `outfit_draft` | draft UUID + object revision | Area, exact motion/profile, directional fittings, local overrides and equipment |
 | `character` | NPC UUID + object revision | Area, exact profile and default appearance UUID |
 | `appearance` | appearance UUID + object revision | NPC, exact profile, assets, fitting and equipment |
 | `animation_binding` | binding UUID + object revision | NPC, action key, motion revision and appearance |
@@ -143,6 +143,39 @@ persisted appearance. The native preview returns resolved affine guide matrices 
 RGBA bytes; those UI overlays therefore follow the sampled parent hierarchy without entering a
 PNG/RGBA result. An enabled preset ground shadow remains a compositor part anchored to the motion
 ground origin, not a profile slot or guide.
+
+## Equipment objects and optional motion
+
+An `Equipment` value is one logical armour, accessory or equipment object. Its existing top-level
+piece remains the primary rigid piece for schema-v1 compatibility; additive `additional_parts`
+carry further pieces of the same object. Every piece has its own stable UUID, presentation name,
+existing profile `anchor_slot`, exact base asset revision, direction fittings, and three
+independent settings:
+
+- `enabled` decides whether the piece enters the shared compositor. Turning it off retains every
+  image, fitting and key.
+- `follow_mode: "slot"` parents the piece to its anatomical slot. `"root"` explicitly parents it
+  to the figure origin. The provisional `"world"` value remains readable and has the same safe
+  figure-root meaning; it is not a screen-space attachment.
+- `own_motion_enabled` gates only the additional transform tracks. It never disables normal slot
+  following.
+
+Equipment does not add profile slots: the humanoid anatomy remains the same sixteen-slot
+contract. Each direction fitting records an exact compatible armour/accessory/equipment image,
+optional pivot override, additive `variant_fittings`, local offset, rigid rotation, visibility and
+layer delta. A sampled sprite-variant key selects the matching equipment image without changing
+the direction-wide transform. Saving an
+enabled piece as an NPC requires compatible images for all eight directions. An incomplete
+disabled piece may remain in the draft or Appearance so editing choices are not destroyed.
+
+`own_motion_tracks` are keyed by direction. A track stores its own `enabled` gate, linear/hold/
+ease-in-out interpolation, and strictly increasing transform keys. Draft validation bounds keys
+to the active immutable MotionRevision. Sampling has no clock or random input; a hidden piece,
+disabled own-motion gate, disabled track or invisible direction produces the identity delta and
+cannot leak a stored key as phantom movement. The resulting rigid transform is evaluated after
+the chosen slot/root attachment and before the direction fitting. Explicit target-direction
+equipment images are not mirrored a second time, preserving asymmetric gloves and accessories.
+No mesh, weights, skinning or new anatomical bone contract is introduced.
 
 ## Files and portable paths
 
