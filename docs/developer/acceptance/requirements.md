@@ -11,8 +11,8 @@ evidence. A phase checkbox or file name alone is not evidence.
 |---|---|---|---|
 | RQ-01 | Pixel-art RPG animation focus | P07–P11 | Planned |
 | RQ-02 | Native desktop app; no mobile or web product | P01, P20 | P01: native Tauri 2 shell starts on Linux; only bundled WebView content and `core:default`; packaging matrix remains P20 |
-| RQ-03 | Project dashboard after opening a vault | P03–P04 | Planned |
-| RQ-04 | Projects are folders | P03–P04 | Planned |
+| RQ-03 | Project dashboard after opening a vault | P03–P04 | P03: successful native vault open routes to the Projects workspace; project cards follow in P04 |
+| RQ-04 | Projects are folders | P03–P04 | P03: `VaultLayout` reserves project `.project` ownership and safe object folders; CRUD follows in P04 |
 | RQ-05 | User-defined labels | P04 | Planned |
 | RQ-06 | Every structured filter uses a dropdown | P04–P06, P12, P15, P19 | Planned |
 | RQ-07 | User-defined areas | P05 | Planned |
@@ -41,11 +41,11 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-30 | Name and label an outfitted NPC | P13, P15 | Planned |
 | RQ-31 | Multiple motions belong to one NPC | P15 | Planned |
 | RQ-32 | Switch Animation and NPC views in context | P06, P15 | Planned |
-| RQ-33 | User-selected local vault | P03 | Planned |
-| RQ-34 | `.pixelforge-studio` stores global data only | P02–P03, P18 | P02: JSON v1 ownership and portable-path contract reserves it for vault-global/runtime data; filesystem enforcement remains P03/P18 |
-| RQ-35 | No SQL or SQLite | P02–P03, P22 | P02: runtime manifest test rejects database dependencies; authoritative formats are JSON/PNG only; storage implementation and final audit remain P03/P22 |
-| RQ-36 | Project/area/NPC/animation filesystem hierarchy | P03, P15–P16 | Planned |
+| RQ-33 | User-selected local vault | P03 | P03: native directory dialog, inspect/confirm/initialize/open/close/recent commands and temporary-filesystem integration tests |
+| RQ-34 | `.pixelforge-studio` stores global data only | P02–P03, P18 | P03: `VaultLayout::global_path_allows` and integration tests restrict global data to manifest/labels/UI/runtime; journals are project-scoped; recovery audit remains P18 |
+| RQ-35 | No SQL or SQLite | P02–P03, P22 | P03: production `JsonStore`, JSON journal/index and dependency manifests contain no database runtime; final audit remains P22 |
+| RQ-36 | Project/area/NPC/animation filesystem hierarchy | P03, P15–P16 | P03: filesystem ownership resolver establishes `.project`, `.area`, character and derived-export scopes; concrete NPC/export trees follow P15–P16 |
 | RQ-37 | Compact PNG sheets; loose frames optional | P16 | Planned |
 | RQ-38 | Generic integration and Godot output | P16–P17 | Planned |
 | RQ-39 | No required manual bone/skeleton setup | P05, P08, P22 | Planned |
-| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P02 implemented and gated; P03 is next |
+| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P03 implemented and gated; P04 is next |

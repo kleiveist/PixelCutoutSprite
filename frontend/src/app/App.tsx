@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { vaultClient, type OpenVault } from "../api/vault-client";
 import { AppHeader } from "../components/AppHeader";
 import { Breadcrumbs } from "../components/Breadcrumbs";
 import { DialogLayer } from "../components/DialogLayer";
@@ -15,6 +16,7 @@ export function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState("Ready · changes stay on this device");
+  const [vault, setVault] = useState<OpenVault | null>(null);
   const mainContent = useRef<HTMLElement>(null);
   const initialRoute = useRef(true);
 
@@ -53,9 +55,25 @@ export function App() {
     mainContent.current?.focus();
   }, [route]);
 
+  useEffect(
+    () => () => {
+      if (vault) void vaultClient.close(vault.session_id).catch(() => undefined);
+    },
+    [vault],
+  );
+
   function navigate(nextRoute: WorkspaceRoute): void {
     setRoute(nextRoute);
     setStatus(`${routeDetails(nextRoute).label} selected`);
+  }
+
+  function openVault(opened: OpenVault): void {
+    setVault(opened);
+    setRoute("projects");
+    setStatus(
+      opened.notice ??
+        `${opened.mode === "read_write" ? "Writable" : "Read-only"} vault · ${opened.indexed_objects} indexed object${opened.indexed_objects === 1 ? "" : "s"}`,
+    );
   }
 
   return (
@@ -65,7 +83,7 @@ export function App() {
       <div className="content-frame">
         <Breadcrumbs items={routeBreadcrumbs(route)} />
         <main ref={mainContent} className="main-content" tabIndex={-1}>
-          <PlaceholderView details={details} onOpenProjects={() => navigate("projects")} />
+          <PlaceholderView details={details} onVaultOpened={openVault} />
         </main>
       </div>
       <StatusBar message={status} playing={playing} />

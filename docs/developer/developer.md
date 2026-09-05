@@ -17,5 +17,7 @@
 - 🧭 [PixelCutoutSprite Studio ExecPlan](plans/pixelcutoutsprite-execplan.md)
 - 🧩 [Prompts](prompts/prompts.md)
 - 🧾 [Repository inventory](repository-inventory.md)
+- 💾 [Storage](storage/storage.md)
+- 🔐 [Vault and safe file storage](storage/vault-storage.md)
 
 <!-- AUTO-GENERATED:docs-index END -->

@@ -1,7 +1,11 @@
 use serde::Serialize;
+use std::sync::Mutex;
 use tauri::{Builder, Runtime};
 
+pub mod application;
+pub mod commands;
 pub mod domain;
+pub mod storage;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,7 +23,17 @@ fn desktop_identity() -> DesktopIdentity {
 }
 
 fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
-    builder.invoke_handler(tauri::generate_handler![desktop_identity])
+    builder
+        .plugin(tauri_plugin_dialog::init())
+        .manage(Mutex::new(application::VaultService::default()))
+        .invoke_handler(tauri::generate_handler![
+            desktop_identity,
+            commands::inspect_vault,
+            commands::initialize_vault,
+            commands::open_vault,
+            commands::close_vault,
+            commands::recent_vaults,
+        ])
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P02 abgeschlossen; P03 ist der nächste Schritt
+**Implementierung:** P00–P03 abgeschlossen; P04 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -43,6 +43,11 @@ UI-/IPC-Seite. Vollständige positive Fixtures decken alle 14 Dokumentarten ab. 
 Fixtures und Konstruktionstests belegen Zukunftsversion, Typfehler, fehlende oder doppelte
 Identitäten, Eltern-/Spiegelzyklen, Zahlenlimits, Pfade, Profilinkompatibilität und Atlasgrenzen.
 
+P03 verbindet die native Ordnerauswahl mit einer filesystem-geprüften Vault. Fremde nicht leere
+Ordner benötigen eine gegen Änderungen geschützte Zweitbestätigung; beschädigte Vaults bleiben
+unangetastet. Gestufte validierte JSON-Writes, SHA-256-CAS, Single-Writer-Lock, ID-Index,
+projektbezogene Transaktionsjournale und Autosave-Zustände bilden die gemeinsame Speicherbasis.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -58,7 +63,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P00](../prompts/pixelcutoutsprite/00.md) | Bestand prüfen und Umsetzung verankern | Abgeschlossen |
 | [P01](../prompts/pixelcutoutsprite/01.md) | Desktop-Shell und Produktidentität | Abgeschlossen |
 | [P02](../prompts/pixelcutoutsprite/02.md) | Fachmodelle und JSON-Verträge | Abgeschlossen |
-| [P03](../prompts/pixelcutoutsprite/03.md) | Vault und sichere Dateispeicherung | Nicht begonnen |
+| [P03](../prompts/pixelcutoutsprite/03.md) | Vault und sichere Dateispeicherung | Abgeschlossen |
 | [P04](../prompts/pixelcutoutsprite/04.md) | Projekt-Dashboard, Labels und Dropdown-Filter | Nicht begonnen |
 | [P05](../prompts/pixelcutoutsprite/05.md) | Bereiche und humanoide Körperprofile | Nicht begonnen |
 | [P06](../prompts/pixelcutoutsprite/06.md) | Animationsbibliothek und zustandsabhängige Navigation | Nicht begonnen |
@@ -88,6 +93,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P00: tatsächlichen Checkout, Tooling-Grenzen, Tauri-ADR, RQ-Ledger und Basistests erfasst.
 - [x] P01: native React-/Tauri-Shell, Produktidentität, Navigation, Dialoge und Shortcuts erstellt.
 - [x] P02: Fachmodelle, JSON-v1-Verträge, Graphvalidierung, Zustände und Vertragsfixtures erstellt.
+- [x] P03: native Vault-Auswahl, sichere Pfade/Writes, Lock, Index und Journalbasis erstellt.
 - [ ] Meilenstein A: Grundlage, P00–P06.
 - [ ] Meilenstein B: Bewegungen, P07–P11.
 - [ ] Meilenstein C: Figuren, P12–P15.
@@ -123,6 +129,13 @@ kleinen Dokumentkopf erkannt und erreicht weder normalen Decoder noch späteren 
 **2026-09-05 / P02:** Template-Katalogstatus und Freigabestatus wurden bewusst getrennt. Eine
 aktive Vorlage kann gleichzeitig einen neuen Entwurf und mehrere unveränderliche Freigaben
 besitzen; die Erstellung eines Entwurfs setzt eine veröffentlichte Revision nicht zurück.
+
+**2026-09-05 / P03:** Dateiaustausch ist bewusst als gestuftes, vor und nach dem Schreiben
+validiertes Verfahren beschrieben. Die Linux-Fehlerfälle sind belegt; eine allgemeine
+plattformübergreifende Atomaritätszusage wäre ohne reale Windows-/macOS-Prüfung falsch.
+
+**2026-09-05 / P03:** Ein belegter Writer führt zu einer sichtbaren Read-only-Sitzung. Andere
+Schreibfehler werden gemeldet und niemals durch eine Ersatzablage kaschiert.
 
 ## Decision Log
 
@@ -170,6 +183,9 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P02 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 11 Tests und alle Frontend-Gates | Vier DTO-Vertragstests belegen Header-/Versions-, UUID-, Richtungs-, Pfad-, Zustands- und Identitätsspiegelung. |
 | 2026-09-05 / P02 | `tools/control.py quality architecture` und `quality lint` | Linux-Host, Python 3.14.7 | PASS | TypeScript-Schichten sowie Python-, TS- und Rust-Prüfungen bleiben intakt. |
 | 2026-09-05 / P02 | `tools/control.py docs check --docs-dir docs` | Linux-Host | PASS: 132 Seiten konsistent | Formatdokumentation und Navigation sind vollständig verknüpft. |
+| 2026-09-05 / P03 | `cargo test --all-targets`, Clippy `-D warnings`, rustfmt | Linux-Host, Rust 1.97.1 | PASS: 23 Tests | 12 Vault-/Storage-Integrationstests plus bestehende Domain-/Composition-Tests; fremd/beschädigt, Lock, CAS, Write-Failure, Rechte, Journal und Symlink belegt. |
+| 2026-09-05 / P03 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 14 Tests und alle Frontend-Gates | Nativer Dialogfluss, Zweitbestätigung, beschädigter Vault und App-Übergang getestet. |
+| 2026-09-05 / P03 | `tools/control.py quality architecture`, `quality lint`, `integrate --check` und Docs-Check | Linux-Host, Python 3.14.7 | PASS | Speicher- und UI-Schichten bleiben in den Tooling-Grenzen; 134 Dokumentseiten konsistent. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -179,14 +195,14 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P03 ausführen: Vault-Inspektion und -Initialisierung, sichere
-reale Pfadauflösung, Single-Writer-Lock sowie validiertes JSON-Schreiben mit Fehler- und
-Recovery-Tests implementieren.
+**Nächster ausführbarer Schritt:** P04 ausführen: Projekt-Dashboard, dienstebasiertes CRUD,
+Workspace-Labels und wiederverwendbare Dropdown-Filter auf der Vault-Basis implementieren.
 
 ## Outcomes & Retrospective
 
 P00 hat die Planung in den tatsächlichen Checkout überführt. P01 liefert einen nachweislich
 startfähigen, responsiven Desktop-Rahmen. P02 verankert die getrennten Identitäten und den
-portablen JSON-v1-Vertrag, auf dem die Dateispeicherung in P03 aufbaut.
+portablen JSON-v1-Vertrag, auf dem die Dateispeicherung in P03 aufbaut. P03 liefert diese
+Dateispeicherung samt nativer Auswahl, Pfadgrenze, Konflikt- und Lock-Verhalten.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

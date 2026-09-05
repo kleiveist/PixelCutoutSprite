@@ -1,11 +1,13 @@
 import type { NavigationItem } from "../app/navigation";
+import type { OpenVault } from "../api/vault-client";
+import { VaultWelcome } from "../features/vault/VaultWelcome";
 
 interface PlaceholderViewProps {
   details: NavigationItem;
-  onOpenProjects: () => void;
+  onVaultOpened: (vault: OpenVault) => void;
 }
 
-export function PlaceholderView({ details, onOpenProjects }: PlaceholderViewProps) {
+export function PlaceholderView({ details, onVaultOpened }: PlaceholderViewProps) {
   if (details.route !== "welcome") {
     return (
       <section className="placeholder-panel" aria-labelledby="placeholder-heading">
@@ -40,14 +42,7 @@ export function PlaceholderView({ details, onOpenProjects }: PlaceholderViewProp
           Create reusable motion, dress readable characters, and export deterministic sprite
           packages—all from a local desktop vault.
         </p>
-        <div className="welcome-actions">
-          <button className="primary-button" type="button" onClick={onOpenProjects}>
-            Open workspace <span aria-hidden="true">→</span>
-          </button>
-          <span className="shortcut-hint">
-            <kbd>?</kbd> shortcuts
-          </span>
-        </div>
+        <VaultWelcome onOpened={onVaultOpened} />
       </div>
       <div className="pixel-stage" aria-label="Decorative pixel character preview">
         <div className="stage-grid" />
