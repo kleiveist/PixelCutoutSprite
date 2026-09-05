@@ -7,10 +7,10 @@ This is the implementation ledger for the forty mandatory requirements in the pr
 specification. P00 establishes the rows; later phases replace `Planned` with component and test
 evidence. A phase checkbox or file name alone is not evidence.
 
-| ID | Requirement | Primary phases | Status in P00 |
+| ID | Requirement | Primary phases | Implementation evidence |
 |---|---|---|---|
 | RQ-01 | Pixel-art RPG animation focus | P07–P11 | Planned |
-| RQ-02 | Native desktop app; no mobile or web product | P01, P20 | Planned on Tauri |
+| RQ-02 | Native desktop app; no mobile or web product | P01, P20 | P01: native Tauri 2 shell starts on Linux; only bundled WebView content and `core:default`; packaging matrix remains P20 |
 | RQ-03 | Project dashboard after opening a vault | P03–P04 | Planned |
 | RQ-04 | Projects are folders | P03–P04 | Planned |
 | RQ-05 | User-defined labels | P04 | Planned |
@@ -48,4 +48,4 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-37 | Compact PNG sheets; loose frames optional | P16 | Planned |
 | RQ-38 | Generic integration and Godot output | P16–P17 | Planned |
 | RQ-39 | No required manual bone/skeleton setup | P05, P08, P22 | Planned |
-| RQ-40 | Complete plan and executable phase prompts | P00–P22 | Plan imported; implementation started |
+| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P01 implemented and separately evidenced; P02 is next |

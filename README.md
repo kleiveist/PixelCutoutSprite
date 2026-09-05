@@ -10,7 +10,28 @@
 - 🗂️ [Overview](docs/toolingdocs/toolingdocs.md)
 
 <!-- AUTO-GENERATED:docs-index END -->
-# Template Tooling
+# PixelCutoutSprite Studio
+
+PixelCutoutSprite Studio is an offline-first Tauri desktop application for building reusable,
+deterministic pixel-art cutout animations. It combines a React workspace with a Rust core and
+stores product data as ordinary JSON and PNG files in a user-selected local vault. Godot is an
+optional export target, not the application runtime.
+
+The first implementation milestone provides the native application shell. Start and validate it
+through the repository's existing control entry point:
+
+```sh
+python tools/control.py tauri install --skip-system-deps
+python tools/control.py test --suite frontend
+python tools/control.py tauri test --cargo
+python tools/control.py tauri run --foreground
+```
+
+The product requirements, implementation phases, and current evidence are linked from
+[START_HERE.md](START_HERE.md). Product code lives in `frontend/` and `src-tauri/`; the reusable
+integration tooling remains deliberately separate.
+
+## Embedded Template Tooling
 
 > **Repository-only documentation.** This README is not included in any portable export.
 > A copied payload consists only of `tools/` and `docs/toolingdocs/`.

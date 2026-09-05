@@ -32,10 +32,10 @@ def test_real_typescript_ast_feeds_frontend_architecture(
     assert ast_result.status == "PASS"
     assert analysis is not None
     assert any(
-        edge.path == "frontend/src/main.ts" and edge.specifier == "./api/backend"
+        edge.path == "frontend/src/main.tsx" and edge.specifier == "./app/App"
         for edge in analysis.imports
     )
-    assert any(function.symbol == "readRootDotenv" for function in analysis.functions)
+    assert any(function.symbol == "resolveShortcut" for function in analysis.functions)
     architecture = architecture_result(ROOT, quality_config, metrics, analysis)
     assert architecture.status == "PASS"
     assert architecture.findings == []

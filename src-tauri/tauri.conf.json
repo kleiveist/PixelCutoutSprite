@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "PixelCutoutSprite Studio",
+  "version": "0.1.0",
+  "identifier": "studio.pixelcutoutsprite.desktop",
+  "build": {
+    "beforeDevCommand": "cd ../frontend && npm run dev",
+    "beforeBuildCommand": "cd ../frontend && npm run build",
+    "devUrl": "http://127.0.0.1:5173",
+    "frontendDist": "../frontend/dist"
+  },
+  "app": {
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src ipc: http://ipc.localhost"
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "PixelCutoutSprite Studio",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1280,
+        "minHeight": 720,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ]
+  },
+  "bundle": {
+    "active": false,
+    "targets": "all",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "Pixel cutout animation studio",
+    "longDescription": "Offline-first desktop studio for deterministic pixel cutout animation and portable sprite export."
+  }
+}

@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00 abgeschlossen; P01 ist der nächste Schritt
+**Implementierung:** P00–P01 abgeschlossen; P02 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -31,6 +31,12 @@ Tauri 2 + Rust + Vite/React/TypeScript als Desktop-Architektur fest. Godot 4.7.2
 zusätzliches Exportziel in P17. Der vollständige Ausgangsbefund steht im
 [Repository-Inventar](../repository-inventory.md).
 
+P01 ergänzte den zuvor fehlenden Produktbaum als native Tauri-2-Anwendung. Die React-Shell hat
+Header, Breadcrumbs, Desktop-Navigation, Hauptbereich, Statusleiste und einen zugänglichen
+Dialog-Layer. Zentrale Shortcuts respektieren Texteingaben. Noch nicht implementierte
+Arbeitsbereiche sind ausdrücklich als geplant gekennzeichnet. Rust stellt den gemeinsamen
+Produktions-Composition-Root und zunächst nur einen eng begrenzten Identitäts-Command bereit.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -44,7 +50,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | Phase | Auftrag | Status |
 |---|---|---|
 | [P00](../prompts/pixelcutoutsprite/00.md) | Bestand prüfen und Umsetzung verankern | Abgeschlossen |
-| [P01](../prompts/pixelcutoutsprite/01.md) | Desktop-Shell und Produktidentität | Nicht begonnen |
+| [P01](../prompts/pixelcutoutsprite/01.md) | Desktop-Shell und Produktidentität | Abgeschlossen |
 | [P02](../prompts/pixelcutoutsprite/02.md) | Fachmodelle und JSON-Verträge | Nicht begonnen |
 | [P03](../prompts/pixelcutoutsprite/03.md) | Vault und sichere Dateispeicherung | Nicht begonnen |
 | [P04](../prompts/pixelcutoutsprite/04.md) | Projekt-Dashboard, Labels und Dropdown-Filter | Nicht begonnen |
@@ -74,6 +80,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] Dateistruktur, Datenverträge, Exporte, Risiken und Abnahmefälle geplant.
 - [x] Masterauftrag, Fortsetzungsauftrag und 23 Phasenprompts erstellt.
 - [x] P00: tatsächlichen Checkout, Tooling-Grenzen, Tauri-ADR, RQ-Ledger und Basistests erfasst.
+- [x] P01: native React-/Tauri-Shell, Produktidentität, Navigation, Dialoge und Shortcuts erstellt.
 - [ ] Meilenstein A: Grundlage, P00–P06.
 - [ ] Meilenstein B: Bewegungen, P07–P11.
 - [ ] Meilenstein C: Figuren, P12–P15.
@@ -84,7 +91,9 @@ Bei jeder Phasenänderung ergänzen: Datum, tatsächlicher Umfang, betroffene Da
 
 ## Surprises & Discoveries
 
-**2026-09-05:** Das Repository ist nicht leer: Es enthält bereits ein Godot-/Python-Template. Deshalb ist ein zusätzlicher Web-/Tauri-/Electron-Stack nicht vorgesehen.
+**2026-09-05 (durch P00 ersetzt):** Die importierte Annahme eines vorhandenen
+Godot-/Python-Produkts war falsch. Der reale Checkout ist das Tauri-fähige Tooling-Template;
+ADR-001 und der ausdrückliche Nutzerhinweis legen Tauri als Produktlaufzeit fest.
 
 **2026-09-05:** Der gewünschte Workflow braucht eine Trennung zwischen Bewegungsvorlage und konkretem NPC. Eine reine Ordnerliste von unabhängigen Sprite-Sheets würde die geforderte Wiederverwendung nicht erfüllen.
 
@@ -136,6 +145,12 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P00 | `PYTHONDONTWRITEBYTECODE=1 python tools/control.py docs check --docs-dir docs` | Nach Dokumentintegration | PASS: 130 Seiten konsistent | Planpaket und portable Tooling-Dokumente sind gemeinsam indexiert. |
 | 2026-09-05 / P00 | vollständiges `tools/tests` | Flatpak SDK | Nach 7m35s abgebrochen: 6 passed, 11 failed | Acceptance-Fixtures konnten ihre Build-Aktion nicht starten, weil npm im SDK-PATH fehlt; Host-Toolchain wird ab P01 kontrolliert angebunden. |
 | 2026-09-05 / P00 | Native Studio-, Windows- und macOS-Tests | Nicht verfügbar | Nicht ausgeführt | Vor P01 existiert keine App; Plattformmatrix folgt in P20. |
+| 2026-09-05 / P01 | `npm test`, `typecheck`, `lint`, `format:check`, `build` | Host, Node 26.7.0 / npm 12.0.2 | PASS: 7 Tests, Typecheck/Lint/Format und Vite-Produktionsbuild | Headless-Shell, Navigation, Dialog, Fokus und Shortcut-Schutz belegt. |
+| 2026-09-05 / P01 | Cargo test, check, Clippy und rustfmt mit Lockfile | Linux-Host, Rust 1.97.1 | PASS: 3 Tests und alle Compiler-/Lint-Gates | Produktions-Composition-Root wird auch vom Mock-Runtime-Smoke verwendet. |
+| 2026-09-05 / P01 | `tools/control.py tauri test --cargo --build-dry-run` | Linux-Host | PASS | Struktur, echtes Cargo-Gate und Linux-Buildplan über den zentralen Einstieg belegt. |
+| 2026-09-05 / P01 | relevante Source- und Tauri-Tooling-Tests | Linux-Host, Python 3.14.7 | PASS: 9 passed, 2 erwartete Profil-Skips; 161 passed | AST-/ESLint-/Capability-/Dokumentationspolicy sowie portable Tauri-Verträge aktiv. |
+| 2026-09-05 / P01 | `tools/control.py quality architecture` und `quality lint` | Linux-Host | PASS | TypeScript-AST, Schichten, Python/TS/Rust-Lint und Compiler grün. Das historische Gesamt-`quality` bleibt wegen bereits vorhandener Größen-/Formatbefunde im portablen Tooling offen. |
+| 2026-09-05 / P01 | nativer Tauri-Start und Sichtprüfung | KDE Wayland, 125 % Skalierung | PASS bei 1440×900 und 1280×720 | Pflichtaktionen, Statusleiste und Navigation sichtbar; Screenshots liegen nur im ignorierten lokalen Prüfbericht. Windows/macOS bleiben bis P20 offen. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -145,13 +160,13 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P01 ausführen: Produktgrundgerüst in `frontend/` und
-`src-tauri/` anlegen, die Tauri-Desktop-Shell implementieren und ihre fokussierten Tests sowie
-die dann aktivierten Tooling-Gates ausführen.
+**Nächster ausführbarer Schritt:** P02 ausführen: autoritative Rust-Fachmodelle, spiegelnde
+TypeScript-DTOs und versionierte JSON-Vertragsfixtures mit positiven und negativen Roundtrip-
+Tests anlegen.
 
 ## Outcomes & Retrospective
 
-P00 hat die Planung in den tatsächlichen Checkout überführt, ohne Editorfunktion vorwegzunehmen.
-Die Studio-Implementierung beginnt in P01. Nach jeder Phase werden reale Ergebnisse, erkannte
-Grenzen und notwendige Planänderungen ergänzt. Ein Abschlussstatus wird erst nach der belegten
-Gesamtabnahme P22 vergeben.
+P00 hat die Planung in den tatsächlichen Checkout überführt. P01 liefert einen nachweislich
+startfähigen, responsiven Desktop-Rahmen, ohne Vault- oder Editorfachlichkeit vorwegzunehmen.
+Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
+Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

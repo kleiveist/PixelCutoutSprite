@@ -11,7 +11,10 @@ venv/
 .runtime/
 .dist/
 dist/
+node_modules/
 target/
+src-tauri/gen/
+*.tsbuildinfo
 *.log
 *.egg-info/
 .DS_Store

@@ -1,6 +1,20 @@
-# PixelCutoutSprite Studio — Start der Umsetzung
+# PixelCutoutSprite Studio — Einstieg
 
-**Stand:** 5. September 2026 · **Inhalt:** Umsetzung auf dem vorhandenen Tooling-Template.
+**Stand:** 5. September 2026 · **Inhalt:** Tauri-Desktop-App auf dem vorhandenen Tooling-Template.
+
+## Anwendung starten
+
+Die native React-/Tauri-Shell ist seit P01 vorhanden. Abhängigkeiten, Tests und Entwicklungslauf
+bleiben über den vorbereiteten Tooling-Einstieg erreichbar:
+
+```sh
+python tools/control.py tauri install --skip-system-deps
+python tools/control.py test --suite frontend
+python tools/control.py tauri run --foreground
+```
+
+Das Studio ist ein lokales Desktop-Produkt. Die von Vite erzeugte Seite wird nur in die Tauri-
+WebView gebündelt und nicht als eigenständiges Webprodukt ausgeliefert.
 
 ## Dateien
 
@@ -16,9 +30,12 @@
 
 Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository vorbereitet. Vorhandene gleichnamige Dateien gegebenenfalls vergleichen und zusammenführen. Bestehende AGENTS.md, .agent/PLANS.md, Lizenz und Tooling-Regeln nicht durch neue Standarddateien ersetzen. Den Dokumentationsindex in P00 über den vorhandenen Mechanismus ergänzen.
 
-## Erster Arbeitsauftrag
+## Aktueller Arbeitsauftrag
 
-Den vollständigen MASTERPROMPT und danach den vollständigen Prompt P00 an den Coding-Agenten geben. Der Agent prüft zunächst den aktuellen Checkout und die vorhandenen Tests. Die Phasen danach einzeln oder im dokumentierten Serienmodus abarbeiten. Das Vorhandensein eines Prompts bedeutet nicht, dass seine Funktion bereits fertig ist.
+P00 und P01 sind abgeschlossen. Der nächste ausführbare Schritt ist P02 für Fachmodelle und
+versionierte JSON-Verträge. Die übrigen Phasen werden weiterhin einzeln im dokumentierten
+Serienmodus umgesetzt; das Vorhandensein eines Prompts bedeutet nicht, dass seine Funktion
+bereits fertig ist.
 
 ## Leitentscheidungen
 

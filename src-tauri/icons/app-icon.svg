@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="PixelCutoutSprite Studio">
+  <rect width="512" height="512" rx="96" fill="#111015"/>
+  <path fill="#e8ff68" d="M112 96h128v64H112zm160 0h128v64H272zM80 192h128v128H80zm224 0h128v128H304zM112 352h128v64H112zm160 0h128v64H272z"/>
+  <path fill="#ff795e" d="M208 160h96v192h-96z"/>
+  <path fill="#f4f0e8" d="M240 224h32v64h-32z"/>
+</svg>
