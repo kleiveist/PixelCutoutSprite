@@ -4,15 +4,15 @@ use std::path::{Path, PathBuf};
 
 use image::{Rgba, RgbaImage};
 use pixel_cutout_sprite_studio_lib::application::{
-    AppearanceService, AppearanceServiceError, OutfitDraftEdits, OutfitTarget, SaveNpcRequest,
-    SavedNpc,
+    AppearanceService, AppearanceServiceError, BindingService, OutfitDraftEdits, OutfitTarget,
+    SaveNpcRequest, SavedNpc,
 };
 use pixel_cutout_sprite_studio_lib::asset_io::{
     AssetPackage, AssetRepository, PackageEntry, PngImporter, ASSET_PACKAGE_FORMAT,
 };
 use pixel_cutout_sprite_studio_lib::domain::*;
 use pixel_cutout_sprite_studio_lib::storage::{
-    JsonStore, TransactionJournal, TransactionState, VaultRoot,
+    object_folder, JsonStore, TransactionAction, TransactionJournal, TransactionState, VaultRoot,
 };
 use tempfile::TempDir;
 
@@ -678,6 +678,8 @@ fn equipment_track(direction: Direction, enabled: bool, x_at_end: i16) -> Equipm
     }
 }
 
+#[path = "outfit_workflow/bindings.rs"]
+mod outfit_bindings;
 #[path = "outfit_workflow/equipment.rs"]
 mod outfit_equipment;
 fn write_document(root: &VaultRoot, relative: PathBuf, document: DomainDocument) {

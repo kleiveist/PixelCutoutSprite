@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { areaClient, type AreaClient } from "../api/area-client";
 import { assetClient, type AssetClient } from "../api/asset-client";
 import { motionClient, type MotionClient } from "../api/motion-client";
+import { npcClient, type NpcClient } from "../api/npc-client";
 import { outfitClient, type OutfitClient } from "../api/outfit-client";
 import { projectClient, type ProjectClient } from "../api/project-client";
 import { vaultClient, type OpenVault, type VaultClient } from "../api/vault-client";
@@ -19,6 +20,7 @@ import type { RevisionRef } from "../domain/common";
 import { AnimationDashboard } from "../features/animations/AnimationDashboard";
 import { MotionDummyEditorRoute } from "../features/dummy-editor/MotionDummyEditorRoute";
 import { InventoryWorkspace } from "../features/inventory/InventoryWorkspace";
+import { NpcWorkspace } from "../features/npcs";
 import { OutfitEditor } from "../features/outfit";
 import { ProjectDashboard } from "../features/projects/ProjectDashboard";
 import { navigationItems, routeBreadcrumbs, routeDetails, type WorkspaceRoute } from "./navigation";
@@ -29,6 +31,7 @@ interface AppProps {
   areasApi?: AreaClient;
   assetsApi?: AssetClient;
   motionsApi?: MotionClient;
+  npcsApi?: NpcClient;
   outfitsApi?: OutfitClient;
   projectsApi?: ProjectClient;
   vaultApi?: VaultClient;
@@ -38,6 +41,7 @@ export function App({
   areasApi = areaClient,
   assetsApi = assetClient,
   motionsApi = motionClient,
+  npcsApi = npcClient,
   outfitsApi = outfitClient,
   projectsApi = projectClient,
   vaultApi = vaultClient,
@@ -51,6 +55,8 @@ export function App({
   const [selectedArea, setSelectedArea] = useState<AreaCard | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedTemplateRef, setSelectedTemplateRef] = useState<RevisionRef | null>(null);
+  const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null);
+  const [selectedBindingId, setSelectedBindingId] = useState<string | null>(null);
   const [editorDirty, setEditorDirty] = useState(false);
   const mainContent = useRef<HTMLElement>(null);
   const initialRoute = useRef(true);
@@ -109,9 +115,16 @@ export function App({
   function navigate(nextRoute: WorkspaceRoute): void {
     const leavingEditor =
       nextRoute !== route &&
-      (route === "dummy-editor" || (route === "outfit" && selectedTemplateRef !== null));
+      (route === "dummy-editor" ||
+        route === "characters" ||
+        (route === "outfit" && selectedTemplateRef !== null));
     if (leavingEditor && editorDirty) {
-      const editorName = route === "dummy-editor" ? "motion template" : "outfit draft";
+      const editorName =
+        route === "dummy-editor"
+          ? "motion template"
+          : route === "characters"
+            ? "NPC binding"
+            : "outfit draft";
       if (!window.confirm(`Discard the unsaved ${editorName} changes?`)) {
         setStatus(`Navigation cancelled · save the ${editorName} first`);
         return;
@@ -154,6 +167,8 @@ export function App({
     setSelectedArea(null);
     setSelectedTemplateId(null);
     setSelectedTemplateRef(null);
+    setSelectedNpcId(null);
+    setSelectedBindingId(null);
     setRoute("areas");
     setStatus(`${project.name} opened · choose or create an area`);
   }
@@ -162,6 +177,8 @@ export function App({
     setSelectedArea(area);
     setSelectedTemplateId(null);
     setSelectedTemplateRef(null);
+    setSelectedNpcId(null);
+    setSelectedBindingId(null);
     setRoute("animations");
     setStatus(`${area.name} animation library opened`);
   }
@@ -170,6 +187,8 @@ export function App({
     setSelectedArea(area);
     setSelectedTemplateId(null);
     setSelectedTemplateRef(null);
+    setSelectedNpcId(null);
+    setSelectedBindingId(null);
     setRoute("outfit");
     setStatus(`${area.name} PNG inventory opened`);
   }
@@ -183,16 +202,21 @@ export function App({
       return;
     }
     if (target.kind === "outfit_chooser") {
+      setSelectedBindingId(null);
       setSelectedTemplateRef({ id: target.template_id, revision: target.template_revision });
       setRoute("outfit");
     } else {
       setSelectedTemplateRef(null);
+      setSelectedNpcId(target.character_id);
+      setSelectedBindingId(target.binding_id);
       setRoute("characters");
     }
     setStatus(
-      target.kind === "outfit_chooser" && target.compatible_character_ids.length > 1
-        ? `Choose one of ${target.compatible_character_ids.length} compatible NPCs or start a new outfit`
-        : "Outfit workflow selected",
+      target.kind === "binding_editor"
+        ? "NPC binding opened"
+        : target.compatible_character_ids.length > 1
+          ? `Choose one of ${target.compatible_character_ids.length} compatible NPCs or start a new outfit`
+          : "Outfit workflow selected",
     );
   }
 
@@ -223,10 +247,12 @@ export function App({
           ) : route === "animations" && vault && selectedArea ? (
             <AnimationDashboard
               areaId={selectedArea.id}
+              characterId={selectedNpcId}
               client={motionsApi}
               defaultFrameSize={selectedArea.default_frame_size_px}
               defaultGroundOrigin={selectedArea.default_ground_origin_px}
               onOpen={openMotionTarget}
+              onOpenNpcs={() => navigate("characters")}
               onStatus={setStatus}
               sessionId={vault.session_id}
             />
@@ -263,6 +289,27 @@ export function App({
               areaId={selectedArea.id}
               client={assetsApi}
               onStatus={setStatus}
+              sessionId={vault.session_id}
+            />
+          ) : route === "characters" && vault && selectedArea ? (
+            <NpcWorkspace
+              key={selectedArea.id}
+              areaId={selectedArea.id}
+              client={npcsApi}
+              initialBindingId={selectedBindingId ?? undefined}
+              initialNpcId={selectedNpcId ?? undefined}
+              onDirtyChange={setEditorDirty}
+              onSectionChange={(section, context) => {
+                setSelectedNpcId(context.npcId);
+                setSelectedBindingId(context.bindingId);
+                if (section === "animations") navigate("animations");
+              }}
+              onSelectionChange={(selection) => {
+                setSelectedNpcId(selection.npcId);
+                setSelectedBindingId(selection.bindingId);
+              }}
+              onStatus={setStatus}
+              readOnly={vault.mode !== "read_write"}
               sessionId={vault.session_id}
             />
           ) : (

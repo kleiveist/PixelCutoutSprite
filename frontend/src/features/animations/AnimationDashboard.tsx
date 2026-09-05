@@ -18,20 +18,24 @@ import "./animations.css";
 interface AnimationDashboardProps {
   sessionId: string;
   areaId: string;
+  characterId?: string | null;
   defaultFrameSize: PixelSize;
   defaultGroundOrigin: PixelPoint;
   client?: MotionClient;
   onOpen: (target: MotionOpenTarget) => void;
+  onOpenNpcs?: () => void;
   onStatus?: (message: string) => void;
 }
 
 export function AnimationDashboard({
   sessionId,
   areaId,
+  characterId = null,
   defaultFrameSize,
   defaultGroundOrigin,
   client = motionClient,
   onOpen,
+  onOpenNpcs,
   onStatus,
 }: AnimationDashboardProps) {
   const [dashboard, setDashboard] = useState<Awaited<ReturnType<MotionClient["dashboard"]>> | null>(
@@ -99,10 +103,7 @@ export function AnimationDashboard({
         <button type="button" aria-current="page">
           Animations
         </button>
-        <button
-          type="button"
-          onClick={() => onStatus?.("NPC dashboard becomes available after the first saved outfit")}
-        >
+        <button type="button" onClick={onOpenNpcs}>
           NPCs
         </button>
       </nav>
@@ -136,7 +137,7 @@ export function AnimationDashboard({
             preview={
               <LiveMotionCardPreview client={client} sessionId={sessionId} motion={motion} />
             }
-            onResolveOpen={() => client.resolveOpen(sessionId, motion.id, null)}
+            onResolveOpen={() => client.resolveOpen(sessionId, motion.id, characterId)}
             onOpenDummy={() => onOpen({ kind: "dummy_editor", template_id: motion.id })}
             onDuplicate={() => void duplicate(motion).catch((reason) => setError(message(reason)))}
             onPublish={() => setReleasing(motion)}

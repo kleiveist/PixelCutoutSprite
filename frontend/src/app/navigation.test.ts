@@ -9,6 +9,7 @@ describe("workspace navigation", () => {
     expect(new Set(routes).size).toBe(routes.length);
     expect(routes.every(isWorkspaceRoute)).toBe(true);
     expect(routeDetails("dummy-editor").label).toBe("Dummy editor");
+    expect(routeDetails("characters")).toMatchObject({ label: "NPCs", available: true });
   });
 
   it("builds concise breadcrumbs", () => {

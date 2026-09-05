@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use crate::domain::{
     parse_document, AnimationBinding, Appearance, Area, Asset, AssetKind, AssetRevision, Character,
     CharacterStatus, Direction, DirectionFit, DomainDocument, Equipment, EquipmentMotionTrack,
-    EquipmentPart, MotionRevision, MotionTemplate, ObjectId, OutfitDraft, OutfitDraftStatus,
-    OutfitFitting, ProfileRevision, RevisionRef, SlotId, SlotRef,
+    EquipmentPart, ExportManifest, MotionRevision, MotionTemplate, ObjectId, OutfitDraft,
+    OutfitDraftStatus, OutfitFitting, ProfileRevision, RevisionRef, SlotId, SlotRef,
 };
 use crate::storage::{JsonStore, VaultRoot};
 
@@ -31,6 +31,7 @@ pub(super) struct AreaSnapshot {
     pub(super) appearance_paths: HashMap<ObjectId, PathBuf>,
     pub(super) bindings: Vec<AnimationBinding>,
     pub(super) binding_paths: HashMap<ObjectId, PathBuf>,
+    pub(super) exports: Vec<ExportManifest>,
 }
 
 struct EquipmentPieceInput<'a> {
@@ -55,7 +56,7 @@ impl AreaSnapshot {
             ));
         };
         let root = vault.resolve(area_path)?;
-        let documents = collect_documents(vault, root.as_path(), 0)?;
+        let documents = collect_documents(vault, root.as_path(), 0, true)?;
         let mut result = Self {
             area,
             templates: Vec::new(),
@@ -71,6 +72,7 @@ impl AreaSnapshot {
             appearance_paths: HashMap::new(),
             bindings: Vec::new(),
             binding_paths: HashMap::new(),
+            exports: Vec::new(),
         };
         for (path, document) in documents {
             result.add_document(path, document);
@@ -79,6 +81,12 @@ impl AreaSnapshot {
     }
 
     fn add_document(&mut self, path: PathBuf, document: DomainDocument) {
+        let is_binding_export = path
+            .components()
+            .any(|part| part.as_os_str().to_str() == Some("exports"));
+        if is_binding_export && !matches!(&document, DomainDocument::ExportManifest(_)) {
+            return;
+        }
         match document {
             DomainDocument::MotionTemplate(value) if value.area_id == self.area.id => {
                 self.templates.push(value);
@@ -107,6 +115,7 @@ impl AreaSnapshot {
                 self.binding_paths.insert(value.id, path);
                 self.bindings.push(value);
             }
+            DomainDocument::ExportManifest(value) => self.exports.push(value),
             _ => {}
         }
     }
@@ -724,7 +733,7 @@ pub(super) fn validate_project_labels(
     if requested.is_empty() {
         return Ok(());
     }
-    let matching = collect_documents(vault, vault.path(), 0)?
+    let matching = collect_documents(vault, vault.path(), 0, false)?
         .into_iter()
         .filter_map(|(_, document)| match document {
             DomainDocument::Label(label)
@@ -747,7 +756,7 @@ pub(super) fn project_labels(
     vault: &VaultRoot,
     project_id: ObjectId,
 ) -> Result<Vec<OutfitLabelOption>, AppearanceServiceError> {
-    let mut labels = collect_documents(vault, vault.path(), 0)?
+    let mut labels = collect_documents(vault, vault.path(), 0, false)?
         .into_iter()
         .filter_map(|(_, document)| match document {
             DomainDocument::Label(label) if label.project_id == Some(project_id) => {
@@ -768,33 +777,62 @@ fn collect_documents(
     vault: &VaultRoot,
     directory: &Path,
     depth: u8,
+    include_exports: bool,
 ) -> Result<Vec<(PathBuf, DomainDocument)>, AppearanceServiceError> {
+    let derived_export = is_derived_export_path(vault, directory);
     if depth > 16 {
+        if derived_export {
+            return Ok(Vec::new());
+        }
         return Err(AppearanceServiceError::InvalidState(
             "area nesting exceeds the supported depth".to_owned(),
         ));
     }
     let mut result = Vec::new();
-    for entry in fs::read_dir(directory).map_err(|error| {
-        AppearanceServiceError::InvalidState(format!("could not scan area sources: {error}"))
-    })? {
-        let entry = entry.map_err(|error| {
-            AppearanceServiceError::InvalidState(format!("could not inspect area source: {error}"))
-        })?;
-        let file_type = entry.file_type().map_err(|error| {
-            AppearanceServiceError::InvalidState(format!("could not inspect area source: {error}"))
-        })?;
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(_) if derived_export => return Ok(result),
+        Err(error) => {
+            return Err(AppearanceServiceError::InvalidState(format!(
+                "could not scan area sources: {error}"
+            )))
+        }
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) if derived_export => continue,
+            Err(error) => {
+                return Err(AppearanceServiceError::InvalidState(format!(
+                    "could not inspect area source: {error}"
+                )))
+            }
+        };
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(_) if derived_export => continue,
+            Err(error) => {
+                return Err(AppearanceServiceError::InvalidState(format!(
+                    "could not inspect area source: {error}"
+                )))
+            }
+        };
         if file_type.is_symlink() {
             continue;
         }
         let path = entry.path();
         if file_type.is_dir() {
-            if should_skip_directory(&path) {
+            if should_skip_directory(&path, include_exports) {
                 continue;
             }
-            result.extend(collect_documents(vault, &path, depth + 1)?);
+            result.extend(collect_documents(vault, &path, depth + 1, include_exports)?);
         } else if file_type.is_file() && path.extension().is_some_and(|value| value == "json") {
-            if let Some(document) = read_domain_document(&path)? {
+            let document = if is_derived_export_path(vault, &path) {
+                read_export_manifest_candidate(&path)
+            } else {
+                read_domain_document(&path)
+            }?;
+            if let Some(document) = document {
                 let relative = path
                     .strip_prefix(vault.path())
                     .map_err(|_| {
@@ -810,24 +848,40 @@ fn collect_documents(
     Ok(result)
 }
 
-fn should_skip_directory(path: &Path) -> bool {
+fn should_skip_directory(path: &Path, include_exports: bool) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
         .is_some_and(|name| name.ends_with(".staged"))
+        || (!include_exports
+            && path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name == "exports"))
         || path.components().any(|part| {
             matches!(
                 part.as_os_str().to_str(),
-                Some(
-                    "cache"
-                        | "exports"
-                        | "_exports"
-                        | ".trash"
-                        | "trash"
-                        | "backups"
-                        | "transactions"
-                )
+                Some("cache" | "_exports" | ".trash" | "trash" | "backups" | "transactions")
             )
         })
+}
+
+fn is_derived_export_path(vault: &VaultRoot, path: &Path) -> bool {
+    path.strip_prefix(vault.path())
+        .unwrap_or(path)
+        .components()
+        .any(|part| part.as_os_str().to_str() == Some("exports"))
+}
+
+fn read_export_manifest_candidate(
+    path: &Path,
+) -> Result<Option<DomainDocument>, AppearanceServiceError> {
+    let Ok(bytes) = fs::read(path) else {
+        return Ok(None);
+    };
+    match parse_document(&bytes) {
+        Ok(document @ DomainDocument::ExportManifest(_)) => Ok(Some(document)),
+        Ok(_) | Err(_) => Ok(None),
+    }
 }
 
 fn read_domain_document(path: &Path) -> Result<Option<DomainDocument>, AppearanceServiceError> {

@@ -64,9 +64,9 @@ export const navigationItems: readonly NavigationItem[] = [
   },
   {
     route: "characters",
-    label: "Characters",
+    label: "NPCs",
     eyebrow: "Bind",
-    description: "Keep NPC identity, appearance, and motion together.",
+    description: "Review NPC identity, appearance, pinned motions, and export freshness.",
     available: true,
   },
   {

@@ -561,6 +561,45 @@ Eine neue Vorlagenrevision wird nicht automatisch auf alle NPCs angewendet. Der 
 
 Duplizieren eines NPCs erzeugt neue NPC- und Zuordnungs-IDs, darf aber unveränderliche Assets und Vorlagenrevisionen innerhalb desselben Bereichs weiter referenzieren. Projektübergreifendes Kopieren muss seine Abhängigkeiten vollständig mitnehmen und IDs nötigenfalls abbilden.
 
+### 12.6 Umgesetzter P15-Anwendungsvertrag
+
+Der area-scoped React-Arbeitsbereich `NpcWorkspace` erhält Sitzungs-ID und stabile Bereichs-ID vom
+Desktop-Router. Native Commands lösen daraus den relativen Bereichspfad innerhalb des gehaltenen
+Vault-Locks auf; Dateipfade überschreiten die Frontend-Vertrauensgrenze nicht. Sein Umschalter
+zwischen Animationen und NPCs behält Bereichs-, Character- und Binding-ID. Eine aus dem
+Animationsdashboard geöffnete Bewegung kehrt dadurch zur gezielten Zuordnung statt zu einer
+willkürlichen Figur zurück. Freitext ist ausschließlich die Namenssuche. Labels,
+Vollständigkeit, benötigte Bewegung, Exportstatus, Freigabestatus und Sortierung sind
+strukturierte Dropdowns.
+
+Der Rust-`BindingService` ist die einzige Schreibgrenze für P15. Eine weitere Bewegung verwendet
+die Standard-Aussehens-ID des über seine stabile ID gewählten NPCs und genau eine freigegebene,
+festgehaltene Vorlagenrevision. Ohne Variantenangabe gilt der `action_key` der Vorlage. Eine
+Variante muss als eigener gültiger Schlüssel angegeben werden; ein bereits aktiver Schlüssel wird
+abgewiesen. Lokale Overrides schreiben ausschließlich `binding.json`, setzen dessen Prüfung auf
+Entwurf zurück und verändern weder `appearance.json` noch die unveränderliche Motionrevision.
+
+Neue Releases erscheinen als Angebot mit Vergleich von Framezahl, FPS, Richtungsabdeckung und
+beibehaltenen lokalen Korrekturen. Unter mehreren neueren Releases wird die jüngste kompatible
+Revision angeboten; existiert keine, erklärt das jüngste inkompatible Release den Blocker. Die
+Übernahme ist eine ausdrückliche CAS-geschützte Aktion und prüft die exakte Profilrevision,
+weiterhin vorhandene Slots und Richtungen sowie das bestehende Equipment. Für P14-Equipment gibt
+es keine stille Zeitachsenumrechnung: Liegt ein beibehaltener Equipment-Key außerhalb des
+Framebereichs der Zielrevision, ist diese Revision inkompatibel. Die bisher festgehaltene Revision
+bleibt dabei unverändert. Ungespeicherte Overrides werden pro Binding gehalten; ein Reload nach
+einer anderen Mutation verwirft sie nicht, und nur das erfolgreich gespeicherte Binding wird als
+sauber markiert.
+
+Duplizieren erzeugt neue Character-, Appearance- und Binding-IDs in einem gestuften NPC-Ordner,
+referenziert aber dieselben unveränderlichen Asset- und Motionrevisionen. Umbenennen verschiebt den
+vollständigen NPC-Ordner unter Journalführung und ändert nur Anzeigename, Dokumentrevision und
+Zeitstempel; ID-Referenzen bleiben stabil. Die Exportanzeige vergleicht das jüngste gefundene
+Manifest mit einem kanonischen Fingerabdruck der effektiv festgehaltenen Profile, Motionrevisionen,
+Bildrevisionen, Fittings und lokalen Overrides. Reine Prüf- und Änderungsmetadaten der
+veränderlichen NPC-Dokumente sowie ungenutzte neuere Vorlagenreleases ändern diesen
+Fingerabdruck nicht. Fremde oder beschädigte abgeleitete JSON-Dateien unter Exportordnern werden
+bei der Quellinventur ignoriert; beschädigte autoritative Vault-Dokumente bleiben ein harter Fehler.
+
 ## 13. Arbeitsordner und physische Dateistruktur
 
 ### 13.1 Grundsatz
@@ -928,7 +967,7 @@ Quellformat serialisiert.
 
 ### 18.2 Vorgesehene Dienste
 
-`VaultService` öffnet und schließt Arbeitsordner. `JsonStore` validiert und schreibt einzelne Dokumente. `TransactionService` koordiniert mehrteilige Änderungen und Recovery. `ObjectIndex` löst IDs auf. `ProfileService` erstellt versionierte Körperkonfigurationen. `AnimationSampler` berechnet Posen. `DirectionResolver` behandelt Spiegelungen und explizite Ansichten. `PixelCompositor` rendert das Referenzbild. `AppearanceService` verwaltet Zuordnung und Feinschliff. `ExportService` erstellt generische Builds. `GodotExporter` erzeugt die Engine-Dateien. `PreviewCache` hält begrenzte, neu aufbaubare Vorschaudaten.
+`VaultService` öffnet und schließt Arbeitsordner. `JsonStore` validiert und schreibt einzelne Dokumente. `TransactionService` koordiniert mehrteilige Änderungen und Recovery. `ObjectIndex` löst IDs auf. `ProfileService` erstellt versionierte Körperkonfigurationen. `AnimationSampler` berechnet Posen. `DirectionResolver` behandelt Spiegelungen und explizite Ansichten. `PixelCompositor` rendert das Referenzbild. `AppearanceService` verwaltet Zuordnung und Feinschliff. `BindingService` verwaltet NPC-Übersichten, lokale Zuordnungsänderungen, explizite Revisionsübernahmen sowie stabile Duplizier- und Umbenennungsvorgänge. `ExportService` erstellt generische Builds. `GodotExporter` erzeugt die Engine-Dateien. `PreviewCache` hält begrenzte, neu aufbaubare Vorschaudaten.
 
 Eine zentrale Command-Abstraktion verbindet Änderungen mit Undo/Redo, Dirty-Status und Autosave. Speichern ist nicht an zufällige Signalreihenfolgen mehrerer Panels gekoppelt.
 

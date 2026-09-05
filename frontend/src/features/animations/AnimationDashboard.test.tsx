@@ -42,6 +42,7 @@ const dashboard: MotionDashboardData = {
   profiles: [released.profile_ref],
   writable: true,
 };
+const selectedCharacterId = "99999999-9999-4999-8999-999999999999";
 
 function mockClient(): MotionClient {
   return {
@@ -101,17 +102,22 @@ describe("AnimationDashboard", () => {
   it("routes released cards to a visible chooser and keeps dummy access visible", async () => {
     const client = mockClient();
     const onOpen = vi.fn();
+    const onOpenNpcs = vi.fn();
     render(
       <AnimationDashboard
         sessionId="session"
         areaId={released.area_id}
+        characterId={selectedCharacterId}
         defaultFrameSize={[128, 128]}
         defaultGroundOrigin={[64, 108]}
         client={client}
         onOpen={onOpen}
+        onOpenNpcs={onOpenNpcs}
       />,
     );
     await screen.findByRole("heading", { name: "Animations" });
+    fireEvent.click(screen.getByRole("button", { name: "NPCs" }));
+    expect(onOpenNpcs).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText("Village walk labels")).toHaveTextContent("#88888888");
     fireEvent.click(screen.getByText("Village walk").closest("button")!);
     await waitFor(() =>
@@ -122,6 +128,7 @@ describe("AnimationDashboard", () => {
         }),
       ),
     );
+    expect(client.resolveOpen).toHaveBeenCalledWith("session", released.id, selectedCharacterId);
     fireEvent.click(screen.getByRole("button", { name: "Edit Village walk dummy" }));
     expect(onOpen).toHaveBeenLastCalledWith({ kind: "dummy_editor", template_id: released.id });
 

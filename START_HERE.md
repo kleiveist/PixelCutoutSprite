@@ -32,7 +32,7 @@ Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository 
 
 ## Aktueller Arbeitsauftrag
 
-P00 bis P12 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
+P00 bis P15 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
 Projekt-Dashboard über ein exakt skaliertes humanoides Gebiet in die Animationsbibliothek.
 Vorlagen, mutable `draft.json`-Arbeitsstände und unveränderliche Freigaben liegen als gewöhnliche
 Dateien in ihrem Bereich. Karten besitzen Dropdown-Filter und explizite Wege zum Dummy sowie zum
@@ -54,7 +54,17 @@ zu übernehmen. Strikte Pakete, Einzel-PNGs und Sheet-Ausschnitte werden vor dem
 Slot, Richtung, Maße, Pivot, Alpha, Größe und sichere Pfade geprüft. Größenabweichungen bleiben
 unverändert oder werden nur nach sichtbarer Wahl aufgefüllt beziehungsweise pixelgenau skaliert;
 Originale, Inhalts-Hashes, Revisionen, Verwendungen und Archivstatus überleben das Wiederöffnen.
-Der nächste Schritt ist P15 für NPC-Dashboard, Mehrfachanimationen und Revisionen.
+Der Outfit-Editor verbindet freigegebene Bewegungen mit richtungs- und variantenspezifischen
+Sprites, getrennten lokalen Korrekturen und einer speicherbaren NPC-Identität. Mehrteilige starre
+Rüstung, Accessoires und Equipment folgen wahlweise einem Körperslot oder dem Figurenursprung;
+Sichtbarkeit und optionale eigene Bewegung bleiben unabhängig und verlustfrei gespeichert. Der
+echte NPC-Arbeitsbereich sammelt alle gepinnten Bewegungen einer Figur, zeigt Anforderungen,
+Richtungsabdeckung, Prüfung und Exportstatus, bietet lokale Binding-Korrekturen sowie ausdrückliche
+Revisionsübernahme und erhält bei Duplikat oder kontrollierter Umbenennung alle stabilen
+Referenzen. Der Wechsel zwischen Animationen und NPCs bewahrt Bereich, Figur und fokussierte
+Zuordnung; ungespeicherte lokale Korrekturen bleiben beim Wechsel zwischen den Bewegungen erhalten,
+und Revisionsangebote zeigen Framezahl, FPS, Richtungsabdeckung sowie übernommene Overrides.
+Der nächste Schritt ist P16 für den generischen PNG-/JSON-Export.
 
 ## Leitentscheidungen
 

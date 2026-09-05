@@ -1,8 +1,12 @@
 mod appearance_service;
 mod area_service;
 mod asset_service;
+mod binding_service;
+mod binding_write;
 mod label_service;
 mod motion_service;
+mod npc_dashboard;
+mod npc_identity;
 mod outfit_apply;
 mod outfit_render;
 mod outfit_save;
@@ -19,6 +23,7 @@ pub use appearance_service::{
 };
 pub use area_service::*;
 pub use asset_service::*;
+pub use binding_service::*;
 pub use label_service::*;
 pub use motion_service::*;
 pub use project_service::*;

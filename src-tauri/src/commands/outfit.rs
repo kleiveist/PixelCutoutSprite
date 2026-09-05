@@ -149,7 +149,7 @@ pub fn apply_outfit_to_npc(
     Ok(result)
 }
 
-fn locked_area_session<'a>(
+pub(super) fn locked_area_session<'a>(
     service: &'a Mutex<VaultService>,
     raw_session_id: &str,
     raw_area_id: &str,
@@ -167,7 +167,7 @@ fn locked_area_session<'a>(
     Ok((service, session_id, root, area_path))
 }
 
-fn refresh(service: &mut VaultService, session_id: ObjectId) -> Result<(), String> {
+pub(super) fn refresh(service: &mut VaultService, session_id: ObjectId) -> Result<(), String> {
     service
         .refresh_index(session_id)
         .map(|_| ())

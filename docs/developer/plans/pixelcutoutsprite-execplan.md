@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P14 abgeschlossen; P15 ist der nächste Schritt
+**Implementierung:** P00–P15 abgeschlossen; P16 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -124,7 +124,7 @@ in einem gestuften NPC-Ordner; das Binding referenziert die unveränderliche Mot
 P06-Routen-/Kartennavigation reicht dabei den bestehenden Bereichs- und Revisionskontext
 ausdrücklich weiter.
 
-P14 wurde direkt auf dem P13-Commit `9278c34` umgesetzt und erweitert denselben Outfit-Entwurf und
+P14 baut direkt auf P13 auf und erweitert denselben Outfit-Entwurf und
 die daraus erzeugte Appearance um logische Equipmentobjekte mit mehreren starren, stabil
 identifizierten Teilen. Jedes Teil kann seinem
 Körperslot oder ausdrücklich dem Figurenursprung folgen; Sichtbarkeit, Mitführen und eigene
@@ -161,7 +161,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P12](../prompts/pixelcutoutsprite/12.md) | PNG-Inventar und Paketimport | Abgeschlossen |
 | [P13](../prompts/pixelcutoutsprite/13.md) | Ausstattungseditor, Feinschliff und NPC-Entwürfe | Abgeschlossen |
 | [P14](../prompts/pixelcutoutsprite/14.md) | Ausrüstung und optionale Eigenbewegung | Abgeschlossen |
-| [P15](../prompts/pixelcutoutsprite/15.md) | NPC-Dashboard, Mehrfachanimationen und Revisionen | Nicht begonnen |
+| [P15](../prompts/pixelcutoutsprite/15.md) | NPC-Dashboard, Mehrfachanimationen und Revisionen | Abgeschlossen |
 | [P16](../prompts/pixelcutoutsprite/16.md) | Generischer PNG-/JSON-Export | Nicht begonnen |
 | [P17](../prompts/pixelcutoutsprite/17.md) | Portables Godot-Paket und echter Importtest | Nicht begonnen |
 | [P18](../prompts/pixelcutoutsprite/18.md) | Recovery, Autosave und Datenintegrität härten | Nicht begonnen |
@@ -191,9 +191,10 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P12: erreichbares Bereichsinventar, nativen Dialog/Drop, strikte Paket-/PNG-Prüfung, explizite Zuordnung und Größenbehandlung, Revisionen, Verwendungsnachweise und Archiv erstellt und gegatet.
 - [x] P13: Outfit-Editor, AppearanceService, wiederaufnehmbare Entwürfe und erste NPC-Erzeugung erstellt, in den Area-/Motion-Router eingebunden und gegatet.
 - [x] P14: mehrteilige starre Ausrüstung, getrennte Zustände, optionale Transformspuren und Acht-Richtungs-Rendering erstellt und gegatet.
+- [x] P15: NPC-Dashboard/-Detail, Mehrfachbindungen, Freigaben, explizite Revisionsübernahme, lokale Overrides sowie Duplizieren/Umbenennen erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
-- [ ] Meilenstein C: Figuren, P12–P15.
+- [x] Meilenstein C: Figuren, P12–P15.
 - [ ] Meilenstein D: Spieleinbindung, P16–P17.
 - [ ] Meilenstein E: belastbare Desktop-Version, P18–P22.
 
@@ -368,6 +369,17 @@ Richtung, Eigenbewegung und Track besitzen getrennte Gates; der Sampler gibt bei
 Gate die Identität zurück. Dadurch bleiben Werte für spätere Reaktivierung erhalten, ohne im
 Renderer Phantomversätze zu erzeugen.
 
+**2026-09-05 / P15:** P14-Equipment lebt im gemeinsam verwendeten Aussehen, seine optionalen
+Bewegungsschlüssel beziehen sich aber auf konkrete Frameindizes. Bei mehreren Bindings kann eine
+kürzere Motionrevision deshalb nicht ohne semantische Entscheidung übernommen werden. P15 lehnt
+solche Zuordnungen und Updates sichtbar ab; es gibt weder Abschneiden noch automatische
+Zeitachsenumrechnung.
+
+**2026-09-05 / P15:** Revisions- und Prüfmetadaten sind nicht automatisch visuelle Quellen. Der
+vorbereitete Export-Fingerabdruck enthält nur festgehaltene Profile, Motion- und Bildrevisionen,
+Fittings, Equipment sowie lokale Overrides. Eine neue ungenutzte Vorlagenrevision oder eine reine
+Freigabeaktion macht einen vorhandenen Export daher nicht fälschlich veraltet.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -388,6 +400,8 @@ Renderer Phantomversätze zu erzeugen.
 | ADR-015 | Diskrete Spritevarianten ergänzen ein Richtungs-Fitting additiv um variantenspezifisches Bild und Pivot; Transform, Sichtbarkeit und Layer bleiben richtungsweit. | Ein Motion-Key muss das importierte Variantenbild tatsächlich wechseln, ohne die deterministische Defaultwahl oder alte v1-Dokumente aufzubrechen. |
 | ADR-016 | Outfit-Mutationen halten den nativen Vault-Writer-Lock über Lesen, Prüfen und die vollständige journalisierte Veröffentlichung; Existing-NPC-Basen pinnen Revision und Inhalts-Hash. | Ein nur pro Einzelwrite gehaltener Lock ließe konkurrierende Befehle zwischen Prüfung und CAS eintreten; gleiche Revision mit extern geänderten Bytes darf ebenfalls nicht überschrieben werden. |
 | ADR-017 | Ein Equipmentobjekt behält sein Primärteil und ergänzt weitere starre Teile additiv; `slot` und Figuren-`root` sind die einzigen wirksamen Mitführmodi. | Bewahrt schema-v1-Lesbarkeit, lässt große Kleidung ehrlich segmentieren und vermeidet neue Anatomieslots oder unkontrollierte Weltkoordinaten. |
+| ADR-018 | Binding-Revisionen werden nur ausdrücklich übernommen; vorhandene Equipment-Keys müssen vollständig in den Ziel-Framebereich passen. | Bewahrt reproduzierbare NPCs und verhindert stilles Abschneiden oder ungefragtes Retiming gemeinsam genutzter Ausrüstung. |
+| ADR-019 | Exportaktualität wird aus einem kanonischen Fingerabdruck der effektiv festgehaltenen Quellen abgeleitet, nicht aus dem jeweils neuesten Katalogstand oder Prüfmetadaten. | Ungenutzte Releases und reine Freigaben dürfen einen visuell unveränderten Build nicht als veraltet markieren. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -465,6 +479,9 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P14 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 127 Tests und alle Compiler-/Formatgates | Equipment bleibt ein starrer Compositor-Layer ohne Mesh-/Skinning-Abhängigkeit; P13-Resolver, Varianten, Fallback-Freigaben, Ground Shadow, Pins und Transaktionen bleiben gemeinsam grün. |
 | 2026-09-05 / P14 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 94 Tests in 27 Dateien und alle Frontend-Gates | Vier Equipment-State- und 14 Outfit-Editor-Fälle decken mehrteilige Erzeugung, Additivvarianten, Assignability, getrennte Zustände, deaktivierte Track-Bedienung, Undo/Autosave und die bestehenden drei Modi ab; der Build umfasst 95 Module. |
 | 2026-09-05 / P14 | `tools/control.py docs check`, `quality architecture`, `tauri test --cargo --build-dry-run` und stabile Source-Policytests | Linux-Host, Python 3.13.15 | PASS | 141 Dokumentseiten konsistent, TypeScript-AST parst 108 Dateien, Desktopprofil/Cargo/native Dry-Run sind intakt und 16 Repository-Vertragstests bestehen. Die vier bekannten Gesamt-Suite-Fixtureabweichungen bleiben planmäßig bis P20 offen. |
+| 2026-09-05 / P15 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 137 Tests und alle Compiler-/Formatgates | Zehn fokussierte Binding-Fälle sind in der Gesamtsuite enthalten und belegen Walk/Sprint/Jump, getrennte IDs, lokale Overrides, kompatible und inkompatible Revisionsangebote, tatsächliche Verzeichnisjournale, sichere Exportinventur, Duplikat, Rename und Reopen. |
+| 2026-09-05 / P15 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 103 Tests in 28 Dateien und alle Frontend-Gates | NPC-Dashboard, sechs strukturierte Dropdownfilter, gezielte Motion-/Richtungswahl, per-Binding-Drafts, Revisionsvergleich, Duplicate-Schutz und kontexttreue NPC-/Animationsnavigation sind abgedeckt; der Build umfasst 103 Module. |
+| 2026-09-05 / P15 | `tools/control.py docs check`, `quality architecture`, `tauri test --cargo --build-dry-run` und stabile Source-Policytests | Linux-Host, Python 3.13.15 | PASS | 141 Dokumentseiten konsistent, TypeScript-AST parst 116 Dateien, Desktopprofil/Cargo/native Dry-Run sind intakt und 16 Repository-Vertragstests bestehen. Die vier bekannten Gesamt-Suite-Fixtureabweichungen bleiben planmäßig bis P20 offen. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -474,7 +491,7 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P15 für NPC-Dashboard, Mehrfachanimationen und Revisionen ausführen.
+**Nächster ausführbarer Schritt:** P16 für den generischen PNG-/JSON-Export ausführen.
 
 ## Outcomes & Retrospective
 
@@ -519,5 +536,9 @@ P14 ergänzt darauf mehrteilige Rüstung, Accessoires und Equipment mit klar get
 Slot-/Root-Mitführen und optionaler eigener Bewegung. Inaktive Zustände bleiben verlustfrei, alle
 acht Richtungen nutzen explizite Assets/Pivots/Layer, und dieselbe starre Renderstrecke deckt
 segmentierte Kleidung, asymmetrische Handschuhe und kontrolliertes Nachschwingen ab.
+P15 fasst Figuren in einem filterbaren NPC-Arbeitsbereich zusammen und macht ihre vollständige
+Motionmenge, Richtungsabdeckung, Anforderungen, Prüfung und Exportaktualität sichtbar. Zusätzliche
+Bindings bleiben action-eindeutig und revisionsfest; lokale Änderungen, Duplikate und
+Ordner-Renames bewahren die getrennten Identitäten und unveränderlichen gemeinsamen Quellen.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

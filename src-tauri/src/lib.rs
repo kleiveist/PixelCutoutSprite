@@ -84,6 +84,14 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::render_outfit_preview,
             commands::save_outfit_as_npc,
             commands::apply_outfit_to_npc,
+            commands::inspect_npc_workspace,
+            commands::add_npc_binding,
+            commands::update_npc_binding_overrides,
+            commands::adopt_npc_binding_revision,
+            commands::review_npc_binding,
+            commands::set_npc_status,
+            commands::duplicate_npc,
+            commands::rename_npc,
         ])
 }
 
