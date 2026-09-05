@@ -1,0 +1,24 @@
+{
+  "format": "pixel-cutout-asset-package",
+  "format_version": 1,
+  "profile_ref": {
+    "id": "33333333-3333-4333-8333-333333333333",
+    "revision": 1
+  },
+  "entries": [
+    {
+      "name": "Escaping glove",
+      "source": "../outside.png",
+      "asset_kind": "equipment",
+      "slot_id": "hand_l",
+      "direction": "s",
+      "variant": "base",
+      "image_size_px": [4, 4],
+      "pivot_px": [2, 1],
+      "sheet_rect_px": null,
+      "sprite_mirroring_allowed": false,
+      "origin_note": "Deliberately invalid fixture",
+      "license_note": "CC0 test fixture"
+    }
+  ]
+}

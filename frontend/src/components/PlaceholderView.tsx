@@ -7,6 +7,7 @@ import { VaultWelcome } from "../features/vault/VaultWelcome";
 interface PlaceholderViewProps {
   details: NavigationItem;
   onOpenAreaAnimations?: (area: AreaCard) => void;
+  onOpenAreaInventory?: (area: AreaCard) => void;
   onVaultOpened: (vault: OpenVault) => void;
   vaultClient?: VaultClient;
   projectId?: string | null;
@@ -16,6 +17,7 @@ interface PlaceholderViewProps {
 export function PlaceholderView({
   details,
   onOpenAreaAnimations,
+  onOpenAreaInventory,
   onVaultOpened,
   vaultClient,
   projectId = null,
@@ -25,6 +27,7 @@ export function PlaceholderView({
     return (
       <AreaDashboard
         onOpenAnimations={onOpenAreaAnimations}
+        onOpenInventory={onOpenAreaInventory}
         projectId={projectId}
         sessionId={vault?.session_id ?? null}
       />

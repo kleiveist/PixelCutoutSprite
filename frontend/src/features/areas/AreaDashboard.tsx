@@ -10,6 +10,7 @@ interface AreaDashboardProps {
   projectId: string | null;
   client?: AreaClient;
   onOpenAnimations?: (area: AreaCard) => void;
+  onOpenInventory?: (area: AreaCard) => void;
   onStatus?: (message: string) => void;
 }
 
@@ -18,6 +19,7 @@ export function AreaDashboard({
   projectId,
   client = areaClient,
   onOpenAnimations,
+  onOpenInventory,
   onStatus,
 }: AreaDashboardProps) {
   const model = useAreaDashboardModel({ client, onStatus, projectId, sessionId });
@@ -63,7 +65,11 @@ export function AreaDashboard({
         />
       </div>
 
-      <AreaLibrary model={model} onOpenAnimations={onOpenAnimations} />
+      <AreaLibrary
+        model={model}
+        onOpenAnimations={onOpenAnimations}
+        onOpenInventory={onOpenInventory}
+      />
     </section>
   );
 }

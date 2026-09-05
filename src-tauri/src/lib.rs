@@ -4,6 +4,7 @@ use tauri::{Builder, Runtime};
 
 pub mod animation;
 pub mod application;
+pub mod asset_io;
 pub mod commands;
 pub mod directions;
 pub mod domain;
@@ -56,6 +57,10 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::open_area,
             commands::create_area,
             commands::create_area_profile_revision,
+            commands::get_asset_inventory,
+            commands::inspect_asset_sources,
+            commands::import_asset_sources,
+            commands::archive_asset,
             commands::get_motion_dashboard,
             commands::create_motion,
             commands::duplicate_motion,

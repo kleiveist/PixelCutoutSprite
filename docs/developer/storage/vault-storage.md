@@ -77,3 +77,20 @@ Workspace scope in `.pixelforge-studio/ui.json`.
 
 P05 adds area creation/reopen, project-label scope, a committed creation journal, read-only
 browsing and byte-identical preservation of the previous profile revision.
+
+## Area asset sources
+
+P12 stores each imported image beneath
+`<area>/.area/assets/<name>--<id-prefix>/rNNNN/`. `original.png` is a byte-for-byte copy of the
+selected external file or full sheet; `source.png` is the effective immutable image used by the
+compositor and may be an explicitly reviewed crop, transparent pad, or nearest-neighbour rescale.
+`revision.json` records its SHA-256 and portable area-relative path, while `asset.json` owns the
+stable ID, metadata and released revision list. External chooser/drop paths never become saved
+references.
+
+Inspection decodes and validates every package source without writing. Confirmation repeats the
+checks before copying, and read-only sessions cannot import or archive. The object index is rebuilt
+after a successful mutation and again on Vault reopen. Archive advances the mutable asset manifest
+but retains numbered image revisions needed by appearances or drafts; the inventory lists those
+uses before confirmation. Multi-file crash-window recovery remains covered by the general P18
+transaction hardening rather than a false filesystem-wide atomicity claim here.

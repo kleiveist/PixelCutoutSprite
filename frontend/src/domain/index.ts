@@ -4,6 +4,7 @@ export * from "./animations";
 export * from "./characters";
 export * from "./common";
 export * from "./export";
+export * from "./inventory";
 export * from "./motion";
 export * from "./profile";
 export * from "./projects";

@@ -1,0 +1,209 @@
+.inventory-page {
+  min-height: 100%;
+  padding: 30px;
+  background: #0f0e12;
+}
+.inventory-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+}
+.inventory-header span {
+  color: var(--accent);
+  font:
+    10px/1 "DM Mono",
+    monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.inventory-header h1 {
+  margin: 6px 0 0;
+  font-size: 42px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+.inventory-filters {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 24px 0 12px;
+}
+.inventory-filters label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+.inventory-filters input,
+.inventory-filters select,
+.inventory-filters button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  color: var(--ink);
+}
+.inventory-filters input,
+.inventory-filters select {
+  padding: 0 8px;
+}
+.inventory-filters button {
+  padding: 0 10px;
+  cursor: pointer;
+}
+.inventory-drop {
+  padding: 14px;
+  border: 1px dashed #57515e;
+  color: var(--muted);
+  text-align: center;
+}
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.inventory-card {
+  display: grid;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  gap: 7px;
+}
+.inventory-card img {
+  width: 100%;
+  height: 140px;
+  object-fit: contain;
+  background: #111015;
+  image-rendering: pixelated;
+}
+.inventory-card h2,
+.inventory-card p {
+  margin: 0;
+}
+.inventory-card h2 {
+  font-size: 14px;
+}
+
+.inventory-card__state {
+  color: var(--warning, #e8b45d);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.inventory-card p,
+.inventory-card small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.inventory-card button {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: #ffb6a8;
+  cursor: pointer;
+}
+.inventory-empty {
+  color: var(--muted);
+}
+.inventory-remove {
+  display: grid;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 30;
+  width: 400px;
+  padding: 20px;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  box-shadow: 0 24px 90px #000b;
+  gap: 12px;
+}
+.inventory-remove p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.inventory-remove button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.inventory-import-dialog {
+  position: fixed;
+  z-index: 40;
+  inset: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-width: 72rem;
+  max-height: calc(100vh - 5rem);
+  margin: auto;
+  padding: 1rem;
+  overflow: hidden;
+  color: var(--ink, #f4f0df);
+  background: var(--panel-deep, #151a20);
+  border: 2px solid var(--accent, #70c1a3);
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 70%);
+}
+
+.inventory-import-dialog header,
+.inventory-import-dialog footer,
+.inventory-import-fields {
+  display: flex;
+  gap: 0.75rem;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.inventory-import-dialog h2,
+.inventory-import-dialog p {
+  margin: 0.2rem 0;
+}
+
+.inventory-import-list {
+  display: grid;
+  gap: 0.65rem;
+  overflow: auto;
+}
+
+.inventory-import-list article {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid rgb(255 255 255 / 14%);
+}
+
+.inventory-import-list small {
+  display: block;
+  color: var(--muted, #a5adb5);
+}
+
+.inventory-import-fields {
+  justify-content: start;
+  flex-wrap: wrap;
+}
+
+.inventory-import-fields label {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 12rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.inventory-import-fields select {
+  min-height: 2.2rem;
+}
+
+.inventory-import-note {
+  color: var(--accent, #70c1a3);
+}
+
+.inventory-import-warning {
+  color: var(--warning, #e8b45d);
+}

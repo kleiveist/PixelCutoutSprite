@@ -14,7 +14,7 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-03 | Project dashboard after opening a vault | P03–P04 | P04: `App` routes an opened Vault directly to `ProjectDashboard`; app and dashboard tests cover the transition, empty state and cards |
 | RQ-04 | Projects are folders | P03–P04 | P04: `ProjectService` creates a distinct safe folder and `.project/{project.json,labels.json,cache,transactions,backups,trash}`; filesystem integration tests cover reopen, rename, copy and trash |
 | RQ-05 | User-defined labels | P04 | P04: `LabelService` persists workspace/project label catalogs with name/color/revision validation; deletion removes references while retaining projects |
-| RQ-06 | Every structured filter uses a dropdown | P04–P06, P12, P15, P19 | P04 project filters and P06 animation direction/status/profile/sort filters use accessible single/multi dropdowns; later dashboards remain assigned to their phases |
+| RQ-06 | Every structured filter uses a dropdown | P04–P06, P12, P15, P19 | P04 project filters, P06 animation filters and P12 inventory slot/direction/kind/profile/label/usage filters use accessible dropdowns; the import review also uses dropdowns for every assignment and explicit size policy |
 | RQ-07 | User-defined areas | P05 | P05: `AreaService` creates freely named filesystem areas, lists cards per project and reopens them; `area_profiles` proves the `NPCs` round trip |
 | RQ-08 | Area-level size and body profile | P02, P05 | P05: each area stores height, exact humanoid profile revision, eight-way model, default frame/ground origin and project-label IDs; size changes publish and pin a new snapshot |
 | RQ-09 | Animations are actionable cards | P06 | P06: `AnimationDashboard` cards expose open, duplicate, release, archive, trash and timing/coverage state; DOM and Vault tests exercise the actions |
@@ -30,8 +30,8 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-19 | Sparse keyframes generate samples | P09, P11 | P09: pure Rust `AnimationSampler` evaluates hold/linear/ease, shortest-path angles, discrete values and exact `0..N-1` loops independently of evaluation order; preview uses the sampled compositor path and deterministic Goldens cover sparse-key boundaries |
 | RQ-20 | Eight directions with controlled reuse | P10 | P10: shared `DirectionResolver` supports five-source/three-mirror and eight-explicit setups, rejects cycles/front-back/non-opposite mirrors, anatomically swaps paired poses, resolves target layers/assets separately, detaches derived tracks atomically and blocks release gaps; asymmetric eight-way RGBA Goldens and editor tests cover the contract |
 | RQ-21 | Walk, sprint, jump and more motions | P11 | P11 persists editable Idle, Walk, Sprint, Jump, Interact and Attack presets with distinct timing/poses, in-place root mode, game-speed metadata, visible/bakeable helpers and independent jump height, ground anchor and optional shadow |
-| RQ-22 | Inventory for source sprites | P12 | Planned |
-| RQ-23 | Metadata-based slot suggestions | P12–P13 | Planned |
+| RQ-22 | Inventory for source sprites | P12 | P12: area-owned asset manifests and immutable PNG revisions reopen from ordinary Vault files; the reachable Outfit & inventory workspace shows thumbnails, metadata, labels, usage, archive and six dropdown filters |
+| RQ-23 | Metadata-based slot suggestions | P12–P13 | P12: strict package metadata is profile/slot/direction/size/pivot/crop validated; loose `slot__direction__variant.png` names only prefill a visible review and ambiguous files block confirmation until explicitly assigned |
 | RQ-24 | Inventory, Dress and Fine-tune modes | P13 | Planned |
 | RQ-25 | Adjustable dummy outline guide | P13 | Planned |
 | RQ-26 | Armour, accessories and equipment | P14 | Planned |
@@ -48,4 +48,4 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-37 | Compact PNG sheets; loose frames optional | P16 | Planned |
 | RQ-38 | Generic integration and Godot output | P16–P17 | Planned |
 | RQ-39 | No required manual bone/skeleton setup | P05, P08, P22 | P05 generates all parent links and pivots; P08 opens those attached parts directly for pose editing and contains no skeleton/Bone2D setup step |
-| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P11 implemented in order and gated; P12 is next |
+| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P12 implemented in order and gated; P13 is next |

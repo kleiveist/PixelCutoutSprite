@@ -57,10 +57,10 @@ export const navigationItems: readonly NavigationItem[] = [
   },
   {
     route: "outfit",
-    label: "Outfit",
-    eyebrow: "Dress",
-    description: "Fit imported pixel parts to the animated dummy.",
-    available: false,
+    label: "Outfit & inventory",
+    eyebrow: "Import",
+    description: "Copy, classify, and inspect area-owned PNG sources.",
+    available: true,
   },
   {
     route: "characters",

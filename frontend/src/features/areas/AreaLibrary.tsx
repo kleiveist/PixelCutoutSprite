@@ -4,9 +4,11 @@ import type { AreaDashboardModel } from "./useAreaDashboard";
 export function AreaLibrary({
   model,
   onOpenAnimations,
+  onOpenInventory,
 }: {
   model: AreaDashboardModel;
   onOpenAnimations?: (area: AreaCard) => void;
+  onOpenInventory?: (area: AreaCard) => void;
 }) {
   return (
     <section className="area-library" aria-labelledby="area-library-heading">
@@ -14,7 +16,11 @@ export function AreaLibrary({
         <p className="view-eyebrow">Project library</p>
         <h2 id="area-library-heading">Area cards</h2>
       </div>
-      <AreaLibraryContent model={model} onOpenAnimations={onOpenAnimations} />
+      <AreaLibraryContent
+        model={model}
+        onOpenAnimations={onOpenAnimations}
+        onOpenInventory={onOpenInventory}
+      />
     </section>
   );
 }
@@ -22,9 +28,11 @@ export function AreaLibrary({
 function AreaLibraryContent({
   model,
   onOpenAnimations,
+  onOpenInventory,
 }: {
   model: AreaDashboardModel;
   onOpenAnimations?: (area: AreaCard) => void;
+  onOpenInventory?: (area: AreaCard) => void;
 }) {
   if (model.loadingAreas) return <p role="status">Loading areas…</p>;
   if (!model.hasProjectContext) {
@@ -57,6 +65,9 @@ function AreaLibraryContent({
           </dl>
           <button disabled={model.busy} onClick={() => void model.openArea(area)} type="button">
             Open profile
+          </button>
+          <button disabled={model.busy} onClick={() => onOpenInventory?.(area)} type="button">
+            Open PNG inventory
           </button>
           <button
             className="primary-button"

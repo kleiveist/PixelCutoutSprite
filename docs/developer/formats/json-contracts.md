@@ -109,8 +109,10 @@ locations. Version 1 reserves these conventions:
 <area>/.area/templates/<template-id>/template.json
 <area>/.area/templates/<template-id>/draft.json
 <area>/.area/templates/<template-id>/revisions/rNNNN.json
-<area>/.area/assets/<asset-id>/asset.json
-<area>/.area/assets/<asset-id>/revisions/rNNNN.json
+<area>/.area/assets/<asset-name>--<asset-id-prefix>/asset.json
+<area>/.area/assets/<asset-name>--<asset-id-prefix>/rNNNN/revision.json
+<area>/.area/assets/<asset-name>--<asset-id-prefix>/rNNNN/original.png
+<area>/.area/assets/<asset-name>--<asset-id-prefix>/rNNNN/source.png
 <area>/.area/drafts/outfit--<draft-id>.json
 <area>/<character-name>--<id>/character.json
 <character>/appearances/<appearance-id>.json
@@ -129,6 +131,14 @@ Readable folder names are sanitized independently and receive an ID suffix. Rese
 device names, forbidden filesystem characters, trailing spaces/dots, and names colliding after
 Unicode NFC normalization plus case folding are rejected. User text is never concatenated into
 a path directly.
+
+The strict external `pixel-cutout-asset-package` version 1 contract is deliberately not a domain
+document: it is inspected input and is never copied into the Vault as authority. It names an exact
+`profile_ref` and 1–512 entries. Each entry declares its source PNG, asset kind, variant, full image
+dimensions, pivot, optional sheet rectangle, mirror permission and origin/license notes. Slot and
+direction are either both present or both absent for explicit review. Unknown fields, another
+format/version, profile mismatch, non-PNG data, missing alpha, wrong dimensions, an out-of-bounds
+or over-1024 cell, oversized data, absolute/traversing paths and symlinks fail before import.
 
 ## Revisions, transitions, and export freshness
 

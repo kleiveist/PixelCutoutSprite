@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { projectClient, type ProjectClient } from "../api/project-client";
+import { assetClient, type AssetClient } from "../api/asset-client";
 import { vaultClient, type OpenVault, type VaultClient } from "../api/vault-client";
 import { AppHeader } from "../components/AppHeader";
 import { Breadcrumbs } from "../components/Breadcrumbs";
@@ -13,17 +14,23 @@ import type { AreaCard } from "../domain/areas";
 import type { MotionOpenTarget } from "../domain/animations";
 import { AnimationDashboard } from "../features/animations/AnimationDashboard";
 import { MotionDummyEditorRoute } from "../features/dummy-editor/MotionDummyEditorRoute";
+import { InventoryWorkspace } from "../features/inventory/InventoryWorkspace";
 import { ProjectDashboard } from "../features/projects/ProjectDashboard";
 import { navigationItems, routeBreadcrumbs, routeDetails, type WorkspaceRoute } from "./navigation";
 import type { KeyboardAction } from "./shortcuts";
 import { useKeyboardActions } from "./useKeyboardActions";
 
 interface AppProps {
+  assetsApi?: AssetClient;
   projectsApi?: ProjectClient;
   vaultApi?: VaultClient;
 }
 
-export function App({ projectsApi = projectClient, vaultApi = vaultClient }: AppProps = {}) {
+export function App({
+  assetsApi = assetClient,
+  projectsApi = projectClient,
+  vaultApi = vaultClient,
+}: AppProps = {}) {
   const [route, setRoute] = useState<WorkspaceRoute>("welcome");
   const [helpOpen, setHelpOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -135,6 +142,13 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
     setStatus(`${area.name} animation library opened`);
   }
 
+  function openAreaInventory(area: AreaCard): void {
+    setSelectedArea(area);
+    setSelectedTemplateId(null);
+    setRoute("outfit");
+    setStatus(`${area.name} PNG inventory opened`);
+  }
+
   function openMotionTarget(target: MotionOpenTarget): void {
     setSelectedTemplateId(target.template_id);
     if (target.kind === "dummy_editor") {
@@ -192,10 +206,18 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
               sessionId={vault.session_id}
               templateId={selectedTemplateId}
             />
+          ) : route === "outfit" && vault && selectedArea ? (
+            <InventoryWorkspace
+              areaId={selectedArea.id}
+              client={assetsApi}
+              onStatus={setStatus}
+              sessionId={vault.session_id}
+            />
           ) : (
             <PlaceholderView
               details={details}
               onOpenAreaAnimations={openAreaAnimations}
+              onOpenAreaInventory={openAreaInventory}
               onVaultOpened={openVault}
               projectId={selectedProject?.id ?? null}
               vault={vault}

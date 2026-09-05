@@ -32,7 +32,7 @@ Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository 
 
 ## Aktueller Arbeitsauftrag
 
-P00 bis P11 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
+P00 bis P12 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
 Projekt-Dashboard über ein exakt skaliertes humanoides Gebiet in die Animationsbibliothek.
 Vorlagen, mutable `draft.json`-Arbeitsstände und unveränderliche Freigaben liegen als gewöhnliche
 Dateien in ihrem Bereich. Karten besitzen Dropdown-Filter und explizite Wege zum Dummy sowie zum
@@ -48,7 +48,13 @@ Startbewegungen speichern sichtbare deterministische Hilfskanäle, auf der Stell
 Fortbewegung, Sprunghöhen-/Schattenregeln und Geschwindigkeitsmetadaten. Bibliothekskarten zeigen
 dieselben gespeicherten Compositorframes wie der Editor, laden nur im Sichtbereich, respektieren
 reduzierte Bewegung und führen vor einer unveränderlichen Freigabe durch die Richtungsprüfung.
-Der nächste Schritt ist P12 für das PNG-Inventar und den Paketimport.
+Das bereichsbezogene PNG-Inventar ist über Bereichskarten und die Desktop-Navigation erreichbar:
+Dateidialog und nativer Drag-and-drop öffnen eine überprüfbare Zuordnung, statt Dateinamen heimlich
+zu übernehmen. Strikte Pakete, Einzel-PNGs und Sheet-Ausschnitte werden vor dem Kopieren auf Profil,
+Slot, Richtung, Maße, Pivot, Alpha, Größe und sichere Pfade geprüft. Größenabweichungen bleiben
+unverändert oder werden nur nach sichtbarer Wahl aufgefüllt beziehungsweise pixelgenau skaliert;
+Originale, Inhalts-Hashes, Revisionen, Verwendungen und Archivstatus überleben das Wiederöffnen.
+Der nächste Schritt ist P13 für Anziehen, Feinschliff und den ersten NPC-Entwurf.
 
 ## Leitentscheidungen
 

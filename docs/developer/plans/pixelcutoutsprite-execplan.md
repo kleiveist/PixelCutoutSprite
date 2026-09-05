@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P11 abgeschlossen; P12 ist der nächste Schritt
+**Implementierung:** P00–P12 abgeschlossen; P13 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -104,6 +104,15 @@ denselben Sampler-/Resolver-/Compositorpfad wie der Editor, einen inhaltsadressi
 eine Reduced-Motion-Regel. Ein geführter Dialog prüft vor der unveränderlichen Freigabe alle acht
 Richtungen.
 
+P12 ergänzt das bereichsbezogene PNG-Inventar als erreichbaren Tauri-Desktopablauf. Ein nativer
+Dateidialog oder WebView-Drop führt zunächst ausschließlich zur Rust-Inspektion; erst die
+bestätigte Zuordnung kopiert Einzel-PNGs oder explizite Sheet-Ausschnitte in die Vault. Das
+strikte Paketformat bindet Profil, Slot, Richtung, Variante, Maße, Pivot und Ausschnitt. Die
+Dateinamenskonvention bleibt ein sichtbarer Vorschlag. Größenabweichungen erfordern unveränderte
+Übernahme, transparentes Padding oder bewusstes Nearest-Resampling. Stabile IDs, Inhalts-Hashes,
+Revisionen, Verwendungslisten und recoverbares Archivieren werden aus normalen JSON-/PNG-Dateien
+auch nach dem Wiederöffnen rekonstruiert.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -128,7 +137,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P09](../prompts/pixelcutoutsprite/09.md) | Timeline, Keyframes und deterministisches Sampling | Abgeschlossen |
 | [P10](../prompts/pixelcutoutsprite/10.md) | Acht Richtungen, Spiegelregeln und Schichten | Abgeschlossen |
 | [P11](../prompts/pixelcutoutsprite/11.md) | Bewegungspresets und tatsächliche Kartenvorschauen | Abgeschlossen |
-| [P12](../prompts/pixelcutoutsprite/12.md) | PNG-Inventar und Paketimport | Nicht begonnen |
+| [P12](../prompts/pixelcutoutsprite/12.md) | PNG-Inventar und Paketimport | Abgeschlossen |
 | [P13](../prompts/pixelcutoutsprite/13.md) | Ausstattungseditor, Feinschliff und NPC-Entwürfe | Nicht begonnen |
 | [P14](../prompts/pixelcutoutsprite/14.md) | Ausrüstung und optionale Eigenbewegung | Nicht begonnen |
 | [P15](../prompts/pixelcutoutsprite/15.md) | NPC-Dashboard, Mehrfachanimationen und Revisionen | Nicht begonnen |
@@ -158,6 +167,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P09: vollständige Timeline, reinen Sampler, Onion-Skin-Vorschau, Retiming, gemeinsame History und serialisierte CAS-Autosaves erstellt und gegatet.
 - [x] P10: acht Richtungszustände, anatomische Spiegelung, Zielschichten, sichere Assetregeln, Detach und blockierende Freigabeabdeckung erstellt und gegatet.
 - [x] P11: sechs editierbare Presets, sichtbare/bakebare Helper, getrennte Sprunghöhe/Schatten, echte Lazy-Kartenvorschauen, Inhaltscache und geführte Freigabe erstellt und gegatet.
+- [x] P12: erreichbares Bereichsinventar, nativen Dialog/Drop, strikte Paket-/PNG-Prüfung, explizite Zuordnung und Größenbehandlung, Revisionen, Verwendungsnachweise und Archiv erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
 - [ ] Meilenstein C: Figuren, P12–P15.
@@ -288,6 +298,17 @@ Bibliotheks-Tickschleife einführen. Sichtbarkeit löst eine begrenzte Sampleanf
 Cache-Key enthält kanonische effektive Daten statt Zeitstempel. Hover/Fokus takten nur bereits
 geladene PNGs, Reduced Motion fordert genau ein statisches Sample an.
 
+**2026-09-05 / P12:** Ein DOM-`File` ist in einer gebündelten WebView keine belastbare portable
+Dateisystemreferenz. Der produktive Drop-Pfad verwendet deshalb das native Tauri-WebView-Ereignis
+mit explizit gewählten lokalen Pfaden. Die UI darf diese nur zur Inspektion weiterreichen; weder
+externe Pfade noch das Importpaket werden als autoritative Referenz gespeichert.
+
+**2026-09-05 / P12:** „Original erhalten“ und „Bild unverändert verwenden“ sind zwei getrennte
+Aussagen. Jede Revision bewahrt die ausgewählte Datei beziehungsweise das vollständige Sheet
+bytegleich als `original.png`; `source.png` bleibt bei normaler Übernahme bytegleich oder ist ein
+ausdrücklich bestätigter Ausschnitt, transparentes Padding oder Nearest-Resampling. Nur dessen
+Hash gehört zur effektiv verwendeten Assetrevision.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -303,6 +324,7 @@ geladene PNGs, Reduced Motion fordert genau ein statisches Sample an.
 | ADR-010 | Humanoid v1 wird deterministisch aus Referenzhöhe und festen Ansichtsrezepten generiert; jede publizierte Größe ist ein neuer Snapshot. | Exakte ganzzahlige Geometrie ist reproduzierbar, benötigt kein manuelles Skelett und verändert gepinnte Bewegungen nicht rückwirkend. |
 | ADR-011 | Pose-, einzelnes Asset- und Gesamtbild-Spiegeln sind drei getrennte APIs; Asset-Fallbacks benötigen eine ausdrückliche Freigabe. | Bewahrt anatomische Links-/Rechts-Identität und verhindert, dass asymmetrische Ausstattung still die Hand oder Richtung wechselt. |
 | ADR-012 | Preset-Helper sind versionierte additive Quelldaten; Kartenvorschauen verwenden gespeicherte Samples und einen inhaltsadressierten Byte-LRU. | Helper bleiben sichtbar, abschaltbar und bakebar, während Karten und Editor nach Änderungen denselben Pixelpfad zeigen, ohne alle Karten permanent zu rendern. |
+| ADR-013 | Asset-Import ist ein zweistufiger Inspect/Confirm-Vorgang; externe Originale und effektive Revisionsbilder sind getrennt. | Dateinamensvorschläge bleiben überprüfbar, Größenänderungen nie still, und die Vault speichert ausschließlich portable Bereichspfade plus Inhalts-Hashes. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -368,6 +390,10 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P11 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 87 Tests und alle Compiler-/Formatgates | Presets, Sampler, gemeinsamer Compositor, Richtungsauflösung, Vault- und Bewegungsservices bleiben gemeinsam grün. |
 | 2026-09-05 / P11 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 66 Tests und alle Frontend-Gates | Sichtbarkeitsabhängiges Laden, reduzierte Bewegung, geführte Freigabe, Helpersteuerung, Cacheinvalidierung und die bestehende Editor-/Timelinebedienung sind abgedeckt; der Build umfasst 71 Module. |
 | 2026-09-05 / P11 | `tools/control.py docs check`, `quality architecture` und `tauri test --cargo --build-dry-run` | Linux-Host, Python 3.13.15 | PASS | 140 Dokumentseiten konsistent, TypeScript-AST parst 85 Dateien und der native Linux-Buildplan bleibt intakt. Der zentrale `quality lint` bleibt bis zur P20-Toolingkorrektur wegen des `.tooling-state`-Scans und des inkompatiblen Clippy-Flags `-F warnings` offen; die direkten Produktgates bestehen. |
+| 2026-09-05 / P12 | `cargo test --test asset_import --test asset_inventory --locked` | Linux-Host, Rust 1.97.1 | PASS: 9 Tests | Positives Paket, Sheet-Ausschnitt, lose PNG-Vorschläge, explizites Padding/Resampling, Revision, Alpha/Maße/Größe/Pfad-Gegenbeispiele, unverändertes externes Original, Nutzung, Archiv und vollständiges Wiederöffnen belegt. |
+| 2026-09-05 / P12 | `cargo test --all-targets --locked`, Clippy `-D warnings` und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 96 Tests und alle Compiler-/Formatgates | Native Commands, Vault-/Profilauflösung, Importer, Repository und alle bisherigen Sampler-/Compositorverträge bleiben gemeinsam grün. |
+| 2026-09-05 / P12 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 70 Tests in 24 Dateien und alle Frontend-Gates | Nativer Dialogadapter, Tauri-Drop, sichtbare Zuordnung, sechs Dropdownfilter, Größenwahl, Usage-Dialog, Archiv und Bereichseinstieg sind abgedeckt; der Build umfasst 82 Module. |
+| 2026-09-05 / P12 | `tools/control.py docs check`, `quality architecture`, `integrate --check --json` und `tauri test --cargo --build-dry-run` | Linux-Host, Python 3.13.15 | PASS | 141 Dokumentseiten konsistent, TypeScript-AST parst 93 Dateien, Desktopprofil und nativer Linux-Buildplan sind intakt. Der zentrale `quality lint` bleibt bis P20 aus den bereits dokumentierten Toolinggründen offen. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -377,8 +403,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P12 ausführen: PNG-Inventar, strikte Importprüfung,
-Metadatenvorschläge und wiederholbaren Paketimport auf der bestehenden Vault-Basis aufbauen.
+**Nächster ausführbarer Schritt:** P13 ausführen: Inventar, Anziehen und Feinschliff zu einem
+zusammenhängenden Editor verbinden und einen persistenten NPC-Entwurf speichern.
 
 ## Outcomes & Retrospective
 
@@ -411,4 +437,9 @@ normaler Entwurf erzeugt, seine benannten Helper können deaktiviert oder in Key
 werden, und eine unveränderliche Freigabe behält dieselben Semantiken und Samples. Jump hält
 Bodenanker, Höhenkanal und Schatten getrennt. Karten zeigen faul geladene, inhaltsgecachte
 Compositorframes und der Freigabedialog macht jede Richtungslücke vor dem Backend-Gate sichtbar.
+P12 führt echte Spritequellen in diesen Ablauf ein: Paket- und lose PNG-Inspektion teilen die
+gleichen Rust-Grenzen, Vorschläge werden erst durch bestätigte Dropdownzuordnung wirksam, und
+Original/effektives Bild bleiben nachvollziehbar getrennt. Das aus der Vault neu aufgebaute
+Inventar zeigt Revision, Profil, Slot, Richtung, Labels und konkrete Verwendungen; Archivierung
+erhält bereits referenzierte Bytes.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.
