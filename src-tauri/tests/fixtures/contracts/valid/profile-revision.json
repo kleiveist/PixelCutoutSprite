@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "kind": "profile_revision",
+  "profile_id": "33333333-3333-4333-8333-333333333333",
+  "revision": 1,
+  "area_id": "22222222-2222-4222-8222-222222222222",
+  "name": "Humanoid 80 px",
+  "reference_height_px": 80,
+  "slots": [
+    {"id": "torso_lower", "parent_id": null, "optional": false, "size_px": [14, 10], "pivot_px": [7, 9], "base_transform": {"offset_px": [0, -28], "rotation_deg": 0}},
+    {"id": "hand_l", "parent_id": "torso_lower", "optional": false, "size_px": [8, 6], "pivot_px": [4, 2], "base_transform": {"offset_px": [-10, -24], "rotation_deg": 0}},
+    {"id": "hand_r", "parent_id": "torso_lower", "optional": false, "size_px": [8, 6], "pivot_px": [4, 2], "base_transform": {"offset_px": [10, -24], "rotation_deg": 0}}
+  ],
+  "views": [
+    {"direction": "n", "layer_order": ["hand_l", "torso_lower", "hand_r"], "base_transforms": [{"slot_id": "torso_lower", "transform": {"offset_px": [0, -28], "rotation_deg": 0}}, {"slot_id": "hand_l", "transform": {"offset_px": [-10, -24], "rotation_deg": 0}}, {"slot_id": "hand_r", "transform": {"offset_px": [10, -24], "rotation_deg": 0}}]},
+    {"direction": "ne", "layer_order": ["hand_l", "torso_lower", "hand_r"], "base_transforms": [{"slot_id": "torso_lower", "transform": {"offset_px": [0, -28], "rotation_deg": 0}}, {"slot_id": "hand_l", "transform": {"offset_px": [-8, -24], "rotation_deg": 0}}, {"slot_id": "hand_r", "transform": {"offset_px": [9, -24], "rotation_deg": 0}}]},
+    {"direction": "e", "layer_order": ["hand_l", "torso_lower", "hand_r"], "base_transforms": [{"slot_id": "torso_lower", "transform": {"offset_px": [0, -28], "rotation_deg": 0}}, {"slot_id": "hand_l", "transform": {"offset_px": [-4, -24], "rotation_deg": 0}}, {"slot_id": "hand_r", "transform": {"offset_px": [5, -24], "rotation_deg": 0}}]},
+    {"direction": "se", "layer_order": ["hand_r", "torso_lower", "hand_l"], "base_transforms": [{"slot_id": "torso_lower", "transform": {"offset_px": [0, -28], "rotation_deg": 0}}, {"slot_id": "hand_l", "transform": {"offset_px": [-8, -24], "rotation_deg": 0}}, {"slot_id": "hand_r", "transform": {"offset_px": [9, -24], "rotation_deg": 0}}]},
+    {"direction": "s", "layer_order": ["hand_r", "torso_lower", "hand_l"], "base_transforms": [{"slot_id": "torso_lower", "transform": {"offset_px": [0, -28], "rotation_deg": 0}}, {"slot_id": "hand_l", "transform": {"offset_px": [-10, -24], "rotation_deg": 0}}, {"slot_id": "hand_r", "transform": {"offset_px": [10, -24], "rotation_deg": 0}}]},
+    {"direction": "sw", "layer_order": ["hand_l", "torso_lower", "hand_r"], "base_transforms": [{"slot_id": "torso_lower", "transform": {"offset_px": [0, -28], "rotation_deg": 0}}, {"slot_id": "hand_l", "transform": {"offset_px": [-9, -24], "rotation_deg": 0}}, {"slot_id": "hand_r", "transform": {"offset_px": [8, -24], "rotation_deg": 0}}]},
+    {"direction": "w", "layer_order": ["hand_r", "torso_lower", "hand_l"], "base_transforms": [{"slot_id": "torso_lower", "transform": {"offset_px": [0, -28], "rotation_deg": 0}}, {"slot_id": "hand_l", "transform": {"offset_px": [-5, -24], "rotation_deg": 0}}, {"slot_id": "hand_r", "transform": {"offset_px": [4, -24], "rotation_deg": 0}}]},
+    {"direction": "nw", "layer_order": ["hand_r", "torso_lower", "hand_l"], "base_transforms": [{"slot_id": "torso_lower", "transform": {"offset_px": [0, -28], "rotation_deg": 0}}, {"slot_id": "hand_l", "transform": {"offset_px": [-9, -24], "rotation_deg": 0}}, {"slot_id": "hand_r", "transform": {"offset_px": [8, -24], "rotation_deg": 0}}]}
+  ],
+  "mirror_pairs": [{"left": "hand_l", "right": "hand_r"}],
+  "published_at": "2026-09-05T09:05:00Z"
+}

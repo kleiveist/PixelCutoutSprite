@@ -1,6 +1,8 @@
 use serde::Serialize;
 use tauri::{Builder, Runtime};
 
+pub mod domain;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DesktopIdentity {

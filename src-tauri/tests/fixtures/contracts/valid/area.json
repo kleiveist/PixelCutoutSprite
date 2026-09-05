@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "kind": "area",
+  "id": "22222222-2222-4222-8222-222222222222",
+  "revision": 1,
+  "project_id": "11111111-1111-4111-8111-111111111111",
+  "name": "NPCs",
+  "object_type": "humanoid",
+  "profile_ref": {"id": "33333333-3333-4333-8333-333333333333", "revision": 1},
+  "reference_height_px": 80,
+  "direction_model": "eight_way",
+  "directions": ["n", "ne", "e", "se", "s", "sw", "w", "nw"],
+  "default_frame_size_px": [128, 128],
+  "default_ground_origin_px": [64, 108],
+  "label_ids": ["bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2"],
+  "created_at": "2026-09-05T09:04:00Z",
+  "updated_at": "2026-09-05T09:04:00Z"
+}

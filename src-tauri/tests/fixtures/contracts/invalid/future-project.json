@@ -1,0 +1,7 @@
+{
+  "schema_version": 99,
+  "kind": "project",
+  "id": "11111111-1111-4111-8111-111111111111",
+  "revision": 1,
+  "future_payload": {"must_not_be_lost": true}
+}

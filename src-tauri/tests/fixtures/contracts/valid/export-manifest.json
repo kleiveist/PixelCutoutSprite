@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "kind": "export_manifest",
+  "id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+  "format_version": 1,
+  "generator_version": "0.1.0",
+  "character_id": "66666666-6666-4666-8666-666666666666",
+  "source_fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "sources": {
+    "profile": {"id": "33333333-3333-4333-8333-333333333333", "revision": 1},
+    "motion": [{"id": "44444444-4444-4444-8444-444444444444", "revision": 1}],
+    "assets": [{"id": "55555555-5555-4555-8555-555555555555", "revision": 1}],
+    "appearances": [{"id": "77777777-7777-4777-8777-777777777777", "revision": 1}],
+    "bindings": [{"id": "88888888-8888-4888-8888-888888888888", "revision": 1}]
+  },
+  "actions": [{
+    "action_key": "walk",
+    "binding_ref": {"id": "88888888-8888-4888-8888-888888888888", "revision": 1},
+    "frame_size_px": [128, 128],
+    "ground_origin_px": [64, 108],
+    "frame_count": 4,
+    "fps": 12,
+    "loop_mode": "loop",
+    "directions": ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
+  }],
+  "pages": [{"id": "page_0", "file": "atlas/page_0.png", "size_px": [512, 128]}],
+  "frames": [{"action_key": "walk", "direction": "s", "sample_index": 0, "page_id": "page_0", "rect_px": [0, 0, 128, 128], "mirrored_from": null}],
+  "checks": [{"code": "bounds", "level": "passed", "message": "All frames are inside the atlas."}],
+  "created_at": "2026-09-05T09:15:00Z"
+}

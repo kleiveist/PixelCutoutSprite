@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P01 abgeschlossen; P02 ist der nächste Schritt
+**Implementierung:** P00–P02 abgeschlossen; P03 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -37,6 +37,12 @@ Dialog-Layer. Zentrale Shortcuts respektieren Texteingaben. Noch nicht implement
 Arbeitsbereiche sind ausdrücklich als geplant gekennzeichnet. Rust stellt den gemeinsamen
 Produktions-Composition-Root und zunächst nur einen eng begrenzten Identitäts-Command bereit.
 
+P02 definiert den versionierten Quelldatenvertrag. Autoritative Rust-Modelle validieren lokale
+Dokumente und den zusammenhängenden Referenzgraphen; spiegelnde TypeScript-DTOs begrenzen die
+UI-/IPC-Seite. Vollständige positive Fixtures decken alle 14 Dokumentarten ab. Negative
+Fixtures und Konstruktionstests belegen Zukunftsversion, Typfehler, fehlende oder doppelte
+Identitäten, Eltern-/Spiegelzyklen, Zahlenlimits, Pfade, Profilinkompatibilität und Atlasgrenzen.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -51,7 +57,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 |---|---|---|
 | [P00](../prompts/pixelcutoutsprite/00.md) | Bestand prüfen und Umsetzung verankern | Abgeschlossen |
 | [P01](../prompts/pixelcutoutsprite/01.md) | Desktop-Shell und Produktidentität | Abgeschlossen |
-| [P02](../prompts/pixelcutoutsprite/02.md) | Fachmodelle und JSON-Verträge | Nicht begonnen |
+| [P02](../prompts/pixelcutoutsprite/02.md) | Fachmodelle und JSON-Verträge | Abgeschlossen |
 | [P03](../prompts/pixelcutoutsprite/03.md) | Vault und sichere Dateispeicherung | Nicht begonnen |
 | [P04](../prompts/pixelcutoutsprite/04.md) | Projekt-Dashboard, Labels und Dropdown-Filter | Nicht begonnen |
 | [P05](../prompts/pixelcutoutsprite/05.md) | Bereiche und humanoide Körperprofile | Nicht begonnen |
@@ -81,6 +87,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] Masterauftrag, Fortsetzungsauftrag und 23 Phasenprompts erstellt.
 - [x] P00: tatsächlichen Checkout, Tooling-Grenzen, Tauri-ADR, RQ-Ledger und Basistests erfasst.
 - [x] P01: native React-/Tauri-Shell, Produktidentität, Navigation, Dialoge und Shortcuts erstellt.
+- [x] P02: Fachmodelle, JSON-v1-Verträge, Graphvalidierung, Zustände und Vertragsfixtures erstellt.
 - [ ] Meilenstein A: Grundlage, P00–P06.
 - [ ] Meilenstein B: Bewegungen, P07–P11.
 - [ ] Meilenstein C: Figuren, P12–P15.
@@ -109,10 +116,17 @@ Befund ersetzen die Godot-App-Annahme; die fachlichen Anforderungen bleiben erha
 `docs/.toolingdocs` verschoben. Der manifestierte Pfad `docs/toolingdocs` wurde ohne
 Inhaltsänderung wiederhergestellt, damit die vorhandenen Tooling-Gates nutzbar bleiben.
 
+**2026-09-05 / P02:** Serde-`deny_unknown_fields` ist Teil des v1-Vertrags. Damit kann ein
+erfolgreicher Roundtrip keine unbekannten Felder verlieren. Eine Zukunftsversion wird schon am
+kleinen Dokumentkopf erkannt und erreicht weder normalen Decoder noch späteren Schreibpfad.
+
+**2026-09-05 / P02:** Template-Katalogstatus und Freigabestatus wurden bewusst getrennt. Eine
+aktive Vorlage kann gleichzeitig einen neuen Entwurf und mehrere unveränderliche Freigaben
+besitzen; die Erstellung eines Entwurfs setzt eine veröffentlichte Revision nicht zurück.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
-|---|---|---|
 | ADR-001 | Tauri 2/Rust mit Vite/React/TypeScript auf dem vorhandenen `desktop-local`-Profil; Godot nur als Exportziel. | Entspricht dem tatsächlichen Tooling-Template und der ausdrücklichen Nutzerkorrektur. |
 | ADR-002 | Vordefinierte starre Cutout-Teile mit Keyframes. | Keine manuelle Rig-Einrichtung, trotzdem wenige zu bearbeitende Posen. |
 | ADR-003 | Vorlagen, NPC-Aussehen und Zuordnungen trennen. | Dieselbe Bewegung für mehrere Figuren wiederverwenden. |
@@ -121,6 +135,7 @@ Inhaltsänderung wiederhergestellt, damit die vorhandenen Tooling-Gates nutzbar 
 | ADR-006 | Unveränderliche Freigaberevisionen und explizite Updates. | Bestehende NPCs und Exporte nicht unbemerkt verändern. |
 | ADR-007 | Gemeinsamer Sampler und prüfbarer Referenz-Rasterer. | Vorschau und Ausgabe sollen dieselben Pixel ergeben. |
 | ADR-008 | Workspace-Ordnername .pixelforge-studio bleibt fest. | Gewünschte globale Ablage, getrennt vom Produktbranding. |
+| ADR-009 | Rust-JSON-Vertrag v1 ist autoritativ; TypeScript spiegelt DTOs, und unbekannte Felder werden abgewiesen. | Verhindert konkurrierende Validatoren und verlustbehaftete Roundtrips; Zukunftsversionen bleiben unangetastet. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -151,6 +166,10 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P01 | relevante Source- und Tauri-Tooling-Tests | Linux-Host, Python 3.14.7 | PASS: 9 passed, 2 erwartete Profil-Skips; 161 passed | AST-/ESLint-/Capability-/Dokumentationspolicy sowie portable Tauri-Verträge aktiv. |
 | 2026-09-05 / P01 | `tools/control.py quality architecture` und `quality lint` | Linux-Host | PASS | TypeScript-AST, Schichten, Python/TS/Rust-Lint und Compiler grün. Das historische Gesamt-`quality` bleibt wegen bereits vorhandener Größen-/Formatbefunde im portablen Tooling offen. |
 | 2026-09-05 / P01 | nativer Tauri-Start und Sichtprüfung | KDE Wayland, 125 % Skalierung | PASS bei 1440×900 und 1280×720 | Pflichtaktionen, Statusleiste und Navigation sichtbar; Screenshots liegen nur im ignorierten lokalen Prüfbericht. Windows/macOS bleiben bis P20 offen. |
+| 2026-09-05 / P02 | `cargo test --all-targets`, Clippy `-D warnings`, rustfmt | Linux-Host, Rust 1.97.1 | PASS: 11 Tests | 15 positive Fixtures für 14 Dokumentarten runden konsistent; Graph-, Zukunfts-, Zyklus-, Pfad-, Grenzwert-, Immutabilitäts- und Atlasfälle belegt. |
+| 2026-09-05 / P02 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 11 Tests und alle Frontend-Gates | Vier DTO-Vertragstests belegen Header-/Versions-, UUID-, Richtungs-, Pfad-, Zustands- und Identitätsspiegelung. |
+| 2026-09-05 / P02 | `tools/control.py quality architecture` und `quality lint` | Linux-Host, Python 3.14.7 | PASS | TypeScript-Schichten sowie Python-, TS- und Rust-Prüfungen bleiben intakt. |
+| 2026-09-05 / P02 | `tools/control.py docs check --docs-dir docs` | Linux-Host | PASS: 132 Seiten konsistent | Formatdokumentation und Navigation sind vollständig verknüpft. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -160,13 +179,14 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P02 ausführen: autoritative Rust-Fachmodelle, spiegelnde
-TypeScript-DTOs und versionierte JSON-Vertragsfixtures mit positiven und negativen Roundtrip-
-Tests anlegen.
+**Nächster ausführbarer Schritt:** P03 ausführen: Vault-Inspektion und -Initialisierung, sichere
+reale Pfadauflösung, Single-Writer-Lock sowie validiertes JSON-Schreiben mit Fehler- und
+Recovery-Tests implementieren.
 
 ## Outcomes & Retrospective
 
 P00 hat die Planung in den tatsächlichen Checkout überführt. P01 liefert einen nachweislich
-startfähigen, responsiven Desktop-Rahmen, ohne Vault- oder Editorfachlichkeit vorwegzunehmen.
+startfähigen, responsiven Desktop-Rahmen. P02 verankert die getrennten Identitäten und den
+portablen JSON-v1-Vertrag, auf dem die Dateispeicherung in P03 aufbaut.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

@@ -32,8 +32,8 @@ Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository 
 
 ## Aktueller Arbeitsauftrag
 
-P00 und P01 sind abgeschlossen. Der nächste ausführbare Schritt ist P02 für Fachmodelle und
-versionierte JSON-Verträge. Die übrigen Phasen werden weiterhin einzeln im dokumentierten
+P00 bis P02 sind abgeschlossen. Der nächste ausführbare Schritt ist P03 für die sichere lokale
+Vault, validiertes JSON-Schreiben und den Single-Writer-Lock. Die übrigen Phasen werden weiterhin einzeln im dokumentierten
 Serienmodus umgesetzt; das Vorhandensein eines Prompts bedeutet nicht, dass seine Funktion
 bereits fertig ist.
 

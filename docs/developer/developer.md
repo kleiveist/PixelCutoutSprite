@@ -11,6 +11,8 @@
 - 🖥️ [ADR-001: Tauri desktop profile](decisions/adr-001-tauri-desktop.md)
 - 📋 [Features](features/features.md)
 - 🎨 [PixelCutoutSprite Studio specification](features/pixelcutoutsprite-studio.md)
+- 🧾 [Data formats](formats/formats.md)
+- 🔐 [JSON contract version 1](formats/json-contracts.md)
 - 🗺️ [Plans](plans/plans.md)
 - 🧭 [PixelCutoutSprite Studio ExecPlan](plans/pixelcutoutsprite-execplan.md)
 - 🧩 [Prompts](prompts/prompts.md)

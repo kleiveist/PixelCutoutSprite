@@ -16,7 +16,7 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-05 | User-defined labels | P04 | Planned |
 | RQ-06 | Every structured filter uses a dropdown | P04–P06, P12, P15, P19 | Planned |
 | RQ-07 | User-defined areas | P05 | Planned |
-| RQ-08 | Area-level size and body profile | P02, P05 | Planned |
+| RQ-08 | Area-level size and body profile | P02, P05 | P02: `Area` pins a profile revision, 16–512 px height, eight-way model, frame size and ground origin; concrete humanoid generator remains P05 |
 | RQ-09 | Animations are actionable cards | P06 | Planned |
 | RQ-10 | Cards show real motion previews | P06, P11 | Planned |
 | RQ-11 | New animation opens the dummy editor | P06, P08 | Planned |
@@ -42,10 +42,10 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-31 | Multiple motions belong to one NPC | P15 | Planned |
 | RQ-32 | Switch Animation and NPC views in context | P06, P15 | Planned |
 | RQ-33 | User-selected local vault | P03 | Planned |
-| RQ-34 | `.pixelforge-studio` stores global data only | P02–P03, P18 | Planned |
-| RQ-35 | No SQL or SQLite | P02–P03, P22 | Enforced architectural decision |
+| RQ-34 | `.pixelforge-studio` stores global data only | P02–P03, P18 | P02: JSON v1 ownership and portable-path contract reserves it for vault-global/runtime data; filesystem enforcement remains P03/P18 |
+| RQ-35 | No SQL or SQLite | P02–P03, P22 | P02: runtime manifest test rejects database dependencies; authoritative formats are JSON/PNG only; storage implementation and final audit remain P03/P22 |
 | RQ-36 | Project/area/NPC/animation filesystem hierarchy | P03, P15–P16 | Planned |
 | RQ-37 | Compact PNG sheets; loose frames optional | P16 | Planned |
 | RQ-38 | Generic integration and Godot output | P16–P17 | Planned |
 | RQ-39 | No required manual bone/skeleton setup | P05, P08, P22 | Planned |
-| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P01 implemented and separately evidenced; P02 is next |
+| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P02 implemented and gated; P03 is next |

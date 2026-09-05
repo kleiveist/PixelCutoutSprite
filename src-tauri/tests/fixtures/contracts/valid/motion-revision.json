@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "kind": "motion_revision",
+  "template_id": "44444444-4444-4444-8444-444444444444",
+  "revision": 1,
+  "profile_ref": {"id": "33333333-3333-4333-8333-333333333333", "revision": 1},
+  "frame_size_px": [128, 128],
+  "ground_origin_px": [64, 108],
+  "frame_count": 4,
+  "fps": 12,
+  "loop_mode": "loop",
+  "directions": [
+    {"direction": "n", "mode": "explicit"},
+    {"direction": "ne", "mode": "explicit"},
+    {"direction": "e", "mode": "explicit"},
+    {"direction": "se", "mode": "explicit"},
+    {"direction": "s", "mode": "explicit"},
+    {"direction": "sw", "mode": "mirrored", "source": "se"},
+    {"direction": "w", "mode": "mirrored", "source": "e"},
+    {"direction": "nw", "mode": "mirrored", "source": "ne"}
+  ],
+  "tracks": [
+    {"direction": "s", "slot_id": "torso_lower", "property": "rotation_deg", "interpolation": "linear", "keys": [{"frame": 0, "value": -2}, {"frame": 2, "value": 2}]}
+  ],
+  "published_at": "2026-09-05T09:08:00Z"
+}

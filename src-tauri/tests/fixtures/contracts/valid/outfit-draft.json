@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "kind": "outfit_draft",
+  "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  "revision": 1,
+  "area_id": "22222222-2222-4222-8222-222222222222",
+  "template_ref": {"id": "44444444-4444-4444-8444-444444444444", "revision": 1},
+  "profile_ref": {"id": "33333333-3333-4333-8333-333333333333", "revision": 1},
+  "character_id": null,
+  "appearance_id": null,
+  "status": "in_progress",
+  "selected_assets": [{"asset_id": "55555555-5555-4555-8555-555555555555", "revision": 1, "slot_id": "hand_l"}],
+  "created_at": "2026-09-05T09:11:00Z",
+  "updated_at": "2026-09-05T09:11:00Z"
+}
