@@ -5,6 +5,7 @@ use tauri::{Builder, Runtime};
 pub mod application;
 pub mod commands;
 pub mod domain;
+pub mod editor;
 pub mod render;
 pub mod storage;
 
@@ -56,6 +57,8 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::create_motion,
             commands::duplicate_motion,
             commands::load_motion_draft,
+            commands::open_motion_editor,
+            commands::render_motion_dummy,
             commands::save_motion_draft,
             commands::publish_motion,
             commands::set_motion_archived,

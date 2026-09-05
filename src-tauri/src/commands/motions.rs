@@ -3,10 +3,11 @@ use std::sync::{Mutex, MutexGuard};
 use tauri::State;
 
 use crate::application::{
-    CreateMotionRequest, MotionCard, MotionDashboard, MotionDraft, MotionOpenTarget, MotionService,
-    SaveMotionDraftRequest, VaultService,
+    CreateMotionRequest, MotionCard, MotionDashboard, MotionDraft, MotionEditorData,
+    MotionOpenTarget, MotionService, SaveMotionDraftRequest, VaultService,
 };
-use crate::domain::{MotionRevision, ObjectId};
+use crate::domain::{Direction, MotionRevision, ObjectId};
+use crate::editor::{encode_dummy_preview, render_dummy, DummyPreview, EditablePose};
 
 #[tauri::command]
 pub fn get_motion_dashboard(
@@ -60,6 +61,49 @@ pub fn load_motion_draft(
         &service,
         parse_id("session_id", &session_id)?,
         parse_id("template_id", &template_id)?,
+    )
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn open_motion_editor(
+    session_id: String,
+    template_id: String,
+    service: State<'_, Mutex<VaultService>>,
+) -> Result<MotionEditorData, String> {
+    let service = lock(&service)?;
+    MotionService::editor_data(
+        &service,
+        parse_id("session_id", &session_id)?,
+        parse_id("template_id", &template_id)?,
+    )
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn render_motion_dummy(
+    session_id: String,
+    template_id: String,
+    direction: Direction,
+    pose: EditablePose,
+    service: State<'_, Mutex<VaultService>>,
+) -> Result<DummyPreview, String> {
+    let service = lock(&service)?;
+    let editor = MotionService::editor_data(
+        &service,
+        parse_id("session_id", &session_id)?,
+        parse_id("template_id", &template_id)?,
+    )
+    .map_err(|error| error.to_string())?;
+    encode_dummy_preview(
+        render_dummy(
+            &editor.profile,
+            &pose,
+            direction,
+            editor.draft.frame_size_px,
+            editor.draft.ground_origin_px,
+        )
+        .map_err(|error| error.to_string())?,
     )
     .map_err(|error| error.to_string())
 }

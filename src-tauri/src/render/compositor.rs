@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use image::{Rgba, RgbaImage};
+use serde::Serialize;
 use thiserror::Error;
 
 use crate::domain::{Direction, PixelPoint, PixelSize, SlotId};
@@ -52,7 +53,7 @@ pub struct RenderRequest {
     pub parts: Vec<RenderPart>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ClippingNotice {
     pub slot_id: SlotId,
     pub bounds_px: [i32; 4],

@@ -55,6 +55,8 @@ function mockClient(): MotionClient {
     })),
     duplicate: vi.fn(async () => ({ ...draft, id: "55555555-5555-4555-8555-555555555555" })),
     loadDraft: vi.fn(),
+    openEditor: vi.fn(),
+    renderDummy: vi.fn(),
     saveDraft: vi.fn(),
     publish: vi.fn(async (): Promise<MotionRevision> => ({
       schema_version: 1,

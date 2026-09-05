@@ -7,12 +7,12 @@ use serde::{Deserialize, Serialize};
 use crate::domain::{
     validate_portable_display_name, ActionKey, AnimationBinding, Area, Character, Direction,
     DirectionDefinition, DirectionMode, DocumentKind, DomainDocument, DomainError, LoopMode,
-    MotionRevision, MotionTemplate, MotionTrack, ObjectId, PixelPoint, PixelSize, RevisionRef,
-    TemplateStatus, UtcTimestamp, SCHEMA_VERSION,
+    MotionRevision, MotionTemplate, MotionTrack, ObjectId, PixelPoint, PixelSize, ProfileRevision,
+    RevisionRef, TemplateStatus, UtcTimestamp, SCHEMA_VERSION,
 };
 use crate::storage::{
-    object_folder, JsonStore, ResolvedPath, StorageError, VaultRoot, VersionStamp, AREA_ADMIN_DIR,
-    PROJECT_ADMIN_DIR,
+    object_folder, JsonStore, ResolvedPath, StorageError, VaultLayout, VaultRoot, VersionStamp,
+    AREA_ADMIN_DIR, PROJECT_ADMIN_DIR,
 };
 
 use super::{now, VaultOpenMode, VaultService};
@@ -149,6 +149,14 @@ pub struct MotionDashboard {
     pub writable: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct MotionEditorData {
+    pub template_name: String,
+    pub draft: MotionDraft,
+    pub profile: ProfileRevision,
+    pub writable: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum MotionOpenTarget {
@@ -259,6 +267,38 @@ impl MotionService {
     ) -> Result<MotionDraft, StorageError> {
         let (root, _) = session(vaults, session_id)?;
         Ok(find_motion(&root, template_id)?.1.draft)
+    }
+
+    pub fn editor_data(
+        vaults: &VaultService,
+        session_id: ObjectId,
+        template_id: ObjectId,
+    ) -> Result<MotionEditorData, StorageError> {
+        let (root, mode) = session(vaults, session_id)?;
+        let (area, motion) = find_motion(&root, template_id)?;
+        let profile_path = VaultLayout::new(root.clone()).profile_revision(
+            &area.folder,
+            motion.draft.profile_ref.id,
+            motion.draft.profile_ref.revision,
+        )?;
+        let loaded = JsonStore::default().load(&profile_path)?;
+        let DomainDocument::ProfileRevision(profile) = loaded.value else {
+            return Err(StorageError::InvalidVault(
+                "motion profile snapshot has the wrong document kind".to_owned(),
+            ));
+        };
+        if profile.reference() != motion.draft.profile_ref || profile.area_id != area.area.id {
+            return Err(StorageError::InvalidVault(
+                "motion profile snapshot does not match its pinned identity or area".to_owned(),
+            ));
+        }
+        profile.validate_humanoid_v1()?;
+        Ok(MotionEditorData {
+            template_name: motion.template.name,
+            draft: motion.draft,
+            profile,
+            writable: mode == VaultOpenMode::ReadWrite,
+        })
     }
 
     pub fn save_draft(

@@ -19,13 +19,13 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-08 | Area-level size and body profile | P02, P05 | P05: each area stores height, exact humanoid profile revision, eight-way model, default frame/ground origin and project-label IDs; size changes publish and pin a new snapshot |
 | RQ-09 | Animations are actionable cards | P06 | P06: `AnimationDashboard` cards expose open, duplicate, release, archive, trash and timing/coverage state; DOM and Vault tests exercise the actions |
 | RQ-10 | Cards show real motion previews | P06, P11 | P06 reserves a bounded preview surface; actual sampled compositor previews remain P11 |
-| RQ-11 | New animation opens the dummy editor | P06, P08 | P06 creation persists a draft and routes directly to the selected template's dummy target; P08 supplies the full editor |
+| RQ-11 | New animation opens the dummy editor | P06, P08 | P06 routes the new stable template ID; P08 loads that draft and its pinned profile into the real compositor-backed editor route |
 | RQ-12 | Released animation opens outfitting | P06, P13 | P06 routing sends a released revision to an explicit outfit/NPC chooser; P13 supplies the editor |
-| RQ-13 | Dummy remains directly accessible | P06, P08 | P06 cards expose both a visible Dummy button and a right-click menu item; neither is the sole access path |
-| RQ-14 | Grid and predefined body sizes | P05, P07–P08 | P05 supplies deterministic profiles; P07 renders their resolved integer geometry into an explicit frame canvas with pixel-centre sampling and clipping notices; the editable grid follows in P08 |
+| RQ-13 | Dummy remains directly accessible | P06, P08 | P06 cards expose visible and context-menu paths; P08 resolves either path to the same persistent editor, including read-only state and save errors |
+| RQ-14 | Grid and predefined body sizes | P05, P07–P08 | P05 supplies deterministic profiles; P07 renders them; P08 displays the exact draft frame, pixel grid, ground line and profile-sized selection overlay with pixel snapping |
 | RQ-15 | Three-part limbs and two-part torso | P05, P08 | P05: fixed profile contains upper arm/forearm/hand and thigh/shin/foot on both sides plus upper/lower torso, with parents and six mirror pairs |
 | RQ-16 | Head and optional hair, no eye layer | P05, P08, P13 | P05: head is required, hair is the sole optional sixteenth slot, and the strict humanoid-v1 validator rejects any extra eye slot |
-| RQ-17 | Recognizable dummy parts and handles | P08, P19 | Planned |
+| RQ-17 | Recognizable dummy parts and handles | P08, P19 | P08 uses 16 labelled, colour-coded compositor parts plus separate outlines, pivots and focus; DOM and decoded-PNG tests prove helper separation; P19 audits final desktop ergonomics |
 | RQ-18 | Frame count, FPS and frame surface | P06, P09 | P06 stores and validates frame count, FPS, loop, frame canvas and ground origin independently from inherited profile height; P09 adds timeline retiming |
 | RQ-19 | Sparse keyframes generate samples | P09, P11 | Planned |
 | RQ-20 | Eight directions with controlled reuse | P10 | Planned |
@@ -47,5 +47,5 @@ evidence. A phase checkbox or file name alone is not evidence.
 | RQ-36 | Project/area/NPC/animation filesystem hierarchy | P03, P15–P16 | P03: filesystem ownership resolver establishes `.project`, `.area`, character and derived-export scopes; concrete NPC/export trees follow P15–P16 |
 | RQ-37 | Compact PNG sheets; loose frames optional | P16 | Planned |
 | RQ-38 | Generic integration and Godot output | P16–P17 | Planned |
-| RQ-39 | No required manual bone/skeleton setup | P05, P08, P22 | P05: all parent links, pivots, base positions, view transforms and layer orders are generated; no rig-creation input exists |
-| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P07 implemented in order and gated; P08 is next |
+| RQ-39 | No required manual bone/skeleton setup | P05, P08, P22 | P05 generates all parent links and pivots; P08 opens those attached parts directly for pose editing and contains no skeleton/Bone2D setup step |
+| RQ-40 | Complete plan and executable phase prompts | P00–P22 | P00–P08 implemented in order and gated; P09 is next |

@@ -5,9 +5,13 @@ import type {
   MotionCard,
   MotionDashboardData,
   MotionDraft,
+  MotionEditorData,
   MotionOpenTarget,
   SaveMotionDraftRequest,
+  DummyPreview,
+  EditablePoseDto,
 } from "../domain/animations";
+import type { Direction } from "../domain/common";
 import type { MotionRevision } from "../domain/motion";
 
 export interface MotionClient {
@@ -15,6 +19,13 @@ export interface MotionClient {
   create(sessionId: string, request: CreateMotionRequest): Promise<MotionCard>;
   duplicate(sessionId: string, templateId: string): Promise<MotionCard>;
   loadDraft(sessionId: string, templateId: string): Promise<MotionDraft>;
+  openEditor(sessionId: string, templateId: string): Promise<MotionEditorData>;
+  renderDummy(
+    sessionId: string,
+    templateId: string,
+    direction: Direction,
+    pose: EditablePoseDto,
+  ): Promise<DummyPreview>;
   saveDraft(sessionId: string, request: SaveMotionDraftRequest): Promise<MotionDraft>;
   publish(sessionId: string, templateId: string): Promise<MotionRevision>;
   setArchived(
@@ -43,6 +54,17 @@ export const motionClient: MotionClient = {
   },
   loadDraft(sessionId, templateId) {
     return invoke<MotionDraft>("load_motion_draft", { sessionId, templateId });
+  },
+  openEditor(sessionId, templateId) {
+    return invoke<MotionEditorData>("open_motion_editor", { sessionId, templateId });
+  },
+  renderDummy(sessionId, templateId, direction, pose) {
+    return invoke<DummyPreview>("render_motion_dummy", {
+      sessionId,
+      templateId,
+      direction,
+      pose,
+    });
   },
   saveDraft(sessionId, request) {
     return invoke<MotionDraft>("save_motion_draft", { sessionId, request });

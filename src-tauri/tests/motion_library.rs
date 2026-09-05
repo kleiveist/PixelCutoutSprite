@@ -3,12 +3,13 @@ use std::path::{Path, PathBuf};
 
 use pixel_cutout_sprite_studio_lib::application::{
     AreaDetails, AreaService, CreateAreaRequest, CreateMotionRequest, MotionCardStatus,
-    MotionOpenTarget, MotionService, ProjectCard, ProjectService, SaveMotionDraftRequest,
-    VaultService,
+    MotionOpenTarget, MotionService, ProjectCard, ProjectService, ReviseAreaProfileRequest,
+    SaveMotionDraftRequest, VaultService,
 };
 use pixel_cutout_sprite_studio_lib::domain::{
-    ActionKey, AnimationBinding, Character, CharacterStatus, DocumentKind, DomainDocument,
-    LoopMode, ObjectId, ObjectType, ReviewState, UtcTimestamp, SCHEMA_VERSION,
+    ActionKey, AnimationBinding, Character, CharacterStatus, Direction, DocumentKind,
+    DomainDocument, Interpolation, Keyframe, LoopMode, MotionTrack, ObjectId, ObjectType,
+    ReviewState, TrackProperty, TrackValue, UtcTimestamp, SCHEMA_VERSION,
 };
 use pixel_cutout_sprite_studio_lib::storage::{object_folder, JsonStore, VaultRoot};
 use tempfile::TempDir;
@@ -333,4 +334,65 @@ fn draft_file_is_area_owned_and_not_confused_with_an_immutable_release() {
     assert_eq!(json["kind"], "motion_draft");
     assert!(json["released_from_draft_revision"].is_null());
     assert!(!Path::new(json["template_id"].as_str().unwrap()).is_absolute());
+}
+
+#[test]
+fn editor_reopens_saved_pose_with_its_exact_pinned_profile() {
+    let mut fixture = Fixture::new();
+    let old_profile = fixture.area.area.profile_ref;
+    let request = fixture.request("Wave", "wave");
+    let created = MotionService::create(&mut fixture.service, fixture.session_id, request).unwrap();
+    let draft =
+        MotionService::load_draft(&fixture.service, fixture.session_id, created.id).unwrap();
+    let track = MotionTrack {
+        direction: Direction::S,
+        slot_id: pixel_cutout_sprite_studio_lib::domain::SlotId::parse("hand_l").unwrap(),
+        property: TrackProperty::OffsetXPx,
+        interpolation: Interpolation::Linear,
+        keys: vec![Keyframe {
+            frame: 0,
+            value: TrackValue::Number(5.0),
+        }],
+    };
+    MotionService::save_draft(
+        &mut fixture.service,
+        fixture.session_id,
+        SaveMotionDraftRequest {
+            template_id: created.id,
+            expected_revision: draft.revision,
+            frame_size_px: draft.frame_size_px,
+            ground_origin_px: draft.ground_origin_px,
+            frame_count: draft.frame_count,
+            fps: draft.fps,
+            loop_mode: draft.loop_mode,
+            directions: draft.directions,
+            tracks: vec![track.clone()],
+        },
+    )
+    .unwrap();
+    let revised = AreaService::revise_profile(
+        &fixture.service,
+        fixture.session_id,
+        ReviseAreaProfileRequest {
+            area_id: fixture.area.area.id,
+            expected_area_revision: fixture.area.area.revision,
+            reference_height_px: 96,
+            default_frame_size_px: None,
+            default_ground_origin_px: None,
+        },
+    )
+    .unwrap();
+    assert_ne!(revised.area.profile_ref, old_profile);
+
+    fixture.service.close(fixture.session_id).unwrap();
+    fixture.session_id = fixture
+        .service
+        .open(fixture.temp.path())
+        .unwrap()
+        .session_id;
+    let editor =
+        MotionService::editor_data(&fixture.service, fixture.session_id, created.id).unwrap();
+    assert_eq!(editor.profile.reference(), old_profile);
+    assert_eq!(editor.draft.tracks, vec![track]);
+    assert!(editor.writable);
 }

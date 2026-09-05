@@ -1,5 +1,6 @@
 import type { Direction, PixelPoint, PixelSize, RevisionRef, UUID, UtcTimestamp } from "./common";
 import type { DirectionDefinition, LoopMode, MotionTrack } from "./motion";
+import type { ProfileRevision } from "./profile";
 
 export type MotionCardStatus = "new" | "released" | "unpublished_changes" | "archived";
 export type MotionStatusFilter = "any" | "draft" | "released" | "changes" | "archived";
@@ -58,6 +59,29 @@ export interface MotionDashboardData {
   profiles: RevisionRef[];
   writable: boolean;
 }
+
+export interface MotionEditorData {
+  template_name: string;
+  draft: MotionDraft;
+  profile: ProfileRevision;
+  writable: boolean;
+}
+
+export interface DummyPreview {
+  data_url: string;
+  clipping: Array<{ slot_id: string; bounds_px: [number, number, number, number] }>;
+}
+
+export type EditablePoseDto = Record<
+  string,
+  {
+    offsetX: number;
+    offsetY: number;
+    rotation: number;
+    visible: boolean;
+    locked: boolean;
+  }
+>;
 
 export interface CreateMotionRequest {
   area_id: UUID;

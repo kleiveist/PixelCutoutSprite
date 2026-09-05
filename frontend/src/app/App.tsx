@@ -12,6 +12,7 @@ import type { ProjectCard } from "../domain/projects";
 import type { AreaCard } from "../domain/areas";
 import type { MotionOpenTarget } from "../domain/animations";
 import { AnimationDashboard } from "../features/animations/AnimationDashboard";
+import { MotionDummyEditorRoute } from "../features/dummy-editor/MotionDummyEditorRoute";
 import { ProjectDashboard } from "../features/projects/ProjectDashboard";
 import { navigationItems, routeBreadcrumbs, routeDetails, type WorkspaceRoute } from "./navigation";
 import type { KeyboardAction } from "./shortcuts";
@@ -90,6 +91,11 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
       setStatus("Open an area before entering its animation or NPC workspace");
       return;
     }
+    if (nextRoute === "dummy-editor" && !selectedTemplateId) {
+      setRoute("animations");
+      setStatus("Choose an animation before opening its reusable dummy template");
+      return;
+    }
     setRoute(nextRoute);
     setStatus(`${routeDetails(nextRoute).label} selected`);
   }
@@ -106,12 +112,14 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
   function openProject(project: ProjectCard): void {
     setSelectedProject(project);
     setSelectedArea(null);
+    setSelectedTemplateId(null);
     setRoute("areas");
     setStatus(`${project.name} opened · choose or create an area`);
   }
 
   function openAreaAnimations(area: AreaCard): void {
     setSelectedArea(area);
+    setSelectedTemplateId(null);
     setRoute("animations");
     setStatus(`${area.name} animation library opened`);
   }
@@ -120,7 +128,7 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
     setSelectedTemplateId(target.template_id);
     if (target.kind === "dummy_editor") {
       setRoute("dummy-editor");
-      setStatus("Dummy editor selected · the interactive editor arrives in P08");
+      setStatus("Reusable dummy motion editor opened");
       return;
     }
     setRoute(target.kind === "binding_editor" ? "characters" : "outfit");
@@ -163,6 +171,13 @@ export function App({ projectsApi = projectClient, vaultApi = vaultClient }: App
               onOpen={openMotionTarget}
               onStatus={setStatus}
               sessionId={vault.session_id}
+            />
+          ) : route === "dummy-editor" && vault && selectedTemplateId ? (
+            <MotionDummyEditorRoute
+              key={selectedTemplateId}
+              onStatus={setStatus}
+              sessionId={vault.session_id}
+              templateId={selectedTemplateId}
             />
           ) : (
             <PlaceholderView

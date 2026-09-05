@@ -5,7 +5,7 @@
 
 **Planungsstand:** 5. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P07 abgeschlossen; P08 ist der nächste Schritt
+**Implementierung:** P00–P08 abgeschlossen; P09 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -72,6 +72,13 @@ Profil, Bewegung, Fitting, lokalen Override und Pivot ohne Zwischenrundung. Ganz
 begrenztes inverses Nearest-Sampling erzeugen deterministische RGBA8-Frames mit Source-over-
 Überdeckung und Clipping-Hinweisen. Vorschauhilfen gehören nicht zum Rendervertrag.
 
+P08 ersetzt den Dummy-Platzhalter durch einen gespeicherten, compositorgestützten Editor. Er lädt
+den vom Bewegungsentwurf exakt gepinnten Profilsnapshot, bietet acht getrennte Posen, Teile-/
+Ebenenliste, Inspector, Auswahl und Mehrfachauswahl, Drag, Zahlenfelder, Sichtbarkeit, lokale
+Sperren, Raster- und Winkelraster, Zoom, Pan sowie richtungsbezogenes Undo/Redo. Änderungen werden
+als spärliche Frame-0-Tracks über den CAS-Draftdienst gespeichert; Hilfslinien und profilgenaue
+Pivot-/Auswahlgriffe bleiben außerhalb des gerenderten PNG.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -92,7 +99,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P05](../prompts/pixelcutoutsprite/05.md) | Bereiche und humanoide Körperprofile | Abgeschlossen |
 | [P06](../prompts/pixelcutoutsprite/06.md) | Animationsbibliothek und zustandsabhängige Navigation | Abgeschlossen |
 | [P07](../prompts/pixelcutoutsprite/07.md) | Gemeinsamer Pixel-Rasterer | Abgeschlossen |
-| [P08](../prompts/pixelcutoutsprite/08.md) | Direkt bedienbarer Dummy-Editor | Nicht begonnen |
+| [P08](../prompts/pixelcutoutsprite/08.md) | Direkt bedienbarer Dummy-Editor | Abgeschlossen |
 | [P09](../prompts/pixelcutoutsprite/09.md) | Timeline, Keyframes und deterministisches Sampling | Nicht begonnen |
 | [P10](../prompts/pixelcutoutsprite/10.md) | Acht Richtungen, Spiegelregeln und Schichten | Nicht begonnen |
 | [P11](../prompts/pixelcutoutsprite/11.md) | Bewegungspresets und tatsächliche Kartenvorschauen | Nicht begonnen |
@@ -122,6 +129,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P05: Bereichskarten, humanoides 16-Slot-Profil, exakte Skalierung, Vorschau und unveränderliche Profilrevisionen erstellt und gegatet.
 - [x] P06: Animationsbibliothek, persistente Entwürfe, unveränderliche Freigaben und kontextabhängige Navigation erstellt und gegatet.
 - [x] P07: gemeinsamen RGBA8-Pixelcompositor, Hierarchietransforms, Nearest-Sampling, Source-over, Spiegelung und Clipping erstellt und gegatet.
+- [x] P08: echten Dummy-Editor, gepinnte Profilauflösung, Transformwerkzeuge, richtungsbezogene History, Compositorvorschau und CAS-Persistenz erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [ ] Meilenstein B: Bewegungen, P07–P11.
 - [ ] Meilenstein C: Figuren, P12–P15.
@@ -196,6 +204,18 @@ zugeschnittene NPC-Teile wiederverwendbar.
 fertigen Welttransforms verwendet `floor`; auch negative Koordinaten werden deshalb ohne
 stufenweise Rundungsdrift reproduzierbar abgeschnitten.
 
+**2026-09-05 / P08:** Ein Bereich kann nach dem Anlegen einer Bewegung bereits eine neuere
+Profilrevision besitzen. Der Editor darf deshalb nicht das aktive Bereichsprofil verwenden,
+sondern löst immer exakt `draft.profile_ref` auf; ein Reopen-Test belegt den unveränderten Snapshot.
+
+**2026-09-05 / P08:** Auswahlgriffe müssen dieselbe Elternmatrix wie der Compositor verwenden,
+aber die inverse Pivotverschiebung als lokale Overlay-Geometrie behandeln. So folgen Kinder ihrem
+bewegten Elternteil, während Raster, Namen, Fokus und Pivotmarker garantiert keine Nutzpixel sind.
+
+**2026-09-05 / P08:** Der zunächst einzelne Pose-Arbeitsstand wird als spärliche Frame-0-Tracks
+gespeichert. Richtungen und nicht vom Pose-Inspector bearbeitete Trackeigenschaften bleiben beim
+Roundtrip erhalten; P09 erweitert denselben Vertrag auf eine vollständige Timeline.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -259,6 +279,10 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P06 | `tools/control.py quality architecture`, `integrate --check` und Docs-Check | Linux-Host, Python 3.13.15 | PASS im Phasenbranch | Architektur- und Integrationsgrenzen bleiben intakt; 135 Dokumentseiten sind vollständig verknüpft. Der zentrale `quality lint` bleibt wegen seines bereits in P04 erfassten inkompatiblen Clippy-Flags `-F warnings` offen; das direkte Clippy-Gate mit `-D warnings` besteht. |
 | 2026-09-05 / P07 | `cargo test --all-targets --locked`, Clippy `-D warnings`, Check und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 47 Tests | Acht Compositor-Goldentests prüfen vollständige RGBA-Frames, Alpha/Lagen, Hierarchie/Fitting, nichtnulligen Pivot, negative Koordinaten, Spiegelung, Clipping, Fehler und Bytewiederholung. |
 | 2026-09-05 / P07 | fokussierter 128×128-Debuglauf mit `--nocapture` | Linux-Host | PASS: zwei Frames in rund 0,33 ms | Einzelne Diagnosemessung ohne allgemeines Leistungsversprechen; repräsentative Last folgt P19. |
+| 2026-09-05 / P07 | Frontend-Gates, `quality architecture`, `integrate --check` und Docs-Check | Linux-Host | PASS | Bestehende 29 Frontendtests bleiben grün, Architektur und Integration sind intakt; 136 Dokumentseiten konsistent. |
+| 2026-09-05 / P08 | `cargo test --all-targets --locked`, Clippy `-D warnings`, Check und rustfmt | Linux-Host, Rust 1.97.1 | PASS: 52 Tests | Editor-History, PNG-Decodierung, Elternbindung, Helper-Trennung, CAS-Speichern und Reopen mit veraltetem aktivem Bereichsprofil belegt. |
+| 2026-09-05 / P08 | `npm test`, Typecheck, ESLint, Prettier und Vite-Build | Host, Node 26.7.0 / npm 12.0.2 | PASS: 39 Tests und alle Frontend-Gates | Richtungsposen, Mehrfachauswahl, Read-only-Inspektion, Sperren, Snapping, Undo/Redo, Fehlererhalt, echte Route und persistentes Reopen belegt. |
+| 2026-09-05 / P08 | `tools/control.py docs check`, `quality architecture` und `integrate --check --json` | Linux-Host, Python 3.13.15 | PASS | 137 Dokumentseiten konsistent, TypeScript-AST parst 65 Dateien und das Tauri-Desktopprofil bleibt vollständig integriert. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -268,8 +292,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P08 ausführen: den direkt bedienbaren Dummy-Editor auf dem
-gemeinsamen Pixel-Rasterer implementieren.
+**Nächster ausführbarer Schritt:** P09 ausführen: Timeline, Keyframes und deterministisches
+Sampling auf dem gemeinsamen Bewegungs- und Compositorvertrag implementieren.
 
 ## Outcomes & Retrospective
 
@@ -285,5 +309,8 @@ vollständigen Kartenaktionen und einer Navigation, die Projekt, Bereich, Vorlag
 Figurenbindung ausdrücklich statt implizit auflöst.
 P07 schafft den UI-unabhängigen, deterministischen RGBA8-Renderpfad, den Vorschau und Export
 gemeinsam verwenden können; Golden-Assertions sichern dabei auch Rand- und Rundungsregeln.
+P08 macht diesen Pfad als direkt bedienbaren, wiederverwendbaren Bewegungseditor sichtbar und
+speichert jede Richtung konfliktgeschützt zurück in den bestehenden Entwurf, ohne Profil oder
+andere Trackdaten stillschweigend umzuschreiben.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.
