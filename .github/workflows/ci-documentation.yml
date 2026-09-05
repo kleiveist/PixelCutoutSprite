@@ -1,0 +1,200 @@
+name: Documentation
+
+on:
+  workflow_call:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "tests/source/test_repository_documentation.py"
+      - "tests/source/test_repository_packaging_policy.py"
+      - "tests/source/test_workflow_contracts.py"
+      - "tools/ci_support.py"
+      - "tools/control*.py"
+      - "tools/inst/docs_index.py"
+      - "tools/resources/**"
+      - ".github/actions/setup-documentation-environment/**"
+      - ".github/actions/setup-tooling-environment/**"
+      - ".github/workflows/ci-documentation.yml"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  support-matrix:
+    name: Read documentation support matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      python_primary: ${{ steps.matrix.outputs.python_primary }}
+      linux: ${{ steps.matrix.outputs.linux_runner }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: matrix
+        name: Read central support contract
+        run: python tools/ci_support.py --github-output
+
+  documentation-build:
+    name: documentation-build
+    needs: support-matrix
+    runs-on: ${{ needs.support-matrix.outputs.linux }}
+    timeout-minutes: 35
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONHASHSEED: "0"
+      PYTHONNOUSERSITE: "1"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up isolated documentation environment
+        uses: ./.github/actions/setup-documentation-environment
+        with:
+          python-version: ${{ needs.support-matrix.outputs.python_primary }}
+      - name: Record exact documentation runtime
+        shell: pwsh
+        run: |
+          $runtimePath = Join-Path $env:RUNNER_TEMP "documentation-runtime.json"
+          $runtime = & $env:DOCUMENTATION_PYTHON `
+            docs/toolingdocs/case-study/scripts/environment.py `
+            --state-dir $env:DOCUMENTATION_ENVIRONMENT_ROOT `
+            --download-cache $env:DOCUMENTATION_DOWNLOAD_CACHE `
+            info --json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $runtime | Set-Content -LiteralPath $runtimePath -Encoding utf8
+      - name: Validate documentation sources, navigation, and policy
+        shell: pwsh
+        run: |
+          $junit = Join-Path $env:RUNNER_TEMP "documentation-source.junit.xml"
+          & $env:DOCUMENTATION_PYTHON tools/control.py docs check --docs-dir docs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $env:DOCUMENTATION_PYTHON -m pytest -q -p no:cacheprovider --junitxml=$junit `
+            tools/tests/test_portable_documentation.py `
+            tests/source/test_repository_documentation.py `
+            tests/source/test_repository_packaging_policy.py `
+            tests/source/test_workflow_contracts.py `
+            docs/toolingdocs/case-study/tests/test_environment.py `
+            docs/toolingdocs/case-study/tests/test_source_structure.py `
+            docs/toolingdocs/case-study/tests/test_template_compliance.py `
+            docs/toolingdocs/case-study/tests/test_language_parity.py `
+            docs/toolingdocs/case-study/tests/test_cross_references.py `
+            docs/toolingdocs/case-study/tests/test_evidence_links.py `
+            docs/toolingdocs/case-study/tests/test_markdown_links.py `
+            docs/toolingdocs/case-study/tests/test_no_generated_artifacts.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $env:DOCUMENTATION_PYTHON docs/toolingdocs/case-study/scripts/verify.py --all
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build and reproduce German and English PDFs
+        shell: pwsh
+        run: |
+          $pdfs = Join-Path $env:RUNNER_TEMP "case-study-pdfs"
+          & $env:DOCUMENTATION_PYTHON `
+            docs/toolingdocs/case-study/scripts/environment.py `
+            --state-dir $env:DOCUMENTATION_ENVIRONMENT_ROOT `
+            --download-cache $env:DOCUMENTATION_DOWNLOAD_CACHE `
+            build --all --output-dir $pdfs --reproducible
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run provisioned PDF integrity tests
+        shell: pwsh
+        run: |
+          $junit = Join-Path $env:RUNNER_TEMP "documentation-pdf.junit.xml"
+          & $env:DOCUMENTATION_PYTHON -m pytest -q -p no:cacheprovider --junitxml=$junit `
+            docs/toolingdocs/case-study/tests/test_pdf_integrity.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify PDF structure and render every page
+        shell: pwsh
+        run: |
+          $pdfs = Join-Path $env:RUNNER_TEMP "case-study-pdfs"
+          & $env:DOCUMENTATION_PYTHON docs/toolingdocs/case-study/scripts/render_check.py `
+            (Join-Path $pdfs "portable-tooling-case-study-de.pdf") `
+            (Join-Path $pdfs "portable-tooling-case-study-en.pdf")
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Record documentation CI evidence
+        shell: pwsh
+        run: |
+          $pdfs = Join-Path $env:RUNNER_TEMP "case-study-pdfs"
+          $runtimePath = Join-Path $env:RUNNER_TEMP "documentation-runtime.json"
+          $checksumsPath = Join-Path $env:RUNNER_TEMP "documentation-checksums.sha256"
+          $evidencePath = Join-Path $env:RUNNER_TEMP "documentation-ci-evidence.md"
+          if (-not (Test-Path -LiteralPath $runtimePath -PathType Leaf)) {
+            throw "documentation runtime evidence is missing"
+          }
+          $manifest = Get-Content -LiteralPath "tools/PORTABLE-PAYLOAD.json" -Raw | ConvertFrom-Json
+          $manifestDigest = [string]$manifest.digest
+          if ($manifestDigest -notmatch "^sha256:[0-9a-f]{64}$") {
+            throw "portable payload manifest digest is invalid"
+          }
+          $checksums = foreach ($name in @(
+            "portable-tooling-case-study-de.pdf",
+            "portable-tooling-case-study-en.pdf"
+          )) {
+            $pdf = Join-Path $pdfs $name
+            if (-not (Test-Path -LiteralPath $pdf -PathType Leaf)) {
+              throw "case-study PDF is missing: $name"
+            }
+            $digest = (Get-FileHash -LiteralPath $pdf -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$digest  $name"
+          }
+          $checksums | Set-Content -LiteralPath $checksumsPath -Encoding utf8
+          $runtime = (Get-Content -LiteralPath $runtimePath -Raw).Trim()
+          @(
+            "# Documentation CI evidence"
+            ""
+            "## Runtime"
+            '```json'
+            $runtime
+            '```'
+            ""
+            "## Portable payload manifest"
+            ""
+            "Digest: $manifestDigest"
+            ""
+            "## PDF SHA-256"
+            ""
+            '```text'
+            $checksums
+            '```'
+          ) | Set-Content -LiteralPath $evidencePath -Encoding utf8
+      - name: Render available PDFs for failure diagnosis
+        if: failure()
+        shell: pwsh
+        run: |
+          $pdfs = Join-Path $env:RUNNER_TEMP "case-study-pdfs"
+          $renders = Join-Path $env:RUNNER_TEMP "case-study-rendered"
+          if (Test-Path -LiteralPath $pdfs -PathType Container) {
+            Get-ChildItem -LiteralPath $pdfs -Filter "*.pdf" | ForEach-Object {
+              & $env:DOCUMENTATION_PYTHON `
+                docs/toolingdocs/case-study/scripts/render_check.py `
+                $_.FullName --render-dir $renders
+              if ($LASTEXITCODE -ne 0) {
+                Write-Warning "could not retain diagnostic renders for $($_.Name)"
+              }
+            }
+          }
+      - name: Confirm source checkout stayed clean
+        if: always()
+        shell: pwsh
+        run: |
+          $status = git status --porcelain=v1 --untracked-files=all
+          if ($status) { throw "source checkout changed: $status" }
+      - name: Upload documentation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: documentation-pdfs-and-logs
+          path: |
+            ${{ runner.temp }}/case-study-pdfs
+            ${{ runner.temp }}/case-study-rendered
+            ${{ runner.temp }}/documentation-runtime.json
+            ${{ runner.temp }}/documentation-source.junit.xml
+            ${{ runner.temp }}/documentation-pdf.junit.xml
+            ${{ runner.temp }}/documentation-checksums.sha256
+            ${{ runner.temp }}/documentation-ci-evidence.md
+          if-no-files-found: warn
+          retention-days: 14
