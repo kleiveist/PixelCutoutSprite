@@ -1,4 +1,4 @@
-# Unreleased — PixelPromptStudio integration foundation
+# Unreleased — PixelPromptStudio integration shell
 
 Date: 6 September 2026
 
@@ -10,10 +10,16 @@ Date: 6 September 2026
   the existing TypeScript toolchain.
 - Recorded upstream PixelForgeStudio revisions and the MIT notice in
   `frontend/src/prompt-studio/PROVENANCE.md`.
+- Added two equal, keyboard-operable studio buttons to the existing app header, including the green
+  PixelPromptStudio accent and explicit active states.
+- Added a guarded `StudioMode` above the unchanged Cutout `WorkspaceRoute`; switching preserves
+  Vault, project, area, route and detailed selection state and waits for the Prompt lifecycle flush
+  before returning.
+- Added a full-width Prompt mount point while retaining exactly one app header and one status bar.
 
-The shared header, visible module embedding, native persistence, Cutout handoff and final E2E
-acceptance remain the separately approved P24–P27 phases. This local unreleased foundation does
-not imply a push, package, publication or platform acceptance.
+The complete Prompt UI, native persistence, Cutout handoff and final E2E acceptance remain the
+separately approved P25–P27 phases. This local unreleased work does not imply a push, package,
+publication or platform acceptance.
 
 # Template Tooling 0.4.0
 

@@ -1,6 +1,8 @@
 <!-- AUTO-GENERATED:backlink START -->
+
 [← Back](pixelcutoutsprite.md)
 <!-- AUTO-GENERATED:backlink END -->
+
 # Fortsetzungsauftrag — PixelCutoutSprite Studio
 
 ```text
@@ -14,8 +16,8 @@ Portierungsphase zusätzlich den benachbarten PixelForgeStudio-Checkout und dess
 AGENTS.md; behandle ihn ohne anderslautenden Auftrag als Read-only-Quelle.
 
 P00–P22 sind die abgeschlossene Cutout-Basis und werden nicht allein wegen der
-Erweiterung wieder geöffnet. P23 ist abgeschlossen. Beginne erst nach
-ausdrücklicher Nutzerfreigabe mit P24 und arbeite auch danach immer nur die
+Erweiterung wieder geöffnet. P23 und P24 sind abgeschlossen. Beginne erst nach
+ausdrücklicher Nutzerfreigabe mit P25 und arbeite auch danach immer nur die
 jeweils freigegebene Phase ab. Bewahre bestehende Nutzerarbeit und den gesamten
 Cutout-Kontext.
 

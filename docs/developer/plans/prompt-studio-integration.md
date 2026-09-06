@@ -1,27 +1,29 @@
 <!-- AUTO-GENERATED:backlink START -->
+
 [← Back](plans.md)
 <!-- AUTO-GENERATED:backlink END -->
+
 # PixelPromptStudio in PixelCutoutSprite integrieren
 
 **Planungsstand:** 6. September 2026
-**Status:** P23 abgeschlossen; P24–P27 offen und nur phasenweise nach Nutzerfreigabe auszuführen
+**Status:** P23–P24 abgeschlossen; P25–P27 offen und nur phasenweise nach Nutzerfreigabe auszuführen
 **Zielrepository:** `kleiveist/PixelCutoutSprite`
 **Quellrepository:** `kleiveist/PixelForgeStudio`
 
 Dieser Plan erweitert die abgeschlossene PixelCutoutSprite-Basisserie P00–P22 um die fünf
-aufeinander aufbauenden Phasen P23–P27. P23 stellt den isolierten Prompt-Namensraum bereit; die
-gemeinsame Shell, produktive Prompt-Oberfläche, native Persistenz und Gesamtabnahme folgen erst in
-P24–P27. Ausgeführte Nachweise werden im
+aufeinander aufbauenden Phasen P23–P27. P23 stellt den isolierten Prompt-Namensraum bereit und P24
+die gemeinsame Shell. Produktive Prompt-Oberfläche, native Persistenz und Gesamtabnahme folgen erst
+in P25–P27. Ausgeführte Nachweise werden im
 [lebenden ExecPlan](pixelcutoutsprite-execplan.md) geführt.
 
 ## Verifizierte Ausgangsbasis
 
 Die Planung wurde gegen die beiden sauberen lokalen `main`-Checkouts geprüft:
 
-| Repository | Revision am 6. September 2026 | Rolle |
-|---|---|---|
+| Repository          | Revision am 6. September 2026              | Rolle                                     |
+| ------------------- | ------------------------------------------ | ----------------------------------------- |
 | `PixelCutoutSprite` | `55cddf385f87b65eea8887ede3e6380c65e7dd97` | Ziel und alleinige gemeinsame Desktop-App |
-| `PixelForgeStudio` | `a4784cbb3b991c37cb5e87855f2025c0565cc4ff` | Read-only-Quelle für den Prompt-Bereich |
+| `PixelForgeStudio`  | `a4784cbb3b991c37cb5e87855f2025c0565cc4ff` | Read-only-Quelle für den Prompt-Bereich   |
 
 Der Port verwendet diese primäre Quellrevision. Für die letzte reine Prompt-V2-Grenze und den
 Ausgangspunkt der Testsuite wurde zusätzlich
@@ -66,11 +68,7 @@ eine getrennte Ebene:
 export type StudioMode = "cutout" | "prompt";
 
 export type PromptView =
-  | "dashboard"
-  | "profiles"
-  | "wizard"
-  | "output"
-  | "settings";
+  "dashboard" | "profiles" | "wizard" | "output" | "settings";
 ```
 
 Der integrierte Prompt-Navigationsadapter verwaltet nur `PromptView` und verändert weder
@@ -101,16 +99,16 @@ prompt-studio/
 
 ### Zu übernehmender Quellumfang
 
-| Funktion | Verifizierter Quellbereich in PixelForgeStudio |
-|---|---|
-| Dashboard | `src/features/dashboard/` |
-| Profile | `src/features/profiles/`, `src/domain/profiles/`, `src/store/profiles/` |
-| Wizard und Recovery | `src/features/wizard/`, `src/store/wizard/`, `src/domain/guided-answers/` |
-| Prompt-Erzeugung | `src/domain/prompt-engine/` einschließlich der getrennten Module |
-| Ausgabeprüfung | `src/features/review-output/` |
-| Einstellungen | `src/features/settings/`, `src/store/settings/` |
-| Prompt-Schemas | nur die tatsächlich benötigten Dateien aus `src/schemas/` |
-| Adapter und Transfers | benötigte Prompt-Pfade aus `src/services/` |
+| Funktion              | Verifizierter Quellbereich in PixelForgeStudio                            |
+| --------------------- | ------------------------------------------------------------------------- |
+| Dashboard             | `src/features/dashboard/`                                                 |
+| Profile               | `src/features/profiles/`, `src/domain/profiles/`, `src/store/profiles/`   |
+| Wizard und Recovery   | `src/features/wizard/`, `src/store/wizard/`, `src/domain/guided-answers/` |
+| Prompt-Erzeugung      | `src/domain/prompt-engine/` einschließlich der getrennten Module          |
+| Ausgabeprüfung        | `src/features/review-output/`                                             |
+| Einstellungen         | `src/features/settings/`, `src/store/settings/`                           |
+| Prompt-Schemas        | nur die tatsächlich benötigten Dateien aus `src/schemas/`                 |
+| Adapter und Transfers | benötigte Prompt-Pfade aus `src/services/`                                |
 
 Prompt-spezifische Barrel-Dateien exportieren nur diese Module. Insbesondere darf das gemeinsame
 PixelForgeStudio-`schemas/index.ts` nicht ungeprüft kopiert werden, weil es Prompt- und
@@ -205,32 +203,32 @@ den vorherigen Cutout-Kontext zurückkehren.
 
 ## Phasenfolge
 
-| Phase | Ergebnis | Status | Vorgeschlagener Commit |
-|---|---|---|---|
-| [P23](../prompts/pixelcutoutsprite/23.md) | Integrationsgrenze, isolierter Prompt-Namensraum und Abhängigkeiten | Abgeschlossen; Phase-1-Gate bestanden | `🧭 Define prompt generator integration boundary` |
-| [P24](../prompts/pixelcutoutsprite/24.md) | gemeinsamer Header, StudioMode und sicherer Wechsel | Offen; wartet auf Nutzerfreigabe | `🧩 Add shared studio header switcher` |
-| [P25](../prompts/pixelcutoutsprite/25.md) | vollständige Prompt-Oberfläche, Provider, Navigation und CSS-Isolierung | Offen | `🧬 Port PixelPromptStudio generator` |
-| [P26](../prompts/pixelcutoutsprite/26.md) | native Persistenz, Import/Export und Cutout-Handoff | Offen | `💾 Add native prompt persistence and cutout handoff` |
-| [P27](../prompts/pixelcutoutsprite/27.md) | Regression, E2E, native Abnahme und Dokumentation | Offen | `✅ Verify integrated studio workflows` |
+| Phase                                     | Ergebnis                                                                | Status                                | Vorgeschlagener Commit                                |
+| ----------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------- |
+| [P23](../prompts/pixelcutoutsprite/23.md) | Integrationsgrenze, isolierter Prompt-Namensraum und Abhängigkeiten     | Abgeschlossen; Phase-1-Gate bestanden | `🧭 Define prompt generator integration boundary`     |
+| [P24](../prompts/pixelcutoutsprite/24.md) | gemeinsamer Header, StudioMode und sicherer Wechsel                     | Abgeschlossen; Phase-2-Gate bestanden | `🧩 Add shared studio header switcher`                |
+| [P25](../prompts/pixelcutoutsprite/25.md) | vollständige Prompt-Oberfläche, Provider, Navigation und CSS-Isolierung | Offen; wartet auf Nutzerfreigabe      | `🧬 Port PixelPromptStudio generator`                 |
+| [P26](../prompts/pixelcutoutsprite/26.md) | native Persistenz, Import/Export und Cutout-Handoff                     | Offen                                 | `💾 Add native prompt persistence and cutout handoff` |
+| [P27](../prompts/pixelcutoutsprite/27.md) | Regression, E2E, native Abnahme und Dokumentation                       | Offen                                 | `✅ Verify integrated studio workflows`               |
 
 Die Commitzeilen sind Vorschläge, keine Erlaubnis für automatische Commits oder Pushes. Eine Phase
 beginnt erst, wenn das Gate ihrer Vorgängerphase belegt ist.
 
 ## Betroffene Kernbereiche
 
-| Bereich | Umsetzung |
-|---|---|
-| `frontend/package.json` und Lockfile | ausschließlich erforderliche Prompt-Abhängigkeiten |
-| `frontend/src/app/App.tsx` | `StudioMode`, Umschaltung und gemeinsames Layout |
-| `frontend/src/components/AppHeader.tsx` | zwei gleich große Studio-Buttons |
-| `frontend/src/styles/global.css` | Headerzustände und Prompt-Flächenlayout |
-| `frontend/src/prompt-studio/` | isolierter vollständiger Prompt-Bereich |
-| `frontend/src/main.tsx` | produktiven nativen Prompt-Adapter zusammensetzen |
-| `src-tauri/src/commands/` | Prompt-Storage-, Import- und Export-Commands |
-| `src-tauri/src/storage/` | atomare App-Daten-Speicherung |
-| `src-tauri/src/domain/` | native Prompt-Grenzen und Handoff-Datentypen |
-| `src-tauri/src/lib.rs` | Commands registrieren |
-| Frontend-, Rust- und E2E-Tests | Studio-Wechsel und vollständiger Prompt-Workflow |
+| Bereich                                 | Umsetzung                                          |
+| --------------------------------------- | -------------------------------------------------- |
+| `frontend/package.json` und Lockfile    | ausschließlich erforderliche Prompt-Abhängigkeiten |
+| `frontend/src/app/App.tsx`              | `StudioMode`, Umschaltung und gemeinsames Layout   |
+| `frontend/src/components/AppHeader.tsx` | zwei gleich große Studio-Buttons                   |
+| `frontend/src/styles/global.css`        | Headerzustände und Prompt-Flächenlayout            |
+| `frontend/src/prompt-studio/`           | isolierter vollständiger Prompt-Bereich            |
+| `frontend/src/main.tsx`                 | produktiven nativen Prompt-Adapter zusammensetzen  |
+| `src-tauri/src/commands/`               | Prompt-Storage-, Import- und Export-Commands       |
+| `src-tauri/src/storage/`                | atomare App-Daten-Speicherung                      |
+| `src-tauri/src/domain/`                 | native Prompt-Grenzen und Handoff-Datentypen       |
+| `src-tauri/src/lib.rs`                  | Commands registrieren                              |
+| Frontend-, Rust- und E2E-Tests          | Studio-Wechsel und vollständiger Prompt-Workflow   |
 
 ## Definition of Done
 
@@ -249,10 +247,16 @@ portierten Prompt-Oberflächenbasis. Ein Importgrenzentest schließt PixelForge-
 Gesamtshell, Animation Studio, Worker und eigenes `main.tsx` aus. Herkunft, Quellrevisionen und
 Lizenz sind direkt im Namensraum dokumentiert.
 
-P23 verdrahtet den Prompt-Bereich noch nicht mit der Cutout-Shell und führt weder native
-Persistenz noch Cutout-Handoff ein. Diese Grenzen bleiben P24–P26 vorbehalten. P27 bleibt die
-abschließende Gesamtprüfung und Dokumentation. Ein Commit oder Gate einer späteren Phase wird erst
-nach ausdrücklicher Freigabe erstellt.
+P24 führt `StudioMode` getrennt von `WorkspaceRoute` ein und macht den bisherigen Brand-Lockup
+zusammen mit dem grünen PixelPromptStudio-Lockup zu zwei gleich großen, zugänglichen Buttons. Der
+Wechsel verwendet die vorhandenen Recovery-, Mutations- und Dirty-Editor-Guards, bewahrt den
+Cutout-Kontext und wartet beim Verlassen des Prompt-Modus auf dessen Lifecycle-Flush. Der
+Prompt-Modus besitzt bereits die volle Shell-Breite; sein temporärer Mount-Punkt wird erst in P25
+durch den vollständigen Generator ersetzt.
+
+Native Persistenz und Cutout-Handoff bleiben P26 vorbehalten. P27 bleibt die abschließende
+Gesamtprüfung und Dokumentation. Ein Commit oder Gate einer späteren Phase wird erst nach
+ausdrücklicher Freigabe erstellt.
 
 Zusätzlich gelten:
 

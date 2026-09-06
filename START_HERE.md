@@ -1,7 +1,7 @@
 # PixelCutoutSprite Studio — Einstieg
 
 **Stand:** 6. September 2026 · **Inhalt:** funktional abgeschlossene Cutout-Basis P00–P22 und
-abgeschlossene PixelPromptStudio-Integrationsbasis P23; P24–P27 sind offen.
+abgeschlossene PixelPromptStudio-Phasen P23–P24; P25–P27 sind offen.
 
 ## Anwendung starten
 
@@ -19,18 +19,18 @@ WebView gebündelt und nicht als eigenständiges Webprodukt ausgeliefert.
 
 ## Dateien
 
-| Datei | Zweck |
-|---|---|
-| [Produktspezifikation](docs/developer/features/pixelcutoutsprite-studio.md) | Vollständige Anforderungen, Bedienung, Datenstruktur, Exporte, Architektur und Abnahmen. |
-| [Lebender ExecPlan](docs/developer/plans/pixelcutoutsprite-execplan.md) | Tatsächlicher Fortschritt, Entscheidungen und Tests während der Umsetzung. |
-| [P19-Desktop-Abnahme](docs/developer/acceptance/desktop-usability-and-performance.md) | Ehrlich abgegrenzte Linux-Usability-, Offline-, DPI- und Leistungsevidenz. |
-| [P20-Build-Abnahme](docs/developer/acceptance/native-builds-and-tooling.md) | Native Build-, Paket-, CI-, Devcontainer- und Plattformnachweise samt Blockern. |
-| [P21-Beispiel-Abnahme](docs/developer/acceptance/example-vault-and-user-guide.md) | Produktionsnah erzeugte Beispiel-Vault „Lichterhain“ und deutsche Nutzeranleitung. |
-| [P22-Gesamtabnahme](docs/developer/acceptance/final-acceptance.md) | Abschlussmatrix für RQ-01–RQ-40 und E2E A–J mit ausgeführten Tests und ehrlichen Plattformgrenzen. |
-| [PixelPromptStudio-Integrationsplan](docs/developer/plans/prompt-studio-integration.md) | Architekturgrenze, fünf neue Phasen, native Persistenz und Cutout-Handoff. |
-| [Phasenindex](docs/developer/prompts/pixelcutoutsprite/README.md) | P00–P27 mit aktuellem Umsetzungs- und Prüfstatus. |
-| [Masterauftrag](docs/developer/prompts/pixelcutoutsprite/MASTERPROMPT.md) | Übergeordneter Arbeitsauftrag einschließlich Serienmodus. |
-| [Fortsetzungsauftrag](docs/developer/prompts/pixelcutoutsprite/FORTSETZEN.md) | Wiederaufnahme in einer neuen Arbeitssitzung. |
+| Datei                                                                                   | Zweck                                                                                              |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [Produktspezifikation](docs/developer/features/pixelcutoutsprite-studio.md)             | Vollständige Anforderungen, Bedienung, Datenstruktur, Exporte, Architektur und Abnahmen.           |
+| [Lebender ExecPlan](docs/developer/plans/pixelcutoutsprite-execplan.md)                 | Tatsächlicher Fortschritt, Entscheidungen und Tests während der Umsetzung.                         |
+| [P19-Desktop-Abnahme](docs/developer/acceptance/desktop-usability-and-performance.md)   | Ehrlich abgegrenzte Linux-Usability-, Offline-, DPI- und Leistungsevidenz.                         |
+| [P20-Build-Abnahme](docs/developer/acceptance/native-builds-and-tooling.md)             | Native Build-, Paket-, CI-, Devcontainer- und Plattformnachweise samt Blockern.                    |
+| [P21-Beispiel-Abnahme](docs/developer/acceptance/example-vault-and-user-guide.md)       | Produktionsnah erzeugte Beispiel-Vault „Lichterhain“ und deutsche Nutzeranleitung.                 |
+| [P22-Gesamtabnahme](docs/developer/acceptance/final-acceptance.md)                      | Abschlussmatrix für RQ-01–RQ-40 und E2E A–J mit ausgeführten Tests und ehrlichen Plattformgrenzen. |
+| [PixelPromptStudio-Integrationsplan](docs/developer/plans/prompt-studio-integration.md) | Architekturgrenze, fünf neue Phasen, native Persistenz und Cutout-Handoff.                         |
+| [Phasenindex](docs/developer/prompts/pixelcutoutsprite/README.md)                       | P00–P27 mit aktuellem Umsetzungs- und Prüfstatus.                                                  |
+| [Masterauftrag](docs/developer/prompts/pixelcutoutsprite/MASTERPROMPT.md)               | Übergeordneter Arbeitsauftrag einschließlich Serienmodus.                                          |
+| [Fortsetzungsauftrag](docs/developer/prompts/pixelcutoutsprite/FORTSETZEN.md)           | Wiederaufnahme in einer neuen Arbeitssitzung.                                                      |
 
 ## Ablage im Repository
 
@@ -121,10 +121,11 @@ mit eigener Freigabe.
 
 P23 portiert die Prompt-Domain, Schemas, Providerbasis und Ansichten aus PixelForgeStudio in den
 isolierten Namensraum `frontend/src/prompt-studio/`. Nicht übernommen werden PixelForge-Startseite,
-Gesamtheader, Animation Studio, Footer oder ein eigenes `main.tsx`. Die bestehende Cutout-App ist
-in P23 noch unverändert; der gemeinsame Header folgt erst in P24.
+Gesamtheader, Animation Studio, Footer oder ein eigenes `main.tsx`. P24 ergänzt im einzigen
+App-Header zwei gleich große Studiobuttons, den grünen Generator-Akzent und einen geschützten
+Wechsel, der den vollständigen Cutout-Kontext erhält.
 
-P25–P27 bleiben für die sichtbare Prompt-Oberfläche, native App-Daten, Export, kontrollierte
+P25–P27 bleiben für die vollständige Prompt-Oberfläche, native App-Daten, Export, kontrollierte
 Cutout-Übergabe und Gesamtabnahme vorgesehen. Jede Phase beginnt erst nach ausdrücklicher
 Freigabe und erhält einen eigenen Commit.
 

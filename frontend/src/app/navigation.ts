@@ -1,3 +1,7 @@
+export type StudioMode = "cutout" | "prompt";
+
+export type PromptView = "dashboard" | "profiles" | "wizard" | "output" | "settings";
+
 export const workspaceRoutes = [
   "welcome",
   "projects",
