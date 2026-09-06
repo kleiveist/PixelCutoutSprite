@@ -1,7 +1,7 @@
 # PixelCutoutSprite Studio — Einstieg
 
-**Stand:** 6. September 2026 · **Inhalt:** funktional abgeschlossene Tauri-Desktop-App auf dem
-vorhandenen Tooling-Template.
+**Stand:** 6. September 2026 · **Inhalt:** funktional abgeschlossene Cutout-Basis P00–P22 und
+abgeschlossene PixelPromptStudio-Integrationsbasis P23; P24–P27 sind offen.
 
 ## Anwendung starten
 
@@ -27,7 +27,8 @@ WebView gebündelt und nicht als eigenständiges Webprodukt ausgeliefert.
 | [P20-Build-Abnahme](docs/developer/acceptance/native-builds-and-tooling.md) | Native Build-, Paket-, CI-, Devcontainer- und Plattformnachweise samt Blockern. |
 | [P21-Beispiel-Abnahme](docs/developer/acceptance/example-vault-and-user-guide.md) | Produktionsnah erzeugte Beispiel-Vault „Lichterhain“ und deutsche Nutzeranleitung. |
 | [P22-Gesamtabnahme](docs/developer/acceptance/final-acceptance.md) | Abschlussmatrix für RQ-01–RQ-40 und E2E A–J mit ausgeführten Tests und ehrlichen Plattformgrenzen. |
-| [Phasenindex](docs/developer/prompts/pixelcutoutsprite/README.md) | 23 Phasen P00–P22 in der erforderlichen Reihenfolge. |
+| [PixelPromptStudio-Integrationsplan](docs/developer/plans/prompt-studio-integration.md) | Architekturgrenze, fünf neue Phasen, native Persistenz und Cutout-Handoff. |
+| [Phasenindex](docs/developer/prompts/pixelcutoutsprite/README.md) | P00–P27 mit aktuellem Umsetzungs- und Prüfstatus. |
 | [Masterauftrag](docs/developer/prompts/pixelcutoutsprite/MASTERPROMPT.md) | Übergeordneter Arbeitsauftrag einschließlich Serienmodus. |
 | [Fortsetzungsauftrag](docs/developer/prompts/pixelcutoutsprite/FORTSETZEN.md) | Wiederaufnahme in einer neuen Arbeitssitzung. |
 
@@ -112,13 +113,25 @@ P20-Build-Abnahme. P21 ergänzt die ohne Entwicklerwerkzeuge erzeugbare Beispiel
 leeren Vault bis Reopen und Export, vergleicht alle 256 Mira-Previewframes pixelgenau mit dem
 Atlas, schließt duplizierte Loop-Enden und deaktiviertes Equipment aus und importiert das
 vollständige Paket frisch sowie nach Relocation in Godot 4.7.2. Die RQ- und E2E-Matrix steht in
-der P22-Gesamtabnahme. Es verbleibt keine weitere Implementierungsphase; reale Windows- und
+der P22-Gesamtabnahme. Damit ist die Cutout-Basisserie abgeschlossen. Reale Windows- und
 macOS-Laufzeitabnahmen, Signierung und Veröffentlichung bleiben ausdrücklich operative Schritte
 mit eigener Freigabe.
+
+## Erweiterung: PixelPromptStudio
+
+P23 portiert die Prompt-Domain, Schemas, Providerbasis und Ansichten aus PixelForgeStudio in den
+isolierten Namensraum `frontend/src/prompt-studio/`. Nicht übernommen werden PixelForge-Startseite,
+Gesamtheader, Animation Studio, Footer oder ein eigenes `main.tsx`. Die bestehende Cutout-App ist
+in P23 noch unverändert; der gemeinsame Header folgt erst in P24.
+
+P25–P27 bleiben für die sichtbare Prompt-Oberfläche, native App-Daten, Export, kontrollierte
+Cutout-Übergabe und Gesamtabnahme vorgesehen. Jede Phase beginnt erst nach ausdrücklicher
+Freigabe und erhält einen eigenen Commit.
 
 ## Leitentscheidungen
 
 Auf dem vorhandenen Template-Tooling und dessen Profil `desktop-local` aufbauen: Vite/React/TypeScript im Frontend und Tauri 2/Rust als native Desktop-Laufzeit. Godot ist nur zusätzliches Exportziel. Desktop-only. Normale JSON-/PNG-Dateien in einer lokalen Vault; kein SQL. Bewegungsvorlagen, NPC-Aussehen und Zuordnungen getrennt halten. Vordefinierte Cutout-Teile statt erforderlicher manueller Bone-Einrichtung. PNG-Sheets plus JSON als Standardexport, Godot-Ressourcen als zusätzliche Ausgabe.
 
-Diese Dokumentation beschreibt den lokalen Repository-Stand. P22 führte weder Push noch Release,
-Signierung oder Notarisierung aus.
+Diese Dokumentation beschreibt den lokalen Repository-Stand. Die freigegebenen Phasen werden
+separat committed; Push, Release, Signierung und Notarisierung sind nicht freigegeben. Native
+Plattformabnahmen bleiben an die im ExecPlan dokumentierten Host- und Toolchain-Gates gebunden.

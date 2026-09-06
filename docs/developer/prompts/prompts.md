@@ -29,6 +29,11 @@
 - [P20](pixelcutoutsprite/20.md)
 - [P21](pixelcutoutsprite/21.md)
 - [P22](pixelcutoutsprite/22.md)
+- [P23](pixelcutoutsprite/23.md)
+- [P24](pixelcutoutsprite/24.md)
+- [P25](pixelcutoutsprite/25.md)
+- [P26](pixelcutoutsprite/26.md)
+- [P27](pixelcutoutsprite/27.md)
 - [Continuation prompt](pixelcutoutsprite/FORTSETZEN.md)
 - [Master prompt](pixelcutoutsprite/MASTERPROMPT.md)
 

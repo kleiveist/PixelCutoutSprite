@@ -1,0 +1,514 @@
+.step,
+.chooser,
+.choiceCard,
+.choiceCard > span,
+.effectiveValues,
+.effectiveField,
+.editor,
+.editorField,
+.wideField {
+  min-width: 0;
+}
+
+.step {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.chooser {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.chooser > legend {
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.intro {
+  max-width: 68ch;
+  margin: var(--space-2) 0 var(--space-4);
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.choiceGrid,
+.effectiveGrid,
+.editorGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.choiceCard {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-4);
+  color: var(--color-text);
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-md);
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.choiceSelection {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  cursor: pointer;
+}
+
+.choiceCard:hover {
+  background: var(--color-control-hover);
+  border-color: var(--color-accent-line);
+  transform: translateY(-1px);
+}
+
+.choiceCard:focus-within {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.choiceCard[data-selected="true"] {
+  background: var(--color-accent-wash);
+  border-color: var(--color-accent-line);
+}
+
+.choiceCard[data-pending="true"] {
+  border-style: dashed;
+  border-color: var(--color-danger-line);
+}
+
+.choiceCard input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0.12rem 0 0;
+  accent-color: var(--color-accent);
+}
+
+.choiceCard strong,
+.choiceCard small,
+.choiceMeta {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.choiceCard small {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.choiceMeta {
+  margin-top: var(--space-2);
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+}
+
+.chooserActions,
+.actions,
+.editorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.chooserActions {
+  margin-top: var(--space-4);
+}
+
+.primaryButton,
+.secondaryButton,
+.dangerButton,
+.textButton {
+  min-height: var(--control-min-size);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primaryButton,
+.secondaryButton,
+.dangerButton {
+  padding: 0.72rem 1rem;
+}
+
+.primaryButton {
+  color: var(--color-ink-inverse);
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent-strong);
+}
+
+.primaryButton:hover {
+  background: var(--color-accent-strong);
+}
+
+.secondaryButton {
+  color: var(--color-text);
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+}
+
+.secondaryButton:hover {
+  background: var(--color-control-hover);
+  border-color: var(--color-line-strong);
+}
+
+.dangerButton,
+.deleteChoiceButton {
+  color: var(--color-danger-text);
+  background: var(--color-danger-wash);
+  border: 1px solid var(--color-danger-line);
+}
+
+.dangerButton:hover,
+.deleteChoiceButton:hover {
+  background: var(--color-panel);
+  border-color: var(--color-danger-text);
+}
+
+.deleteChoiceButton {
+  min-height: var(--control-min-size);
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.deleteChoiceButton span {
+  margin-right: var(--space-1);
+}
+
+.textButton {
+  padding: 0.55rem 0.7rem;
+  color: var(--color-danger-text);
+  background: transparent;
+  border: 1px solid var(--color-danger-line);
+}
+
+.textButton:hover {
+  background: var(--color-danger-wash);
+}
+
+.emptyState,
+.blockingState,
+.conflictPanel,
+.editor,
+.effectiveValues {
+  border-radius: var(--radius-md);
+}
+
+.emptyState,
+.blockingState {
+  padding: var(--space-4);
+}
+
+.emptyState {
+  color: var(--color-text);
+  background: var(--color-panel-soft);
+  border: 1px dashed var(--color-line-strong);
+}
+
+.emptyState p,
+.blockingState p,
+.conflictPanel p {
+  margin: var(--space-1) 0 0;
+  line-height: 1.55;
+}
+
+.blockingState,
+.conflictPanel,
+.errorNotice {
+  color: var(--color-danger-text);
+  background: var(--color-danger-wash);
+  border: 1px solid var(--color-danger-line);
+}
+
+.blockingState h3,
+.conflictPanel h3,
+.editorHeader h3,
+.valuesHeader h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.conflictPanel {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.editor,
+.effectiveValues {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+}
+
+.editorHeader,
+.valuesHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 0.7fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.editorHeader > p,
+.valuesHeader > p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-1);
+  color: var(--color-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.editorField,
+.effectiveField {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  padding: var(--space-4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.editorField > label:first-child,
+.fieldLabel {
+  font-weight: 850;
+}
+
+.editorField input:not([type="checkbox"]),
+.editorField select,
+.editorField textarea,
+.effectiveField input:not([type="checkbox"]),
+.effectiveField select,
+.effectiveField textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-min-size);
+  padding: 0.72rem 0.82rem;
+  color: var(--color-text);
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset);
+  font: inherit;
+}
+
+.editorField textarea,
+.effectiveField textarea {
+  min-height: 7rem;
+  max-width: 100%;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.editorField [aria-invalid="true"],
+.effectiveField [aria-invalid="true"] {
+  background: var(--color-danger-wash);
+  border-color: var(--color-danger-line);
+}
+
+.fieldHeading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.lockedBadge,
+.openBadge {
+  flex: 0 0 auto;
+  padding: 0.2rem 0.48rem;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+}
+
+.lockedBadge {
+  color: var(--color-danger-text);
+  background: var(--color-danger-wash);
+  border: 1px solid var(--color-danger-line);
+}
+
+.openBadge {
+  color: var(--color-accent-text);
+  background: var(--color-accent-wash);
+  border: 1px solid var(--color-accent-line);
+}
+
+.readonlyControl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.readonlyControl output {
+  min-width: 0;
+  min-height: var(--control-min-size);
+  display: flex;
+  align-items: center;
+  padding: 0.72rem 0.82rem;
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.sourceLabel,
+.fieldError {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.sourceLabel {
+  color: var(--color-text-muted);
+}
+
+.fieldError {
+  color: var(--color-danger-text);
+  font-weight: 750;
+}
+
+.errorNotice,
+.successNotice {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.successNotice {
+  color: var(--color-success);
+  background: var(--color-success-wash);
+  border: 1px solid var(--color-success-line);
+}
+
+.lockControl,
+.booleanControl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+  line-height: 1.45;
+}
+
+.lockControl {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+}
+
+.lockControl input,
+.booleanControl input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0.12rem 0 0;
+  accent-color: var(--color-accent);
+}
+
+.wideField {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.effectiveGrid > .wideField > .effectiveField,
+.editorGrid > .wideField > .editorField {
+  height: 100%;
+}
+
+.lightingControls {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.lightingControls > label {
+  margin-top: var(--space-2);
+  font-weight: 800;
+}
+
+@media (max-width: 52rem) {
+  .choiceGrid,
+  .effectiveGrid,
+  .editorGrid,
+  .editorHeader,
+  .valuesHeader,
+  .wideField {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wideField {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 38.75rem) {
+  .editor,
+  .effectiveValues {
+    padding: var(--space-4);
+  }
+
+  .readonlyControl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .chooserActions,
+  .actions,
+  .editorActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .chooserActions button,
+  .actions button,
+  .editorActions button,
+  .readonlyControl button {
+    width: 100%;
+  }
+
+  .choiceCard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .choiceCard:hover {
+    transform: none;
+  }
+}

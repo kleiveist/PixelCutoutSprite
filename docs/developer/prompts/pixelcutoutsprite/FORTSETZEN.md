@@ -6,13 +6,18 @@
 ```text
 Setze die Arbeit an PixelCutoutSprite Studio im vorhandenen Repository fort.
 
-Lies AGENTS.md, .agent/PLANS.md, die vollständige Studio-Spezifikation und den
+Lies AGENTS.md beziehungsweise die tatsächlich vorhandenen Repository-Regeln, die
+vollständige Studio-Spezifikation, den PixelPromptStudio-Integrationsplan und den
 aktuellen ExecPlan. Prüfe Arbeitsbaum, letzte Änderungen und Testprotokolle.
-Verlasse dich nicht allein auf eine frühere Chat-Zusammenfassung.
+Verlasse dich nicht allein auf eine frühere Chat-Zusammenfassung. Prüfe bei einer
+Portierungsphase zusätzlich den benachbarten PixelForgeStudio-Checkout und dessen
+AGENTS.md; behandle ihn ohne anderslautenden Auftrag als Read-only-Quelle.
 
-Ermittle die erste noch nicht belegbar abgeschlossene Phase. Lies ihren Prompt
-und den MASTERPROMPT. Prüfe ihre Abhängigkeiten im tatsächlichen Code. Setze am
-im ExecPlan beschriebenen nächsten Schritt an. Bewahre bestehende Nutzerarbeit.
+P00–P22 sind die abgeschlossene Cutout-Basis und werden nicht allein wegen der
+Erweiterung wieder geöffnet. P23 ist abgeschlossen. Beginne erst nach
+ausdrücklicher Nutzerfreigabe mit P24 und arbeite auch danach immer nur die
+jeweils freigegebene Phase ab. Bewahre bestehende Nutzerarbeit und den gesamten
+Cutout-Kontext.
 
 Wiederhole relevante Tests nach Änderungen. Aktualisiere Fortschritt,
 Entscheidungen, Validierung und offene Punkte. Überspringe keine fehlenden

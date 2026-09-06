@@ -9,11 +9,23 @@
 > vorhandenen Template Tooling als Tauri-2-Desktop-App mit Rust und TypeScript/React gebaut;
 > Godot bleibt nur zusätzliches Exportziel.
 
+> **Historischer Abschluss:** Diese Ein-Datei-Fassung bewahrt den initialen Planungsstand für
+> P00–P22. Die Basisserie ist seit dem 6. September 2026 vollständig abgeschlossen; Aussagen im
+> eingebetteten Ausgangsplan wie „noch nicht implementiert“ sind keine Beschreibung des heutigen
+> Repository-Stands. Die neu eröffnete Erweiterungsserie P23–P27 und ihr aktueller Fortschritt
+> stehen im
+> [PixelPromptStudio-Integrationsplan](developer/plans/prompt-studio-integration.md) und im
+> [aktuellen Phasenindex](developer/prompts/pixelcutoutsprite/README.md).
+
 **Version 1.0 · Stand: 5. September 2026**
 **Für:** `kleiveist/PixelCutoutSprite`
-**Inhalt:** vollständige Studiodefinition, technische Datenstruktur, Abnahmen, 23 Umsetzungsprompts und initialer Fortschrittsplan.
+**Inhalt:** historische Studiodefinition, technische Datenstruktur, Abnahmen, 23 abgeschlossene
+Umsetzungsprompts und initialer Fortschrittsplan.
 
-Dies ist die vollständige Ein-Datei-Fassung der Planung. Die Implementierung selbst ist noch nicht erfolgt. Das zusätzlich bereitgestellte ZIP enthält die Spezifikation und jeden Prompt einzeln an den vorgesehenen Repository-Pfaden.
+Dies ist die erhaltene vollständige Ein-Datei-Fassung der ursprünglichen Planung. Ihr eingebetteter
+Status wird nicht rückwirkend umgeschrieben; der aktuelle Implementierungsstand steht im lebenden
+ExecPlan. Das zusätzlich bereitgestellte ZIP enthielt die Spezifikation und jeden ursprünglichen
+Prompt einzeln an den vorgesehenen Repository-Pfaden.
 
 ## Aufbau dieser Datei
 

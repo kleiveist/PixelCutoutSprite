@@ -28,6 +28,7 @@
 - 🔐 [JSON contract version 1](formats/json-contracts.md)
 - 🗺️ [Plans](plans/plans.md)
 - 🧭 [PixelCutoutSprite Studio ExecPlan](plans/pixelcutoutsprite-execplan.md)
+- 🧭 [PixelPromptStudio integration plan](plans/prompt-studio-integration.md)
 - 🧩 [Prompts](prompts/prompts.md)
 - 🧾 [Repository inventory](repository-inventory.md)
 - 💾 [Storage](storage/storage.md)

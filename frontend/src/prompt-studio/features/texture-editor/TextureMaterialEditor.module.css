@@ -1,0 +1,251 @@
+.editor,
+.contextCard,
+.materialFocus,
+.woodFocus,
+.group,
+.field,
+.derivedValue,
+.logicNote {
+  min-width: 0;
+}
+
+.editor {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.contextCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(13rem, auto);
+  gap: var(--space-5);
+  align-items: center;
+  padding: var(--space-5);
+  background: var(--color-accent-wash);
+  border: 1px solid var(--color-accent-line);
+  border-radius: var(--radius-md);
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-1);
+  color: var(--color-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.contextCard h3,
+.materialFocus h3,
+.woodFocus h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.contextHelp {
+  max-width: 65ch;
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.statusList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.statusBadge {
+  padding: 0.28rem 0.55rem;
+  color: var(--color-accent-text);
+  background: var(--color-panel);
+  border: 1px solid var(--color-accent-line);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+}
+
+.materialFocus,
+.woodFocus {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.woodFocus {
+  background: var(--color-accent-wash);
+  border-color: var(--color-accent-line);
+}
+
+.materialFocus p,
+.woodFocus p {
+  max-width: 72ch;
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.materialSwatch {
+  width: 3.25rem;
+  aspect-ratio: 1;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 0.38rem, var(--color-accent-line) 0.38rem 0.5rem),
+    var(--color-panel);
+  border: 1px solid var(--color-accent-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset);
+}
+
+.group {
+  margin: 0;
+  padding: var(--space-5);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.group > legend {
+  padding: 0 var(--space-2);
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.groupIntro {
+  max-width: 72ch;
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  padding: var(--space-4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.wideField {
+  grid-column: 1 / -1;
+}
+
+.field > label,
+.fieldLabel {
+  font-weight: 800;
+}
+
+.field select,
+.field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-min-size);
+  padding: 0.72rem 0.82rem;
+  color: var(--color-text);
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset);
+  font: inherit;
+}
+
+.field textarea {
+  min-height: 7rem;
+  max-width: 100%;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.field [aria-invalid="true"] {
+  background: var(--color-danger-wash);
+  border-color: var(--color-danger-line);
+}
+
+.derivedValue {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-min-size);
+  padding: 0.72rem 0.82rem;
+  color: var(--color-text);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-weight: 800;
+}
+
+.help,
+.error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.help {
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: var(--color-danger-text);
+  font-weight: 750;
+}
+
+.logicNote {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-4) 0 0;
+  padding: var(--space-4);
+  color: var(--color-text-muted);
+  background: var(--color-accent-wash);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  line-height: 1.55;
+}
+
+.logicNote strong,
+.logicNote span {
+  display: block;
+}
+
+@media (max-width: 52rem) {
+  .contextCard,
+  .fieldGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wideField {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 38.75rem) {
+  .contextCard,
+  .materialFocus,
+  .woodFocus,
+  .group {
+    padding: var(--space-4);
+  }
+
+  .materialFocus,
+  .woodFocus {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,0 +1,27 @@
+export {
+  STATIC_OBJECT_ANIMATION_TYPE_IDS,
+  STATIC_OBJECT_BASIC_SHAPE_IDS,
+  STATIC_OBJECT_CLASS_BY_SUBTYPE,
+  STATIC_OBJECT_CLASS_IDS,
+  STATIC_OBJECT_CONDITION_IDS,
+  STATIC_OBJECT_INTERACTION_IDS,
+  STATIC_OBJECT_MATERIAL_IDS,
+  STATIC_OBJECT_PROPORTION_IDS,
+  STATIC_OBJECT_PURPOSE_IDS,
+  STATIC_OBJECT_SHADOW_MODE_IDS,
+  STATIC_OBJECT_SYMMETRY_IDS,
+  getDefaultStaticObjectClass,
+} from "./staticObject.types";
+export type {
+  StaticObjectAnimationType,
+  StaticObjectBasicShape,
+  StaticObjectClass,
+  StaticObjectCondition,
+  StaticObjectInteraction,
+  StaticObjectMaterial,
+  StaticObjectProportion,
+  StaticObjectPurpose,
+  StaticObjectShadowMode,
+  StaticObjectSubtype,
+  StaticObjectSymmetry,
+} from "./staticObject.types";

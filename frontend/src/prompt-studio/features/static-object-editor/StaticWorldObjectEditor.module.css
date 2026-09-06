@@ -1,0 +1,302 @@
+.editor,
+.contextCard,
+.animationNote,
+.group,
+.field,
+.derivedValue {
+  min-width: 0;
+}
+
+.editor {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.contextCard {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-5);
+  align-items: center;
+  padding: var(--space-5);
+  overflow: hidden;
+  background: var(--color-accent-wash);
+  border: 1px solid var(--color-accent-line);
+  border-radius: var(--radius-md);
+}
+
+.contextCopy {
+  position: relative;
+  z-index: 1;
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-1);
+  color: var(--color-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.contextCard h3,
+.animationNote h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.contextHelp {
+  max-width: 65ch;
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.objectMark {
+  position: relative;
+  width: 7rem;
+  height: 6.5rem;
+  filter: drop-shadow(0 0.75rem 1.25rem rgb(0 0 0 / 10%));
+}
+
+.objectTop,
+.objectFront,
+.objectSide,
+.objectShadow {
+  position: absolute;
+  display: block;
+}
+
+.objectTop {
+  top: 0.8rem;
+  right: 1.25rem;
+  left: 0.65rem;
+  height: 2rem;
+  background: var(--color-panel);
+  border: 1px solid var(--color-accent-line);
+  clip-path: polygon(50% 0, 100% 42%, 50% 100%, 0 42%);
+}
+
+.objectFront {
+  top: 2.55rem;
+  right: 3rem;
+  bottom: 0.9rem;
+  left: 0.65rem;
+  background: var(--color-accent-line);
+  border: 1px solid var(--color-accent-line);
+  clip-path: polygon(0 0, 100% 25%, 100% 100%, 0 75%);
+  opacity: 0.78;
+}
+
+.objectSide {
+  top: 2.55rem;
+  right: 1.25rem;
+  bottom: 0.9rem;
+  left: 4rem;
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-accent-line);
+  clip-path: polygon(0 25%, 100% 0, 100% 75%, 0 100%);
+}
+
+.objectShadow {
+  right: 0.55rem;
+  bottom: 0.15rem;
+  left: 0.3rem;
+  height: 0.65rem;
+  background: var(--color-line);
+  border-radius: 50%;
+  opacity: 0.72;
+}
+
+.statusList {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.statusBadge {
+  padding: 0.28rem 0.55rem;
+  color: var(--color-accent-text);
+  background: var(--color-panel);
+  border: 1px solid var(--color-accent-line);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+}
+
+.animationNote {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+}
+
+.animationNote p {
+  max-width: 72ch;
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.group {
+  margin: 0;
+  padding: var(--space-5);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.group > legend {
+  padding: 0 var(--space-2);
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.groupIntro {
+  max-width: 72ch;
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  padding: var(--space-4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.wideField {
+  grid-column: 1 / -1;
+}
+
+.field > label,
+.fieldLabel {
+  font-weight: 800;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-min-size);
+  padding: 0.72rem 0.82rem;
+  color: var(--color-text);
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset);
+  font: inherit;
+}
+
+.field textarea {
+  min-height: 7rem;
+  max-width: 100%;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.field [aria-invalid="true"] {
+  background: var(--color-danger-wash);
+  border-color: var(--color-danger-line);
+}
+
+.derivedValue {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-min-size);
+  padding: 0.72rem 0.82rem;
+  color: var(--color-text);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-weight: 800;
+}
+
+.help,
+.error,
+.footprintWarning {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.help {
+  color: var(--color-text-muted);
+}
+
+.error,
+.footprintWarning {
+  color: var(--color-danger-text);
+  font-weight: 750;
+}
+
+.footprintWarning {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-danger-wash);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 52rem) {
+  .contextCard,
+  .fieldGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .objectMark {
+    grid-row: 1;
+    width: 5.75rem;
+    height: 5.4rem;
+    margin-left: auto;
+    opacity: 0.62;
+  }
+
+  .contextCopy {
+    grid-row: 1;
+    grid-column: 1;
+    padding-right: 4rem;
+  }
+
+  .wideField {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 38.75rem) {
+  .contextCard,
+  .animationNote,
+  .group {
+    padding: var(--space-4);
+  }
+
+  .objectMark {
+    display: none;
+  }
+
+  .contextCopy {
+    padding-right: 0;
+  }
+}

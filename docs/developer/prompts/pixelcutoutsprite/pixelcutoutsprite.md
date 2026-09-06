@@ -28,6 +28,11 @@
 - [P20](20.md)
 - [P21](21.md)
 - [P22](22.md)
+- [P23](23.md)
+- [P24](24.md)
+- [P25](25.md)
+- [P26](26.md)
+- [P27](27.md)
 - [Continuation prompt](FORTSETZEN.md)
 - [Master prompt](MASTERPROMPT.md)
 

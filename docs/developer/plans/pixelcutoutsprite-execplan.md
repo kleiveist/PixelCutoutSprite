@@ -5,7 +5,7 @@
 
 **Planungsstand:** 6. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P22 abgeschlossen; keine weitere Implementierungsphase offen
+**Implementierung:** P00–P23 abgeschlossen; P24–P27 offen und nur einzeln nach Nutzerfreigabe
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -16,7 +16,8 @@ Eine lokale Desktop-App für wiederverwendbare Pixelart-Cutout-Animationen entwi
 
 Verbindliche Spezifikation: [PixelCutoutSprite Studio](../features/pixelcutoutsprite-studio.md).
 Ausführungsrahmen: [MASTERPROMPT](../prompts/pixelcutoutsprite/MASTERPROMPT.md).
-Phasenindex: [P00–P22](../prompts/pixelcutoutsprite/README.md).
+Phasenindex: [P00–P27](../prompts/pixelcutoutsprite/README.md).
+Neue Erweiterung: [PixelPromptStudio-Integrationsplan](prompt-studio-integration.md).
 
 ## Current State
 
@@ -220,15 +221,48 @@ Python-/Sidecar-, Web-/Mobile- und Rigpfade aus. Die
 [P22-Gesamtabnahme](../acceptance/final-acceptance.md) bewertet RQ-01–RQ-40 und E2E A–J. Reale
 Windows-/macOS-Laufzeitresultate bleiben mangels autorisiertem CI-Lauf ausdrücklich offen.
 
+Am 6. September 2026 wurde P00–P22 als abgeschlossene, weiterhin belegte Cutout-Basisserie
+festgeschrieben. P23–P27 integrieren den Prompt-Bereich aus dem benachbarten
+PixelForgeStudio-Checkout in dieselbe Tauri-App. Der Port wurde gegen
+`PixelCutoutSprite@55cddf385f87b65eea8887ede3e6380c65e7dd97` und primär
+`PixelForgeStudio@a4784cbb3b991c37cb5e87855f2025c0565cc4ff` umgesetzt; die letzte reine
+Prompt-V2-Revision `d253e7a948dc80ce766fe5e7ca76440f1f418c85` lieferte die prompt-spezifische
+Settings-/Schema- und Testgrenze. PixelForgeStudio blieb Read-only-Quelle. Herkunft und
+MIT-Hinweis stehen im portierten Namensraum.
+
+P23 isoliert den Prompt-Bereich unter `frontend/src/prompt-studio/`. Prompt-spezifische Barrels,
+die benötigten React-Hook-Form-/Zod-Abhängigkeiten, die neun Kategorien, Profilauflösung,
+Draft-/Recovery-Logik, Prompt Engine, Ausgabevorbereitung und Browseradapter sind vorhanden. Der
+Importgrenzentest schließt die PixelForge-Gesamtshell, Startseite, das Animation Studio, Worker und
+ein zweites `main.tsx` aus. Die Cutout-Shell ist in diesem Commit noch unverändert.
+
+P24–P27 bleiben offen. Insbesondere sind der gemeinsame Header, die sichtbare Einbettung, native
+Persistenz und der Cutout-Handoff nicht Teil des P23-Commits. Sie werden trotz bereits vorbereiteter
+lokaler Arbeit erst nach der jeweils ausdrücklichen Nutzerfreigabe phasenweise committed und als
+abgeschlossen dokumentiert.
+
 ## Scope and Non-Goals
 
-Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
+Der abgeschlossene Basisumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders
+wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Cutout-Daten ausschließlich
+unter `.pixelforge-studio`, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht
+Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
 
-Nicht Teil der ersten Version sind andere Körperformen, Augen-/Gesichtssystem, vollständiger Pixel-Painter, KI-Perspektivgenerierung, notwendige Skelette/IK, Cloud-Zusammenarbeit und mobile beziehungsweise Web-Ausgaben des Studios.
+P23–P27 ergänzen den vollständigen PixelPromptStudio-Workflow als eingebetteten React-Bereich mit
+eigener Navigation, nativem App-Daten-Storage und einer versionierten Übergabe an einen
+schreibbaren Cutout-Kontext. Der Prompt-Bereich wird weder iframe noch externe Webseite, zweites
+Programm oder weiterer `WorkspaceRoute`-Wert. PixelForgeStudios Startseite, äußere Shell,
+Animationsstudio und Footer sind nicht Teil der Portierung.
+
+Weiterhin nicht Teil des Umfangs sind andere Cutout-Körperformen, Augen-/Gesichtssystem,
+vollständiger Pixel-Painter, automatische Bildgenerierung, Cloud-Zusammenarbeit und mobile oder
+eigenständige Web-Ausgaben des Studios. P23–P27 ändern keine bestehende Vault ohne ausdrückliche
+Prompt-Übergabe.
 
 ## Concrete Steps
 
-Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts umgesetzt. Eine Phase beginnt erst bei erfüllten Abhängigkeiten. Tests werden fortlaufend ergänzt, nicht erst am Ende.
+P00–P22 sind abgeschlossen. P23 wurde separat umgesetzt und geprüft. P24–P27 beginnen jeweils
+erst nach ausdrücklicher Nutzerfreigabe und bestandenem Vorgängergate.
 
 | Phase | Auftrag | Status |
 |---|---|---|
@@ -255,13 +289,18 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P20](../prompts/pixelcutoutsprite/20.md) | Native Builds, Tooling und Codespaces | Abgeschlossen |
 | [P21](../prompts/pixelcutoutsprite/21.md) | Anleitung und nachvollziehbare Beispiel-Vault | Abgeschlossen |
 | [P22](../prompts/pixelcutoutsprite/22.md) | Gesamtabnahme und überprüfbarer Abschluss | Abgeschlossen |
+| [P23](../prompts/pixelcutoutsprite/23.md) | Prompt-Integrationsgrenze und technische Basis | Abgeschlossen; Gate PASS |
+| [P24](../prompts/pixelcutoutsprite/24.md) | Gemeinsamer Header und sichere Studio-Umschaltung | Offen; wartet auf Freigabe |
+| [P25](../prompts/pixelcutoutsprite/25.md) | Vollständige PixelPromptStudio-Oberfläche portieren | Offen |
+| [P26](../prompts/pixelcutoutsprite/26.md) | Native Prompt-Persistenz, Export und Cutout-Handoff | Offen |
+| [P27](../prompts/pixelcutoutsprite/27.md) | Integrierte Studio-Workflows abnehmen und dokumentieren | Offen |
 
 ## Progress
 
 - [x] Nutzeranforderungen in eine vollständige Produktspezifikation überführt.
 - [x] Relevanten Repository-Ausgangsstand und offizielle technische Quellen gelesen.
 - [x] Dateistruktur, Datenverträge, Exporte, Risiken und Abnahmefälle geplant.
-- [x] Masterauftrag, Fortsetzungsauftrag und 23 Phasenprompts erstellt.
+- [x] Masterauftrag, Fortsetzungsauftrag und Phasenprompts P00–P27 erstellt.
 - [x] P00: tatsächlichen Checkout, Tooling-Grenzen, Tauri-ADR, RQ-Ledger und Basistests erfasst.
 - [x] P01: native React-/Tauri-Shell, Produktidentität, Navigation, Dialoge und Shortcuts erstellt.
 - [x] P02: Fachmodelle, JSON-v1-Verträge, Graphvalidierung, Zustände und Vertragsfixtures erstellt.
@@ -297,12 +336,23 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P22: Produktions-E2E von leerer Vault bis Reopen/Export, vollständige pixelgenaue
   Preview-/Atlasprüfung, Loop-/Disabled-Equipment-/Shared-Motion-Regressionsbelege, finale
   Negativarchitektur, echten Godot-4.7.2-Import und RQ-/E2E-Abschlussmatrix ausgeführt und gegatet.
+- [x] P00–P22 als abgeschlossene Basisserie mit unveränderter Abnahmeevidenz festgeschrieben.
+- [x] Integrationsgrenze und ausführbare Aufgaben für die neue Serie P23–P27 dokumentiert.
+- [x] P23: Prompt-Integrationsgrenze im Zielcode umsetzen, Quellrevision festhalten und
+  Prompt-Abhängigkeiten isolieren.
+- [ ] P24: gemeinsamen Studiowechsler und zustandserhaltenden Navigationsschutz nach Freigabe
+  umsetzen und separat committen.
+- [ ] P25: vollständige Prompt-Oberfläche, Provider, Navigation und isolierte Styles portieren.
+- [ ] P26: native Prompt-Persistenz, Import/Export und versionierten Cutout-Handoff umsetzen.
+- [ ] P27: integrierte Frontend-, Rust- und Browserworkflows abnehmen und dokumentieren.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
 - [x] Meilenstein C: Figuren, P12–P15.
 - [x] Meilenstein D: Spieleinbindung, P16–P17.
 - [x] Meilenstein E: belastbare Desktop-Version, P18–P22; Windows/macOS-Laufzeitevidenz bleibt
   als ausdrücklich offener betrieblicher Plattformnachweis dokumentiert.
+- [ ] Meilenstein F: PixelPromptStudio vollständig einbetten und abnehmen; P23 ist abgeschlossen,
+  P24–P27 bleiben offen.
 
 Bei jeder Phasenänderung ergänzen: Datum, tatsächlicher Umfang, betroffene Dateien, Prüfungen und nächster Schritt. Noch nicht geprüfte Plattformen werden nicht als fertig markiert.
 
@@ -313,6 +363,17 @@ Godot-/Python-Produkts war falsch. Der reale Checkout ist das Tauri-fähige Tool
 ADR-001 und der ausdrückliche Nutzerhinweis legen Tauri als Produktlaufzeit fest.
 
 **2026-09-05:** Der gewünschte Workflow braucht eine Trennung zwischen Bewegungsvorlage und konkretem NPC. Eine reine Ordnerliste von unabhängigen Sprite-Sheets würde die geforderte Wiederverwendung nicht erfüllen.
+
+**2026-09-06 / P23:** PixelForgeStudios gemeinsame Schema- und Service-Barrels ziehen Prompt- und
+Animationsverträge zusammen. Der Port verwendet deshalb eigene Prompt-Barrels und einen statischen
+Importgrenzentest. `fflate` wird im übernommenen Promptpfad nicht importiert und wurde folglich
+nicht als Abhängigkeit ergänzt.
+
+**2026-09-06 / P23:** Der eingecheckte `.tooling-state/bin/node` ist in dieser Umgebung nur ein
+`flatpak-spawn`-Wrapper; `flatpak-spawn` fehlt. Die Phase wurde deshalb mit dem verfügbaren Node
+22.22.2/npm 10.9.7 geprüft. Das erzeugt wegen des bestehenden exakten Engine-Pins eine Warnung,
+Typecheck, Lint, Tests und Build bestehen jedoch. Ein Node-24-Wiederholungslauf bleibt für die
+abschließende P27-Toolchain-Abnahme sinnvoll.
 
 **2026-09-05:** „Nicht animiertes“ Equipment muss seinem Träger trotzdem folgen können. Sichtbarkeit, Mitführen und Eigenbewegung sind deshalb getrennte Eigenschaften.
 
@@ -616,6 +677,9 @@ ausführbaren Prozess-/Sidecar- und konkret emittierten Godot-Konstrukten.
 | ADR-024 | Native Pakete sind zunächst unsignierte, kurzlebige Testkandidaten; jeder Host baut frisch, prüft reguläre repositorygebundene Artefakte, schreibt SHA-256-Evidenz und startet den Paketpayload mit isoliertem Nutzerzustand. | Trennt reproduzierbare technische Abnahme von Schlüsseln, Notarisierung und Veröffentlichung und verhindert, dass alte, fremde oder nutzerbehaftete Dateien als neuer Build gelten. |
 | ADR-025 | Die Beispiel-Vault wird lokal in einem ausdrücklich leeren Ordner durch Komposition der Produktionsservices erzeugt und über dieselbe Tauri-Aktion auch der paketierten App angeboten; es wird keine mutable Binär-/Fixture-Vault eingecheckt. | Hält Pfad-, Import-, Revisions-, Lock-, Export- und Lizenzregeln im Lernweg wirksam, verhindert stille Überschreibung und macht den vollständigen Einstieg ohne Entwicklerwerkzeuge reproduzierbar. |
 | ADR-026 | Die Endabnahme vergleicht öffentliche Previewframes mit dekodierten publizierten Atlasrechtecken und prüft Negativarchitektur über strukturierte direkte Verträge; Plattformbelege werden separat bewertet. | Verhindert zirkuläre Hashbelege und Fehlalarme aus transitiven Locks, während fehlende Windows-/macOS-Laufzeiten sichtbar offen bleiben. |
+| ADR-027 | `StudioMode` liegt oberhalb der bestehenden `WorkspaceRoute`; der Prompt-Bereich besitzt mit `PromptView` eine getrennte Navigation. | Der Cutout-Router bildet einen kontextabhängigen Vault-Workflow ab. Prompt-Dashboard, Profile, Wizard, Ausgabe und Einstellungen sind ein unabhängiger App-Bereich und dürfen diesen Zustand nicht zurücksetzen. |
+| ADR-028 | Der PixelForgeStudio-Prompt-Bereich wird in `frontend/src/prompt-studio/` isoliert portiert; äußere PixelForge-Shell und Animationsstudio bleiben ausgeschlossen. | Ermöglicht genau einen Tauri-Header und verhindert, dass gemeinsame Barrels oder globale Styles unnötige Animationsmodule und konkurrierende App-Wurzeln einziehen. |
+| ADR-029 | Prompt-Arbeitsdaten liegen hinter einem Adapter nativ im Tauri-App-Datenverzeichnis; die Cutout-Übergabe verwendet einen versionierten DTO und eine ausdrückliche Nutzeraktion. | Der Generator muss ohne Vault funktionieren, während bestehende Vaults unverändert bleiben und Wizard sowie Cutout-Editoren nicht direkt voneinander abhängen. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -740,6 +804,12 @@ Prüflog ersetzt diesen Anfangsbefund mit den tatsächlich ausgeführten Ergebni
 | 2026-09-06 / P22 | vollständiger `pytest tools/tests tests/source`-Wiederholungslauf mit gepinntem Rust-/Node-PATH | Abschluss-Container, Python 3.11.2 | PASS: 1.276 Tests, 4 begründete profilabhängige Skips in 818,18 s | Alle portablen Tooling-, Profil-, Transaktions-, Quality-, Source- und neuen P22-Architekturverträge bestehen gemeinsam. |
 | 2026-09-06 / P22 | Frontendtests, Typecheck, ESLint, Prettier und Vite-Build | Abschluss-Container, Node 24.19.0, npm 11.17.0 | PASS: 179 Tests in 40 Dateien; Build mit 118 Modulen | Die unveränderte Desktopoberfläche und alle bisherigen Bedien-/IPC-Verträge bleiben grün. |
 | 2026-09-06 / P22 | `quality lint`, `quality architecture --format json`, `docs check --docs-dir docs`, `integrate --check --json` und `git diff --check` | Abschluss-Container | PASS | Python-/TypeScript-/Rust-Lint und Compiler ohne Befund; 142 TypeScript-Quelldateien, 150 konsistente Dokumentseiten, Desktopprofil `INTEGRATED` und sauberes Patchformat. GitHub-CI wurde auf Nutzerwunsch nicht gestartet. |
+| 2026-09-06 / Planung P23–P27 | `.venv/bin/python tools/control.py docs index --docs-dir docs --dry-run` | aktueller Workspace | INFRA-BLOCKER | Der optionale externe `PyGitIndex` ist nicht installiert. Die sechs neuen Backlinks und vier betroffenen generierten Indexblöcke wurden deshalb kontrolliert manuell ergänzt; es wurde keine Abhängigkeit nachinstalliert. |
+| 2026-09-06 / Planung P23–P27 | `.venv/bin/python tools/control.py docs check --docs-dir docs`, `.tooling-state/venv/bin/python -m pytest -q -p no:cacheprovider tests/source/test_repository_documentation.py`, `git diff --check` und Leerzeichenprüfung der neuen Dateien | aktueller Workspace, Python 3.11.2 für Pytest | PASS: 156 Dokumentseiten konsistent; 3 Tests bestanden | P00–P22 sind als abgeschlossene Basis abgegrenzt, P23–P27 vollständig verlinkt und P23 als nächster Schritt ausgewiesen. Produktcode wurde nicht geändert; Frontend-, Rust-, Run-, Build- und Smoke-Gates waren für diesen reinen Planungsauftrag nicht erforderlich und wurden nicht erneut ausgeführt. |
+| 2026-09-06 / P23 | `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test -- src/prompt-studio` | isolierter Staging-Worktree, Node 22.22.2, npm 10.9.7 | PASS: 74 Dateien / 389 Prompt-Tests | Der noch nicht mit der App-Shell verdrahtete Prompt-Namensraum kompiliert; Format, Lint, Prompt-Domain, Schemas, Migration, Profile, Drafts und Importgrenze sind grün. |
+| 2026-09-06 / P23 | `npm test`, `npm run build`, `tools/control.py test --suite frontend` | isolierter Staging-Worktree, Node 22.22.2, npm 10.9.7 | PASS: 114 Dateien / 568 Tests; Vite-Build mit 118 Modulen; Control-Gate OK | Alle bestehenden Cutout-Tests bleiben zusammen mit der portierten puren Prompt-Testbasis grün. Der Prompt-Code ist in P23 noch nicht Teil des sichtbaren App-Bundles. |
+| 2026-09-06 / P23 | `tools/control.py docs check --docs-dir docs`, `pytest tests/source/test_repository_documentation.py`, `git diff --cached --check` | isolierter Staging-Worktree, Python 3.11.2 | PASS: 156 Dokumentseiten; 3 Tests; sauberes Patchformat | Phasenstatus, Herkunft, Lizenz, Scope und nächste Freigabe P24 sind konsistent dokumentiert. |
+| 2026-09-06 / P23 | `.tooling-state/bin/node --version` | aktueller Host | INFRA-BLOCKER: `flatpak-spawn` fehlt | Der repositorylokale Node-24-Wrapper ist hier nicht startfähig; die oben genannten erfolgreichen Gates liefen mit dem verfügbaren Node 22.22.2. |
 
 Die vorhandenen Repository-Gates wurden während der Implementierung entsprechend ihrer
 tatsächlichen Verfügbarkeit verwendet; Änderungen an ihren Verträgen sind im Prüflog und in den
@@ -751,10 +821,11 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster betrieblicher Schritt:** Es gibt keine weitere Implementierungsphase. Ohne
-Schreibberechtigung kann die eingecheckte Studio-CI-Matrix auf Windows/macOS ausgeführt und ihr
-Ergebnis bewertet werden. Signierung, Notarisierung, Tag, Release und Push bleiben davon getrennt
-und benötigen eine ausdrückliche Freigabe.
+**Nächster Implementierungsschritt:** Auf die ausdrückliche Nutzerfreigabe für P24 warten. Danach
+nur den gemeinsamen Header, `StudioMode` und den zustandserhaltenden Navigationsschutz umsetzen,
+prüfen und separat committen. P25 darf nicht vor dieser nächsten Freigabe begonnen werden. Reale
+Windows-/macOS-Abnahmen, Signierung, Notarisierung, Tag, Release und Push bleiben getrennte Schritte
+mit eigener Freigabe.
 
 ## Outcomes & Retrospective
 
@@ -849,3 +920,8 @@ global-only-Ablage sind im selben Produktionslauf belegt. Das vollständige Lich
 mit der offiziellen Godot-4.7.2-Binärdatei frisch ohne seine Vault sowie erneut nach cachefreier
 Unicode-Relocation. RQ-01–RQ-40 und E2E A–J sind in der Abschlussmatrix bewertet; nur die reale
 Windows-/macOS-Laufzeitevidenz bleibt ausdrücklich offen und wird nicht als PASS ausgegeben.
+
+Die Dokumentationsfortschreibung vom 6. September 2026 verändert diesen Abschluss nicht. Sie
+behandelt P00–P22 als abgeschlossene Basis und eröffnet mit P23–P27 einen neuen
+Erweiterungsmeilenstein. P23 liefert dessen geprüfte, noch nicht in die Cutout-Shell eingehängte
+Prompt-Codebasis. P24–P27 bleiben bis zur jeweiligen Nutzerfreigabe offen.

@@ -1,0 +1,434 @@
+.view {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-8);
+}
+
+.hero,
+.filterHeading,
+.resultsHeading,
+.groupHeading,
+.dialogActions,
+.successNotice,
+.errorNotice {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.hero {
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: clamp(1.5rem, 4vw, 3.25rem);
+  background:
+    linear-gradient(125deg, var(--color-accent-wash), transparent 58%), var(--color-panel-raised);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-panel);
+}
+
+.hero > div,
+.filterHeading > div,
+.resultsHeading > div,
+.groupHeading > * {
+  min-width: 0;
+}
+
+.hero h1,
+.hero p,
+.filterHeading h2,
+.resultsHeading h2,
+.groupHeading h3,
+.groupHeading p,
+.statePanel p,
+.dialog h2,
+.dialog p {
+  margin: 0;
+}
+
+.hero h1 {
+  max-width: 19ch;
+  margin-top: var(--space-2);
+  font-size: clamp(2rem, 5vw, 4.1rem);
+  hyphens: auto;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.hero p {
+  max-width: 64ch;
+  margin-top: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: 1.05rem;
+}
+
+.eyebrow,
+.sectionIndex,
+.dialogEyebrow {
+  color: var(--color-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.filterPanel {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-5);
+}
+
+.filterHeading,
+.resultsHeading,
+.groupHeading {
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+.filterHeading h2,
+.resultsHeading h2,
+.groupHeading h3 {
+  margin-top: var(--space-1);
+}
+
+.filters {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(14rem, 1.5fr) repeat(3, minmax(10rem, 1fr));
+  align-items: end;
+  gap: var(--space-4);
+}
+
+.filters label {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.filters select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-min-size);
+  padding: 0.65rem var(--space-3);
+  color: var(--color-text);
+  font: inherit;
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset);
+}
+
+.filters select:focus-visible,
+.checkboxField:focus-within {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.checkboxField {
+  min-height: var(--control-min-size);
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  align-items: center;
+  width: fit-content;
+  padding: 0 var(--space-3);
+  color: var(--color-text) !important;
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.checkboxField input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--color-accent);
+}
+
+.primaryButton,
+.secondaryButton,
+.resetButton,
+.dangerButton,
+.successNotice button,
+.errorNotice button {
+  min-height: var(--control-min-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.65rem var(--space-4);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.primaryButton {
+  flex: 0 0 auto;
+  color: var(--color-ink-inverse);
+  background: var(--color-accent);
+  border-color: var(--color-accent-strong);
+  box-shadow: var(--shadow-control);
+}
+
+.primaryButton:hover {
+  background: var(--color-accent-strong);
+}
+
+.secondaryButton:hover,
+.resetButton:hover {
+  background: var(--color-control-hover);
+}
+
+.resetButton:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.resetButton:focus-visible,
+.dangerButton:focus-visible,
+.successNotice button:focus-visible,
+.errorNotice button:focus-visible,
+.resultsHeading h2:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.successNotice,
+.errorNotice {
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid;
+  border-radius: var(--radius-md);
+}
+
+.successNotice > span,
+.errorNotice > span,
+.resultsHeading > p,
+.groupHeading > p,
+.warning,
+.statePanel {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.successNotice {
+  color: var(--color-success);
+  background: var(--color-success-wash);
+  border-color: var(--color-success-line);
+}
+
+.errorNotice {
+  color: var(--color-danger-text);
+  background: var(--color-danger-wash);
+  border-color: var(--color-danger-line);
+}
+
+.successNotice button,
+.errorNotice button {
+  min-width: var(--control-min-size);
+  padding: 0;
+  color: currentColor;
+  background: transparent;
+  border-color: currentColor;
+}
+
+.results,
+.groupList,
+.group,
+.statePanel {
+  min-width: 0;
+  display: grid;
+}
+
+.results,
+.groupList {
+  gap: var(--space-6);
+}
+
+.resultsHeading {
+  align-items: end;
+}
+
+.resultsHeading > p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.group {
+  gap: var(--space-4);
+}
+
+.groupHeading {
+  align-items: end;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.groupHeading p {
+  max-width: 56ch;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: right;
+}
+
+.cards {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.cards > li {
+  min-width: 0;
+}
+
+.statePanel {
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-6);
+}
+
+.warning {
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+  color: var(--color-danger-text);
+  background: var(--color-danger-wash);
+  border-left: 3px solid var(--color-danger-line);
+}
+
+.dialog {
+  width: min(calc(100% - 2rem), 32rem);
+  max-height: calc(100dvh - 2rem);
+  padding: var(--space-6);
+  overflow: auto;
+  color: var(--color-text);
+  background: var(--color-panel-raised);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-panel);
+}
+
+.dialog::backdrop {
+  background: var(--color-dialog-backdrop);
+}
+
+.dialogFallbackBackdrop {
+  position: fixed;
+  z-index: 999;
+  inset: 0;
+  background: var(--color-dialog-backdrop);
+}
+
+.dialog[data-fallback-modal="true"] {
+  position: fixed;
+  z-index: 1000;
+  inset: 50% auto auto 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+}
+
+.dialog h2 {
+  margin-top: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+.dialog p {
+  margin-top: var(--space-4);
+  color: var(--color-text-muted);
+}
+
+.dialogError {
+  padding: var(--space-3);
+  color: var(--color-danger-text) !important;
+  background: var(--color-danger-wash);
+  border-left: 3px solid var(--color-danger-line);
+}
+
+.dialogActions {
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.dangerButton {
+  color: var(--color-danger-text);
+  background: var(--color-danger-wash);
+  border-color: var(--color-danger-line);
+}
+
+.dangerButton:hover {
+  background: var(--color-danger-wash-strong);
+}
+
+@media (max-width: 960px) {
+  .filters,
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .searchField {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .view {
+    gap: var(--space-6);
+  }
+
+  .hero,
+  .filterHeading,
+  .resultsHeading,
+  .groupHeading,
+  .dialogActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.7rem, 7.5vw, 2.25rem);
+  }
+
+  .primaryButton,
+  .secondaryButton,
+  .resetButton,
+  .dangerButton {
+    width: 100%;
+  }
+
+  .filters,
+  .cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .searchField,
+  .checkboxField {
+    grid-column: auto;
+  }
+
+  .groupHeading p {
+    text-align: left;
+  }
+
+  .dialog {
+    padding: var(--space-5);
+  }
+}

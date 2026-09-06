@@ -17,10 +17,12 @@ deterministic pixel-art cutout animations. It combines a React workspace with a 
 stores product data as ordinary JSON and PNG files in a user-selected local vault. Godot is an
 optional export target, not the application runtime.
 
-P00 through P22 provide the working native application, deterministic export path, recovery and
-desktop hardening, reproducible native build tooling, the production-generated Lichterhain
-example vault, and the final requirement/E2E acceptance. Start and validate it through the
-repository's existing control entry point:
+P00 through P22 provide the completed native Cutout application, deterministic export path,
+recovery and desktop hardening, reproducible native build tooling, the production-generated
+Lichterhain example vault, and the final requirement/E2E acceptance. P23 adds the isolated
+PixelPromptStudio source boundary. The shared shell, productive embedding, native persistence and
+Cutout handoff remain the separately gated P24–P27 work. Start and validate the application through
+the repository's existing control entry point:
 
 ```sh
 python tools/control.py tauri install --skip-system-deps
@@ -53,6 +55,12 @@ production-service, reopen, Unicode-copy, and export evidence.
 The [P22 final acceptance](docs/developer/acceptance/final-acceptance.md) maps RQ-01–RQ-40 and
 E2E A–J to implementation and executed evidence, including pixel-exact preview/export comparison
 and a fresh Godot 4.7.2 import.
+
+The [PixelPromptStudio integration plan](docs/developer/plans/prompt-studio-integration.md)
+records phases P23–P27. P23 ports only the prompt-facing PixelForgeStudio modules and documents
+their source revisions and license. It does not add the PixelForge start page, application shell,
+Animation Studio, footer, or a second executable. Later phases remain unstarted until their
+individual approval.
 
 ## Embedded Template Tooling
 

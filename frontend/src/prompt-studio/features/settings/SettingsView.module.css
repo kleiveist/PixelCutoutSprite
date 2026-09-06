@@ -1,0 +1,421 @@
+.view {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-6);
+}
+
+.hero {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.6fr);
+  align-items: center;
+  gap: var(--space-8);
+  padding: clamp(1.5rem, 4vw, 3.25rem);
+  background:
+    linear-gradient(125deg, var(--color-accent-wash), transparent 58%), var(--color-panel-raised);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-panel);
+}
+
+.hero h1,
+.hero p,
+.sectionHeading h2,
+.sectionHeading p,
+.panelHeading h2,
+.transferPanel p,
+.importInspection p {
+  margin: 0;
+}
+
+.hero h1 {
+  max-width: 18ch;
+  margin-top: var(--space-2);
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+  hyphens: auto;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.eyebrow,
+.sectionIndex {
+  color: var(--color-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  margin-top: var(--space-4) !important;
+}
+
+.description {
+  max-width: 67ch;
+  margin-top: var(--space-4) !important;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+}
+
+.heroFacts,
+.compactFacts {
+  min-width: 0;
+  display: grid;
+  margin: 0;
+}
+
+.heroFacts {
+  gap: var(--space-3);
+}
+
+.heroFacts > div {
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.heroFacts dt,
+.compactFacts dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.heroFacts dd,
+.compactFacts dd {
+  margin: 0;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.section {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.55fr) minmax(0, 1.45fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.sectionHeading {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.sectionHeading h2,
+.panelHeading h2 {
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  overflow-wrap: anywhere;
+}
+
+.sectionHeading > p:last-child,
+.transferPanel > p {
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.migrationNotice,
+.importInspection,
+.transferStatus,
+.startSettingsStatus {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  color: var(--color-text);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  overflow-wrap: anywhere;
+}
+
+.startSettings {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-4);
+  padding: clamp(var(--space-5), 3vw, var(--space-6));
+}
+
+.startSettingsGrid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.startSettingsGrid label {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+}
+
+.startSettingsGrid select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-min-size);
+  padding: 0.65rem var(--space-3);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 650;
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+}
+
+.startSettingsHint,
+.startSettingsStatus {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.startSettingsStatus {
+  padding: var(--space-3) var(--space-4);
+}
+
+.startSettingsStatus[data-state="saved"] {
+  background: var(--color-success-wash);
+  border-color: var(--color-success-line);
+}
+
+.startSettingsStatus[data-state="invalid"] {
+  color: var(--color-danger-text);
+  background: var(--color-danger-wash);
+  border-color: var(--color-danger-line);
+}
+
+.migrationNotice {
+  margin: 0;
+}
+
+.migrationNotice[data-state="success"],
+.transferStatus[data-state="success"] {
+  background: var(--color-success-wash);
+  border-color: var(--color-success-line);
+}
+
+.migrationNotice[data-state="error"],
+.importInspection[data-state="error"],
+.transferStatus[data-state="error"] {
+  color: var(--color-danger-text);
+  background: var(--color-danger-wash);
+  border-color: var(--color-danger-line);
+}
+
+.migrationNotice ul,
+.importInspection ul {
+  margin: var(--space-1) 0 0;
+  padding-left: 1.25rem;
+}
+
+.transferGrid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.transferPanel {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: var(--space-4);
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.panelHeading {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.transferPanel button {
+  min-height: var(--control-min-size);
+  max-width: 100%;
+  padding: 0.65rem var(--space-4);
+  color: var(--color-ink-inverse);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-control);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.transferPanel button:hover:not(:disabled) {
+  background: var(--color-accent-strong);
+}
+
+.transferPanel button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.transferPanel .dangerAction {
+  color: var(--color-danger-text);
+  background: var(--color-danger-wash-strong);
+  border-color: var(--color-danger-line);
+  box-shadow: none;
+}
+
+.transferPanel .dangerAction:hover {
+  background: var(--color-danger-wash);
+}
+
+.fileField {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+}
+
+.fileField label {
+  width: fit-content;
+}
+
+.fileField input[type="file"] {
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--control-min-size);
+  padding: var(--space-2);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 600;
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+}
+
+.fileField input[type="file"]::file-selector-button {
+  min-height: 2rem;
+  margin-right: var(--space-3);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 800;
+  background: var(--color-panel);
+  border: 1px solid var(--color-line-strong);
+  border-radius: calc(var(--radius-sm) - 0.15rem);
+  cursor: pointer;
+}
+
+.fileField small {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.importInspection {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.importInspection[data-state="warning"] {
+  background: var(--color-accent-wash);
+  border-color: var(--color-accent-line);
+}
+
+.compactFacts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+
+.compactFacts > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.restoreOptions {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.restoreOptions legend {
+  padding: 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.restoreOptions label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.restoreOptions input {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+  accent-color: var(--color-accent);
+}
+
+.transferPanel button:focus-visible,
+.fileField input:focus-visible,
+.restoreOptions input:focus-visible,
+.startSettingsGrid select:focus-visible,
+.transferStatus:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+@media (max-width: 900px) {
+  .hero,
+  .section,
+  .transferGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .heroFacts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .heroFacts > div {
+    display: grid;
+  }
+}
+
+@media (max-width: 760px) {
+  .startSettingsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .hero {
+    padding: var(--space-6) var(--space-5);
+  }
+
+  .heroFacts,
+  .compactFacts {
+    grid-template-columns: 1fr;
+  }
+
+  .transferGrid,
+  .section {
+    gap: var(--space-5);
+  }
+}

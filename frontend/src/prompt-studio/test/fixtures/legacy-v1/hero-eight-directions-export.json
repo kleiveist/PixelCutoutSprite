@@ -1,0 +1,25 @@
+{
+  "application": "Pixelart Prompt Studio",
+  "formatVersion": 1,
+  "state": {
+    "projectName": "EtherFood",
+    "promptLanguage": "en",
+    "profileOutputMode": "both",
+    "selectedProfile": "classic",
+    "assetType": "hero",
+    "outputMode": "directional8",
+    "subjectDescription": "A large fantasy hero with practical layered clothing, a distinctive readable silhouette, restrained equipment, and clear front, side, diagonal, and back views.",
+    "tileSize": 32,
+    "characterHeight": 80,
+    "frameSize": "128",
+    "sheetLayout": "4x2",
+    "perspectiveType": "threeQuarter",
+    "cameraAngle": "60",
+    "cameraDirection": "southToNorth",
+    "projectionType": "orthographic",
+    "backgroundMode": "transparent",
+    "outlineStyle": "softSelective",
+    "paletteMode": "byProfile",
+    "pixelDensity": "modernHd"
+  }
+}

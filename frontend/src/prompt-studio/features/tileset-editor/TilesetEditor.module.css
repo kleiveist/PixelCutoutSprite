@@ -1,0 +1,364 @@
+.editor,
+.contextCard,
+.logicNote,
+.group,
+.field,
+.derivedValue,
+.specificationCard {
+  min-width: 0;
+}
+
+.editor {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.contextCard {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-5);
+  align-items: center;
+  padding: var(--space-5);
+  overflow: hidden;
+  background: var(--color-accent-wash);
+  border: 1px solid var(--color-accent-line);
+  border-radius: var(--radius-md);
+}
+
+.contextCopy {
+  position: relative;
+  z-index: 1;
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-1);
+  color: var(--color-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.contextCard h3,
+.logicNote h3,
+.specificationCard h4 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.contextHelp {
+  max-width: 67ch;
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.tileMark {
+  display: grid;
+  grid-template-columns: repeat(3, 1.65rem);
+  gap: 0.22rem;
+  padding: 0.55rem;
+  background: var(--color-panel);
+  border: 1px solid var(--color-accent-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-control);
+  transform: rotate(-2deg);
+}
+
+.tileMark span {
+  aspect-ratio: 1;
+  background:
+    linear-gradient(135deg, transparent 46%, var(--color-accent-line) 47% 53%, transparent 54%),
+    var(--color-panel-soft);
+  border: 1px solid var(--color-accent-line);
+  image-rendering: pixelated;
+}
+
+.tileMark span[data-accent="true"] {
+  background: var(--color-accent);
+  border-color: var(--color-accent-text);
+}
+
+.statusList {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.statusBadge {
+  padding: 0.28rem 0.55rem;
+  color: var(--color-accent-text);
+  background: var(--color-panel);
+  border: 1px solid var(--color-accent-line);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+}
+
+.logicNote {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+}
+
+.logicNote p {
+  max-width: 74ch;
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.group {
+  margin: 0;
+  padding: var(--space-5);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.group > legend,
+.choiceField > legend {
+  padding: 0 var(--space-2);
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.groupIntro {
+  max-width: 74ch;
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.wideField {
+  grid-column: 1 / -1;
+}
+
+.field > label,
+.fieldLabel {
+  font-weight: 800;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-min-size);
+  padding: 0.72rem 0.82rem;
+  color: var(--color-text);
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset);
+  font: inherit;
+}
+
+.field textarea {
+  min-height: 6.5rem;
+  max-width: 100%;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.field [aria-invalid="true"],
+.choiceField[aria-invalid="true"] {
+  background: var(--color-danger-wash);
+  border-color: var(--color-danger-line);
+}
+
+.derivedValue {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-min-size);
+  padding: 0.72rem 0.82rem;
+  color: var(--color-text);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-weight: 800;
+}
+
+.choiceField {
+  border: 1px solid var(--color-line);
+}
+
+.choiceField > legend {
+  font-size: inherit;
+}
+
+.choiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.choice {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: var(--control-min-size);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
+.choice input {
+  width: 1.15rem;
+  min-height: 1.15rem;
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+.help,
+.error,
+.capacityNote,
+.emptyGroupNote,
+.specificationCard p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
+.help,
+.emptyGroupNote,
+.specificationCard p {
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: var(--color-danger-text);
+  font-weight: 750;
+}
+
+.emptyGroupNote {
+  padding: var(--space-4);
+  background: var(--color-panel);
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.specificationCard {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-panel);
+  border: 1px solid var(--color-accent-line);
+  border-radius: var(--radius-sm);
+}
+
+.specificationCard > p {
+  margin-top: var(--space-2);
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+}
+
+.metricGrid div {
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.metricGrid dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.metricGrid dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-weight: 800;
+}
+
+.capacityNote {
+  margin-top: var(--space-3);
+  color: var(--color-accent-text);
+  font-weight: 750;
+}
+
+@media (max-width: 52rem) {
+  .contextCard,
+  .fieldGrid,
+  .metricGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tileMark {
+    grid-row: 1;
+    grid-template-columns: repeat(3, 1.3rem);
+    margin-left: auto;
+    opacity: 0.68;
+  }
+
+  .contextCopy {
+    grid-row: 1;
+    grid-column: 1;
+    padding-right: 4.75rem;
+  }
+
+  .wideField {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 38.75rem) {
+  .contextCard,
+  .logicNote,
+  .group {
+    padding: var(--space-4);
+  }
+
+  .tileMark {
+    display: none;
+  }
+
+  .contextCopy {
+    padding-right: 0;
+  }
+
+  .choiceGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

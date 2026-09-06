@@ -1,0 +1,19 @@
+.surface {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+
+.default {
+  background: var(--color-panel);
+}
+
+.raised {
+  background:
+    linear-gradient(135deg, var(--color-panel-raised), var(--color-panel)), var(--color-panel);
+  border-color: var(--color-line-strong);
+  box-shadow: var(--shadow-panel);
+}
+
+.soft {
+  background: var(--color-panel-soft);
+}

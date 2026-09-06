@@ -1,0 +1,125 @@
+.switcher {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-inset);
+}
+
+.option {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.optionLabel {
+  min-height: var(--control-min-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.65rem;
+  color: var(--color-text-muted);
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-md) - var(--space-1));
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  line-height: 1;
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.optionLabel::before {
+  content: "";
+  width: 0.4rem;
+  aspect-ratio: 1;
+  margin-right: var(--space-2);
+  display: inline-block;
+  background: transparent;
+  border: 1px solid var(--color-control-border);
+  box-shadow: inset 0 0 0 1px var(--color-panel);
+}
+
+.option:hover .optionLabel {
+  color: var(--color-text);
+  background: var(--color-control-hover);
+}
+
+.input:checked + .optionLabel {
+  color: var(--color-accent-text);
+  background: var(--color-accent-wash-strong);
+  border-color: var(--color-accent-line);
+  box-shadow: var(--shadow-control);
+}
+
+.input:checked + .optionLabel::before {
+  background: currentColor;
+}
+
+.input:focus-visible + .optionLabel {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.status {
+  min-height: 1rem;
+  margin: var(--space-2) 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1) var(--space-3);
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  text-align: right;
+}
+
+@media (max-width: 620px) {
+  .legend,
+  .status {
+    text-align: left;
+  }
+
+  .status {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .optionLabel {
+    transition: none;
+  }
+}

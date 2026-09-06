@@ -1,3 +1,20 @@
+# Unreleased — PixelPromptStudio integration foundation
+
+Date: 6 September 2026
+
+- Added an isolated `frontend/src/prompt-studio/` boundary containing the prompt-facing domain,
+  schemas, profiles, Wizard, recovery, engine, review/output and settings foundations.
+- Added prompt-only barrel exports and an import-boundary test excluding PixelForge's start page,
+  outer shell, Animation Studio, workers and own application entry point.
+- Added the required React Hook Form and Zod dependencies without adopting `fflate` or changing
+  the existing TypeScript toolchain.
+- Recorded upstream PixelForgeStudio revisions and the MIT notice in
+  `frontend/src/prompt-studio/PROVENANCE.md`.
+
+The shared header, visible module embedding, native persistence, Cutout handoff and final E2E
+acceptance remain the separately approved P24–P27 phases. This local unreleased foundation does
+not imply a push, package, publication or platform acceptance.
+
 # Template Tooling 0.4.0
 
 Release date: 28 August 2026

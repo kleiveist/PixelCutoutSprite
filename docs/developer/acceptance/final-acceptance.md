@@ -19,6 +19,10 @@ offen**: deren eingecheckte native NSIS-/DMG-Matrix wurde auf Nutzerwunsch nicht
 gestartet. Das ist kein Plattform-PASS. Signierung, Notarisierung, Veröffentlichung und Push waren
 nicht Teil von P22.
 
+Diese Abnahme bleibt der Abschlussnachweis der Cutout-Basisserie. Die anschließend eröffnete
+[PixelPromptStudio-Erweiterung P23–P27](../plans/prompt-studio-integration.md) besitzt eigene Gates
+und ändert keine der hier belegten P00–P22-Ergebnisse.
+
 ## Durchgehender Produktionsnachweis
 
 `src-tauri/tests/example_vault.rs::lichterhain_uses_production_services_reopens_copies_and_exports`
@@ -168,10 +172,11 @@ die vier isolierten Profil-Integrationsfälle waren betroffen. Der oben ausgewie
 Wiederholungslauf exportierte den gepinnten Rust-/Node-PATH und bestand alle 1.276 ausführbaren
 Tests; der erste Aufruf wird nicht als Produkt-PASS gewertet.
 
-## Ehrliche Restgrenzen und nächster Schritt
+## Ehrliche Restgrenzen beim Abschluss von P22
 
-Es verbleibt **keine weitere Implementierungsphase**. Die folgenden Punkte sind betriebliche oder
-plattformgebundene Nachweise und werden nicht als erledigt ausgegeben:
+Zum Zeitpunkt dieser Abnahme verblieb in der Basisserie **keine weitere Implementierungsphase**.
+Die folgenden Punkte sind betriebliche oder plattformgebundene Nachweise und werden nicht als
+erledigt ausgegeben:
 
 - GitHub-CI wurde gemäß Nutzerwunsch nicht gestartet; insbesondere fehlen reale Windows-NSIS- und
   macOS-DMG-Build-/Startresultate.
@@ -181,6 +186,7 @@ plattformgebundene Nachweise und werden nicht als erledigt ausgegeben:
 - Windows-/macOS-Endnutzerabnahmen, Codesignatur, Notarisierung, Release, Tag und Push benötigen
   eigene Hosts, Zugangsdaten und ausdrückliche Freigaben.
 
-Der nächste fachlich sinnvolle Schritt ist daher kein P23, sondern zuerst der schreibgeschützte
-Lauf der eingecheckten Studio-CI-Matrix und die Bewertung ihrer Windows-/macOS-Artefakte. Erst
-danach sollte separat über signierte Veröffentlichung entschieden werden.
+Der damalige betriebliche nächste Schritt war der schreibgeschützte Lauf der eingecheckten
+Studio-CI-Matrix und die Bewertung ihrer Windows-/macOS-Artefakte. Die später beauftragte
+Produkterweiterung P23–P27 wird unabhängig im Integrations-ExecPlan nachgewiesen. Signierte
+Veröffentlichung bleibt eine getrennte Entscheidung.

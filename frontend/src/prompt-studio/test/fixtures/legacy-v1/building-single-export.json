@@ -1,0 +1,30 @@
+{
+  "application": "Pixelart Prompt Studio",
+  "formatVersion": 1,
+  "state": {
+    "projectName": "EtherFood",
+    "promptLanguage": "en",
+    "profileOutputMode": "both",
+    "assetType": "building",
+    "outputMode": "single",
+    "assetFacing": "south",
+    "subjectDescription": "A compact medieval-fantasy workshop with a readable southern facade, visible roof planes, a functional entrance, restrained structural detail, and clear material separation.",
+    "materials": "Weathered timber, irregular stone foundation, muted roof material, iron fittings, and small practical signs of use.",
+    "condition": "used",
+    "tileSize": 32,
+    "characterHeight": 80,
+    "footprintWidthTiles": 4,
+    "footprintDepthTiles": 3,
+    "frameSize": "256",
+    "perspectiveType": "threeQuarter",
+    "cameraAngle": "60",
+    "cameraDirection": "southToNorth",
+    "projectionType": "orthographic",
+    "backgroundMode": "transparent",
+    "shadowMode": "contact",
+    "anchorMode": "footprintCenter",
+    "outlineStyle": "softSelective",
+    "paletteMode": "byProfile",
+    "pixelDensity": "modernHd"
+  }
+}

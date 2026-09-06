@@ -1,0 +1,323 @@
+.workflow,
+.conflictPanel {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-5);
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.header,
+.sectionHeading,
+.actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.header > div,
+.sectionHeading > div {
+  min-width: 0;
+}
+
+.header h2,
+.sectionHeading h3,
+.conflictPanel h2,
+.intro,
+.conflictPanel p,
+.fieldError,
+.errorNotice,
+.emptyState {
+  margin: 0;
+}
+
+.header h2,
+.sectionHeading h3 {
+  margin-top: var(--space-1);
+  hyphens: auto;
+  overflow-wrap: anywhere;
+}
+
+.eyebrow {
+  color: var(--color-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.intro,
+.conflictPanel p,
+.noticeList,
+.emptyState,
+.safetyList {
+  max-width: 76ch;
+  color: var(--color-text-muted);
+}
+
+.conflictNotice {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.conflictList,
+.noticeList,
+.safetyList,
+.conflictPanel ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.conflictList {
+  color: var(--color-danger-text);
+}
+
+.choiceGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(10rem, 1fr));
+  gap: var(--space-3);
+}
+
+.workflow button,
+.conflictPanel button {
+  min-height: var(--control-min-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem var(--space-4);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.workflow button:hover:not(:disabled),
+.conflictPanel button:hover:not(:disabled) {
+  background: var(--color-control-hover);
+}
+
+.workflow button:focus-visible,
+.conflictPanel button:focus-visible,
+.nameField input:focus-visible,
+.profileChoice:has(input:focus-visible) {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.workflow button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.workflow .primaryButton {
+  color: var(--color-ink-inverse);
+  background: var(--color-accent);
+  border-color: var(--color-accent-strong);
+  box-shadow: var(--shadow-control);
+}
+
+.workflow .primaryButton:hover:not(:disabled) {
+  background: var(--color-accent-strong);
+}
+
+.familyForm,
+.existingProfiles,
+.impact {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-4);
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+
+.nameField {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.nameField input {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-min-size);
+  padding: 0.65rem var(--space-3);
+  color: var(--color-text);
+  font: inherit;
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset);
+}
+
+.nameField input[aria-invalid="true"] {
+  border-color: var(--color-danger-line);
+}
+
+.fieldError,
+.errorNotice {
+  color: var(--color-danger-text);
+}
+
+.errorNotice {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-danger-wash);
+  border: 1px solid var(--color-danger-line);
+  border-radius: var(--radius-md);
+}
+
+.impact {
+  background: var(--color-canvas);
+}
+
+.impactGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.impactGrid > div {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--color-control);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+}
+
+.impactGrid dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.impactGrid dd {
+  margin: 0;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.changeBlock {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.changeBlock ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.changeBlock li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.changeBlock li span:last-child {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  text-align: right;
+}
+
+.profileList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.profileChoice {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.profileChoice:has(input:checked) {
+  background: var(--color-accent-wash);
+  border-color: var(--color-accent-line);
+}
+
+.profileChoice input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.15rem 0 0;
+  accent-color: var(--color-accent);
+}
+
+.profileChoice span {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.profileChoice small {
+  color: var(--color-text-muted);
+}
+
+.profileChoice strong,
+.profileChoice small {
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.conflictPanel {
+  color: var(--color-danger-text);
+  background: var(--color-danger-wash);
+  border-color: var(--color-danger-line);
+}
+
+@media (max-width: 72rem) {
+  .choiceGrid {
+    grid-template-columns: repeat(2, minmax(10rem, 1fr));
+  }
+}
+
+@media (max-width: 46rem) {
+  .header,
+  .sectionHeading,
+  .actions,
+  .changeBlock li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .choiceGrid,
+  .profileList,
+  .impactGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .changeBlock li span:last-child {
+    text-align: left;
+  }
+
+  .actions button {
+    width: 100%;
+  }
+}

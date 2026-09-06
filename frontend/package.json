@@ -17,10 +17,13 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.9.1",
     "@tauri-apps/api": "2.11.1",
     "@tauri-apps/plugin-dialog": "2.7.3",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-hook-form": "^7.87.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -8,7 +8,15 @@
 > `docs/developer/decisions/adr-001-tauri-desktop.md` auf Tauri 2, Rust und
 > TypeScript/React übertragen. Godot ist nur das Exportziel in P17.
 
-**Stand:** 5. September 2026 · **Umfang:** 23 Implementierungsphasen, Masterauftrag und Fortsetzungsauftrag.
+> **Historischer Abschluss:** Dieses Sammeldokument hält die ursprüngliche Serie P00–P22 fest.
+> Alle 23 Basisphasen sind seit dem 6. September 2026 abgeschlossen; eingebettete Formulierungen
+> wie „noch nicht implementiert“ beschreiben nur den damaligen Planungszeitpunkt. Die neu
+> eröffnete Erweiterungsserie P23–P27 und ihr aktueller Gate-Status stehen im
+> [Phasenindex](developer/prompts/pixelcutoutsprite/README.md) und im
+> [PixelPromptStudio-Integrationsplan](developer/plans/prompt-studio-integration.md). Für neue
+> Arbeitsstand nicht den unten erhaltenen historischen Serienmodus P00–P22 verwenden.
+
+**Historischer Stand:** 5. September 2026 · **Abschluss:** P00–P22 am 6. September 2026.
 
 Die Einzeldateien im Dokumentationspaket sind für die Ablage im Repository vorbereitet. Dieser Sammeltext enthält dieselben Aufträge vollständig. Keine Phase ist allein durch diese Planung implementiert.
 

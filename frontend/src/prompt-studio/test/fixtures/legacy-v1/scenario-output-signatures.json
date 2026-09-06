@@ -1,0 +1,74 @@
+{
+  "directionalCharacter": {
+    "metrics": {
+      "frame": 128,
+      "columns": 4,
+      "rows": 2,
+      "canvasWidth": 512,
+      "canvasHeight": 256,
+      "directionCount": 8
+    },
+    "outputs": [
+      {
+        "id": "classic-en",
+        "profile": "classic",
+        "language": "en",
+        "lengths": { "main": 3465, "negative": 1487, "technical": 2002, "combined": 7010 },
+        "sha256": {
+          "main": "13d2f953bc19c599f2e5556ecf523a13543add6e693f94589c7ad075f4f64634",
+          "negative": "edbf72123f463bb4a4e7276034ce9ed8d876df5b96dc6715bf7095bcdd887b5b",
+          "technical": "b1ffdca8d15415bf10c81cb19b3a7558251dc478c58321a493cb24a8bff45656",
+          "combined": "005bfa99e3938742a37ce831201842d5eab8bc171432376fa428ed81eb174323"
+        }
+      },
+      {
+        "id": "dark-en",
+        "profile": "dark",
+        "language": "en",
+        "lengths": { "main": 3472, "negative": 1484, "technical": 2038, "combined": 7050 },
+        "sha256": {
+          "main": "6be81a89fdaf6498c90a8fb7b39c2e7085932ee2c6a079937641e1172dcefb60",
+          "negative": "e15509ac2114fb80bdced6e1ccfea8378898ca69dc049519a9b35913ab85d94f",
+          "technical": "22399479517ee551accd4e11f1f8070cd5d87f9f05f7e6876dd38ec0aca048af",
+          "combined": "8d39606f1122dfde80325c38af76dccc3267783ea9857fed999c0fcb0ee992e0"
+        }
+      }
+    ]
+  },
+  "singleBuilding": {
+    "metrics": {
+      "frame": 256,
+      "columns": 4,
+      "rows": 2,
+      "canvasWidth": 1024,
+      "canvasHeight": 512,
+      "directionCount": 1
+    },
+    "outputs": [
+      {
+        "id": "classic-en",
+        "profile": "classic",
+        "language": "en",
+        "lengths": { "main": 3276, "negative": 1150, "technical": 1821, "combined": 6303 },
+        "sha256": {
+          "main": "b5aba16c8d2ee0c60fa04c329bb0049b9d7b53cd593e7484dc6166db146e5d86",
+          "negative": "d560b57e545baab71be2befd81f2e0000214831c26e640b8eb1bc0523a6763c6",
+          "technical": "a82ef2708ce8c6f07f7cb97f05bbe3f8be188fd77f45be729a15814a64ff9900",
+          "combined": "8f465972ef165777ee3a647e2bea37433ed634da89e823a3643bf3bd4f1323d0"
+        }
+      },
+      {
+        "id": "dark-en",
+        "profile": "dark",
+        "language": "en",
+        "lengths": { "main": 3283, "negative": 1147, "technical": 1857, "combined": 6343 },
+        "sha256": {
+          "main": "9334a0c4c759bf36e1fb3a570c49ec58082c6bc0b836dbce003ad4520a32add1",
+          "negative": "b9910b902cd856a9b263c748c4ed1793f1b3043400d933870e1449a4fa200ff1",
+          "technical": "de9127876c409d90bf03138a7e0dbacceba4fe1a54fb2f1baa7c6dc8e092b956",
+          "combined": "6451d80711ec1b79edf40ab98e6e7e6ec57f743c5b24c008ea1f1abc58c15c12"
+        }
+      }
+    ]
+  }
+}

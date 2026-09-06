@@ -3,18 +3,27 @@
 <!-- AUTO-GENERATED:backlink END -->
 # Übergeordneter Arbeitsauftrag — PixelCutoutSprite Studio
 
-Diesen Auftrag zu Beginn einer Implementierungssitzung verwenden. Danach die gewünschte Phase P00–P22 anhängen oder den Serienmodus unten wählen.
+Diesen Auftrag als historischen Implementierungsrahmen verwenden. P00–P22 bilden die
+abgeschlossene Cutout-Basis. P23 ist abgeschlossen; P24–P27 bleiben bis zur jeweils ausdrücklichen
+Freigabe offen. Der ExecPlan ist für den tatsächlichen Fortschritt maßgeblich.
 
 ```text
 Arbeite im vorhandenen Repository kleiveist/PixelCutoutSprite an der Tauri-Desktop-App
 PixelCutoutSprite Studio. Der tatsächliche Checkout ist das Template-Tooling-Projekt,
 nicht Forge2D.
 
-Lies zuerst AGENTS.md, .agent/PLANS.md, docs/index.md und die für die Aufgabe
-gültigen Python-/TypeScript-/Rust-Regeln. Lies danach vollständig:
+Lies zuerst die tatsächlich vorhandenen Repository-Regeln, `docs/index.md` und
+die für die Aufgabe gültigen Python-/TypeScript-/Rust-Regeln. Falls später
+`AGENTS.md` oder `.agent/PLANS.md` vorhanden sind, gelten sie ebenfalls. Lies
+danach vollständig:
 - docs/developer/features/pixelcutoutsprite-studio.md
 - docs/developer/plans/pixelcutoutsprite-execplan.md
 - den beauftragten Phasenprompt unter docs/developer/prompts/pixelcutoutsprite/
+
+Für P23–P27 lies zusätzlich vollständig:
+- docs/developer/plans/prompt-studio-integration.md
+- ../PixelForgeStudio/AGENTS.md sowie nur die dort für den portierten
+  Prompt-Bereich verlangten technischen Unterlagen
 
 Behandle die Spezifikation als fachlichen Auftrag und ADR-001 als technische
 Korrektur der falschen Repository-Annahme im importierten Plan. Das vorhandene
@@ -24,6 +33,14 @@ Kein Electron- oder Browserprodukt. Desktop-only. Kein SQL/SQLite. Quellen
 bleiben JSON + PNG in normalen Ordnern.
 Keine notwendige manuelle Bone-/Skelett-Einrichtung. Trenne Bewegungsvorlagen,
 NPC-Aussehen und Animationszuordnungen. Alle strukturierten Filter sind Dropdowns.
+
+P00–P22 sind abgeschlossen und werden nicht ohne konkrete Regression erneut geöffnet.
+P23–P27 integrieren PixelPromptStudio als React-Bereich derselben Tauri-App. Kein
+iframe, keine externe Webseite, kein zweiter Prozess, keine zweite App-Shell und
+kein zweiter Header. `StudioMode` liegt oberhalb der bestehenden `WorkspaceRoute`;
+die Prompt-Navigation bleibt davon getrennt. Behandle den benachbarten
+PixelForgeStudio-Checkout als Read-only-Quelle und dokumentiere die beim Port
+tatsächlich verwendete Revision und Lizenz.
 
 Prüfe vor Änderungen den aktuellen Checkout und vorhandene Nutzeränderungen.
 Lösche oder überschreibe keine fremde Arbeit. Lies vorhandene Klassen und Tests,
@@ -52,7 +69,7 @@ Abschlussformat:
 ## Serienmodus: mehrere oder alle Phasen
 
 ```text
-Führe die noch nicht abgeschlossenen Phasen P00 bis P22 nacheinander aus.
+Führe die noch nicht abgeschlossenen Phasen P23 bis P27 nacheinander aus.
 Beginne bei der ersten Phase, deren Abhängigkeiten erfüllt und deren Gate noch
 nicht bestanden ist. Lies ihren vollständigen Prompt und arbeite ihn ab.
 Gehe nur bei bestandenem Gate zur nächsten Phase weiter. Belege erhaltene
@@ -67,4 +84,7 @@ im ExecPlan. Behaupte nicht, später selbstständig im Hintergrund weiterzuarbei
 
 ## Verwendung
 
-Die Einzelphasen sind bewusst aufeinander aufgebaut. Für einen kontrollierten Start werden der übergeordnete Auftrag und P00 verwendet. Ein späterer Auftrag kombiniert den gleichen Rahmen mit der nächsten offenen Phase. Im Serienmodus bleiben die einzelnen Gates genauso verbindlich wie bei separater Ausführung.
+Die Serie wurde bewusst aufeinander aufgebaut und bleibt als Auftragsnachweis erhalten. Für eine
+Fortsetzung sind der übergeordnete Auftrag, Integrationsplan und ExecPlan maßgeblich. Die
+vorgeschlagenen Committexte in P23–P27 gelten nur im ausdrücklich freigegebenen phasenweisen
+Serienmodus; ein Push oder Release ist dadurch nicht freigegeben.

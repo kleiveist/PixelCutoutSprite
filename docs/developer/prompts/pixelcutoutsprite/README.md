@@ -3,32 +3,53 @@
 <!-- AUTO-GENERATED:backlink END -->
 # Phasenübersicht — PixelCutoutSprite Studio
 
-Zuerst den [übergeordneten Arbeitsauftrag](MASTERPROMPT.md) lesen. Die [Fortsetzungsvorlage](FORTSETZEN.md) ist für eine spätere Sitzung vorgesehen.
+Zuerst den [übergeordneten Arbeitsauftrag](MASTERPROMPT.md), den
+[lebenden ExecPlan](../../plans/pixelcutoutsprite-execplan.md) und für P23–P27 den
+[PixelPromptStudio-Integrationsplan](../../plans/prompt-studio-integration.md) lesen. Die
+[Fortsetzungsvorlage](FORTSETZEN.md) ist für eine spätere Sitzung vorgesehen.
 
-| Phase | Inhalt | Abhängigkeiten |
+## Abgeschlossene Basisserie
+
+P00–P22 sind implementiert und durch die [P22-Gesamtabnahme](../../acceptance/final-acceptance.md)
+abgeschlossen. Die Prompt-Dateien bleiben als historischer Auftrags- und Gate-Nachweis erhalten;
+sie sind keine offene Aufgabenliste.
+
+| Phase | Inhalt | Status |
 |---|---|---|
-| [P00](00.md) | Bestand prüfen und Umsetzung verankern | Keine; diese Phase beginnt die Implementierung. |
-| [P01](01.md) | Desktop-Shell und Produktidentität | P00 |
-| [P02](02.md) | Fachmodelle und JSON-Verträge | P00–P01 |
-| [P03](03.md) | Vault und sichere Dateispeicherung | P02 |
-| [P04](04.md) | Projekt-Dashboard, Labels und Dropdown-Filter | P03 |
-| [P05](05.md) | Bereiche und humanoide Körperprofile | P04 |
-| [P06](06.md) | Animationsbibliothek und zustandsabhängige Navigation | P05 |
-| [P07](07.md) | Gemeinsamer Pixel-Rasterer | P05–P06 |
-| [P08](08.md) | Direkt bedienbarer Dummy-Editor | P07 |
-| [P09](09.md) | Timeline, Keyframes und deterministisches Sampling | P08 |
-| [P10](10.md) | Acht Richtungen, Spiegelregeln und Schichten | P09 |
-| [P11](11.md) | Bewegungspresets und tatsächliche Kartenvorschauen | P10 |
-| [P12](12.md) | PNG-Inventar und Paketimport | P11 |
-| [P13](13.md) | Ausstattungseditor, Feinschliff und NPC-Entwürfe | P12 |
-| [P14](14.md) | Ausrüstung und optionale Eigenbewegung | P13 |
-| [P15](15.md) | NPC-Dashboard, Mehrfachanimationen und Revisionen | P14 |
-| [P16](16.md) | Generischer PNG-/JSON-Export | P15 |
-| [P17](17.md) | Portables Godot-Paket und echter Importtest | P16 |
-| [P18](18.md) | Recovery, Autosave und Datenintegrität härten | P17; Speicherung aus P03 und Commands aus P08 bestehen bereits. |
-| [P19](19.md) | Desktop-Usability und Leistung prüfen | P18 |
-| [P20](20.md) | Native Builds, Tooling und Codespaces | P19 |
-| [P21](21.md) | Anleitung und nachvollziehbare Beispiel-Vault | P20 |
-| [P22](22.md) | Gesamtabnahme und überprüfbarer Abschluss | P00–P21 mit dokumentierten Gates. |
+| [P00](00.md) | Bestand prüfen und Umsetzung verankern | Abgeschlossen |
+| [P01](01.md) | Desktop-Shell und Produktidentität | Abgeschlossen |
+| [P02](02.md) | Fachmodelle und JSON-Verträge | Abgeschlossen |
+| [P03](03.md) | Vault und sichere Dateispeicherung | Abgeschlossen |
+| [P04](04.md) | Projekt-Dashboard, Labels und Dropdown-Filter | Abgeschlossen |
+| [P05](05.md) | Bereiche und humanoide Körperprofile | Abgeschlossen |
+| [P06](06.md) | Animationsbibliothek und zustandsabhängige Navigation | Abgeschlossen |
+| [P07](07.md) | Gemeinsamer Pixel-Rasterer | Abgeschlossen |
+| [P08](08.md) | Direkt bedienbarer Dummy-Editor | Abgeschlossen |
+| [P09](09.md) | Timeline, Keyframes und deterministisches Sampling | Abgeschlossen |
+| [P10](10.md) | Acht Richtungen, Spiegelregeln und Schichten | Abgeschlossen |
+| [P11](11.md) | Bewegungspresets und tatsächliche Kartenvorschauen | Abgeschlossen |
+| [P12](12.md) | PNG-Inventar und Paketimport | Abgeschlossen |
+| [P13](13.md) | Ausstattungseditor, Feinschliff und NPC-Entwürfe | Abgeschlossen |
+| [P14](14.md) | Ausrüstung und optionale Eigenbewegung | Abgeschlossen |
+| [P15](15.md) | NPC-Dashboard, Mehrfachanimationen und Revisionen | Abgeschlossen |
+| [P16](16.md) | Generischer PNG-/JSON-Export | Abgeschlossen |
+| [P17](17.md) | Portables Godot-Paket und echter Importtest | Abgeschlossen |
+| [P18](18.md) | Recovery, Autosave und Datenintegrität härten | Abgeschlossen |
+| [P19](19.md) | Desktop-Usability und Leistung prüfen | Abgeschlossen |
+| [P20](20.md) | Native Builds, Tooling und Codespaces | Abgeschlossen |
+| [P21](21.md) | Anleitung und nachvollziehbare Beispiel-Vault | Abgeschlossen |
+| [P22](22.md) | Gesamtabnahme und überprüfbarer Abschluss | Abgeschlossen |
 
-Alle Einträge sind zunächst geplant. Maßgeblich für den tatsächlichen Fortschritt ist der lebende ExecPlan, nicht die Existenz einer Prompt-Datei.
+## PixelPromptStudio-Erweiterung
+
+| Phase | Inhalt | Abhängigkeiten | Status |
+|---|---|---|---|
+| [P23](23.md) | Prompt-Integrationsgrenze und technische Basis | P00–P22 | Abgeschlossen; Gate bestanden |
+| [P24](24.md) | Gemeinsamer Header und sichere Studio-Umschaltung | P23 | Offen; wartet auf Freigabe |
+| [P25](25.md) | Vollständige PixelPromptStudio-Oberfläche portieren | P24 | Offen |
+| [P26](26.md) | Native Prompt-Persistenz, Export und Cutout-Handoff | P25 | Offen |
+| [P27](27.md) | Integrierte Studio-Workflows abnehmen und dokumentieren | P23–P26 | Offen |
+
+Maßgeblich für den tatsächlichen Fortschritt ist der lebende ExecPlan, nicht die Existenz einer
+Prompt-Datei. Die tatsächlich ausgeführten Nachweise und der nächste freizugebende Schritt stehen
+im ExecPlan.

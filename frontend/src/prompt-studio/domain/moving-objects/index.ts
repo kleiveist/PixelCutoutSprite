@@ -1,0 +1,26 @@
+export {
+  DEFAULT_MOVING_OBJECT_ANIMATION_FRAMES,
+  MOVING_OBJECT_ANCHOR_MODE_IDS,
+  MOVING_OBJECT_ANIMATION_TYPE_IDS,
+  MOVING_OBJECT_CLASS_BY_SUBTYPE,
+  MOVING_OBJECT_CLASS_IDS,
+  MOVING_OBJECT_CONDITION_IDS,
+  MOVING_OBJECT_LIGHTING_BEHAVIOR_IDS,
+  MOVING_OBJECT_MATERIAL_IDS,
+  MOVING_OBJECT_MECHANISM_IDS,
+  MOVING_OBJECT_MOVEMENT_TYPE_IDS,
+  MOVING_OBJECT_SHADOW_MODE_IDS,
+  getDefaultMovingObjectClass,
+} from "./movingObject.types";
+export type {
+  MovingObjectAnchorMode,
+  MovingObjectAnimationType,
+  MovingObjectClass,
+  MovingObjectCondition,
+  MovingObjectLightingBehavior,
+  MovingObjectMaterial,
+  MovingObjectMechanism,
+  MovingObjectMovementType,
+  MovingObjectShadowMode,
+  MovingObjectSubtype,
+} from "./movingObject.types";

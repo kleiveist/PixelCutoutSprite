@@ -1,0 +1,48 @@
+{
+  "algorithm": "sha256",
+  "source": "DEFAULT_STATE",
+  "metrics": {
+    "frame": 128,
+    "columns": 4,
+    "rows": 2,
+    "canvasWidth": 512,
+    "canvasHeight": 256,
+    "directionCount": 8
+  },
+  "outputs": [
+    {
+      "id": "classic-en",
+      "profile": "classic",
+      "language": "en",
+      "lengths": {
+        "main": 3897,
+        "negative": 1487,
+        "technical": 2002,
+        "combined": 7442
+      },
+      "sha256": {
+        "main": "70bb05047a39cfd5037be024c7120a55c3aa7571817e265ae903a1379197f322",
+        "negative": "edbf72123f463bb4a4e7276034ce9ed8d876df5b96dc6715bf7095bcdd887b5b",
+        "technical": "b1ffdca8d15415bf10c81cb19b3a7558251dc478c58321a493cb24a8bff45656",
+        "combined": "446fb70711a9d5ececa006f1a48242204e4e1661ce70f991c24966777b475c79"
+      }
+    },
+    {
+      "id": "dark-en",
+      "profile": "dark",
+      "language": "en",
+      "lengths": {
+        "main": 3904,
+        "negative": 1484,
+        "technical": 2038,
+        "combined": 7482
+      },
+      "sha256": {
+        "main": "779ad2dac8d4bde73505ca436afdf6afd51ad3a5ce44f50489dd81ed863be164",
+        "negative": "e15509ac2114fb80bdced6e1ccfea8378898ca69dc049519a9b35913ab85d94f",
+        "technical": "22399479517ee551accd4e11f1f8070cd5d87f9f05f7e6876dd38ec0aca048af",
+        "combined": "fc182da3873a84b16cab883cf1b6a0950245f04334474f9100a18766330bcbbb"
+      }
+    }
+  ]
+}
