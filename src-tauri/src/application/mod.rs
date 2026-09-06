@@ -3,6 +3,7 @@ mod area_service;
 mod asset_service;
 mod binding_service;
 mod binding_write;
+mod example_vault;
 mod export_jobs;
 mod export_profile_service;
 mod label_service;
@@ -27,6 +28,7 @@ pub use appearance_service::{
 pub use area_service::*;
 pub use asset_service::*;
 pub use binding_service::*;
+pub use example_vault::*;
 pub use export_jobs::*;
 pub use export_profile_service::*;
 pub use label_service::*;

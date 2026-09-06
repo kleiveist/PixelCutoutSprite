@@ -6,8 +6,8 @@ use tauri::{AppHandle, Manager, Runtime, State};
 
 use crate::animation::PreviewCache;
 use crate::application::{
-    AssetImportJobRegistry, AssetInspectionRegistry, ExportJobRegistry, OpenVault, RecoveryStatus,
-    VaultInspection, VaultService,
+    AssetImportJobRegistry, AssetInspectionRegistry, ExampleVaultOutcome, ExampleVaultService,
+    ExportJobRegistry, OpenVault, RecoveryStatus, VaultInspection, VaultService,
 };
 use crate::domain::{DomainError, ObjectId};
 use crate::storage::{DeviceSettingsStore, RecoveryChoice, StorageError};
@@ -75,6 +75,16 @@ impl From<StorageError> for VaultCommandError {
 #[tauri::command]
 pub fn inspect_vault(path: String) -> Result<VaultInspection, VaultCommandError> {
     VaultService::inspect(Path::new(&path)).map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn generate_example_vault(
+    path: String,
+) -> Result<ExampleVaultOutcome, VaultCommandError> {
+    tauri::async_runtime::spawn_blocking(move || ExampleVaultService::generate(Path::new(&path)))
+        .await
+        .map_err(|error| VaultCommandError::new("example_generation_failed", error.to_string()))?
+        .map_err(|error| VaultCommandError::new("example_generation_failed", error.to_string()))
 }
 
 #[tauri::command]

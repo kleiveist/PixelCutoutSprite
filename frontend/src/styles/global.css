@@ -312,8 +312,38 @@ select:focus-visible {
 }
 .vault-notice,
 .vault-error,
-.recent-vaults {
+.recent-vaults,
+.vault-example {
   flex-basis: 100%;
+}
+.vault-example {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+}
+.vault-example strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+.vault-example p {
+  max-width: 480px;
+  margin: 7px 0 0;
+  color: #bbb5c0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.vault-example button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
 }
 .vault-notice {
   padding: 16px;
@@ -1031,6 +1061,13 @@ kbd {
   font-size: 10px;
 }
 
+@media (max-width: 1360px) {
+  .vault-example {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 @media (max-height: 760px) {
   .welcome-copy {
     padding-block: 30px;
@@ -1044,6 +1081,14 @@ kbd {
   }
   .welcome-lead {
     margin-block: 20px 24px;
+  }
+  .vault-example {
+    gap: 10px;
+    padding: 11px 12px;
+  }
+  .vault-example p {
+    margin-top: 4px;
+    line-height: 1.35;
   }
   .areas-view {
     padding-block: 22px 36px;

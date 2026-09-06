@@ -22,6 +22,7 @@ export function VaultWelcome({
   const [inspection, setInspection] = useState<VaultInspection | null>(null);
   const [recents, setRecents] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [creatingExample, setCreatingExample] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lockRemovalArmed, setLockRemovalArmed] = useState(false);
 
@@ -46,6 +47,20 @@ export function VaultWelcome({
       if (result.state === "empty") onOpened(await client.initialize(path));
       if (result.state === "valid" && !result.writer_present) onOpened(await client.open(path));
     });
+  }
+
+  async function createExampleVault(): Promise<void> {
+    setCreatingExample(true);
+    try {
+      await run(async () => {
+        const path = await client.chooseDirectory();
+        if (!path) return;
+        await client.generateExample(path);
+        onOpened(await client.open(path));
+      });
+    } finally {
+      setCreatingExample(false);
+    }
   }
 
   async function confirmForeignVault(): Promise<void> {
@@ -113,9 +128,23 @@ export function VaultWelcome({
   return (
     <div className="vault-actions">
       <button className="primary-button" type="button" disabled={busy} onClick={chooseVault}>
-        {busy ? "Checking vault…" : "Choose vault"} <span aria-hidden="true">→</span>
+        {busy && !creatingExample ? "Checking vault…" : "Choose vault"}{" "}
+        <span aria-hidden="true">→</span>
       </button>
       <span className="shortcut-hint">Local JSON + PNG · no cloud</span>
+
+      <section className="vault-example" aria-labelledby="example-vault-title">
+        <div>
+          <strong id="example-vault-title">Explore a complete example</strong>
+          <p>
+            Select an empty folder. Studio creates Lichterhain with shared motions, two equipped
+            NPCs, and validated Godot 4.7.2 packages using the production workflow.
+          </p>
+        </div>
+        <button type="button" disabled={busy} onClick={createExampleVault}>
+          {creatingExample ? "Creating Lichterhain…" : "Create Lichterhain example"}
+        </button>
+      </section>
 
       {inspection?.state === "foreign" && (
         <section className="vault-notice" aria-labelledby="foreign-vault-title">

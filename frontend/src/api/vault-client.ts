@@ -72,9 +72,32 @@ export interface OpenVault {
   lock_recovery: LockRecovery | null;
 }
 
+export interface ExampleVaultOutcome {
+  vault_path: string;
+  project_id: string;
+  area_id: string;
+  profile_ref: { id: string; revision: number };
+  generated_asset_count: number;
+  motions: Array<{
+    name: string;
+    action_key: string;
+    template_ref: { id: string; revision: number };
+  }>;
+  npcs: Array<{
+    name: string;
+    character_id: string;
+    appearance_id: string;
+    binding_ids: string[];
+    generic_build: string;
+    godot_package: string;
+    animation_names: string[];
+  }>;
+}
+
 export interface VaultClient {
   chooseDirectory(): Promise<string | null>;
   inspect(path: string): Promise<VaultInspection>;
+  generateExample(path: string): Promise<ExampleVaultOutcome>;
   initialize(path: string, confirmationToken?: string): Promise<OpenVault>;
   open(path: string): Promise<OpenVault>;
   close(sessionId: string): Promise<void>;
@@ -101,6 +124,9 @@ export const vaultClient: VaultClient = {
   },
   inspect(path) {
     return invoke<VaultInspection>("inspect_vault", { path });
+  },
+  generateExample(path) {
+    return invoke<ExampleVaultOutcome>("generate_example_vault", { path });
   },
   initialize(path, confirmationToken) {
     return invoke<OpenVault>("initialize_vault", {

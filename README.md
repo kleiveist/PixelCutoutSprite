@@ -17,9 +17,9 @@ deterministic pixel-art cutout animations. It combines a React workspace with a 
 stores product data as ordinary JSON and PNG files in a user-selected local vault. Godot is an
 optional export target, not the application runtime.
 
-P00 through P20 provide the working native application, deterministic export path, recovery and
-desktop hardening, plus reproducible native build tooling. Start and validate it through the
-repository's existing control entry point:
+P00 through P21 provide the working native application, deterministic export path, recovery and
+desktop hardening, reproducible native build tooling, and the production-generated Lichterhain
+example vault. Start and validate it through the repository's existing control entry point:
 
 ```sh
 python tools/control.py tauri install --skip-system-deps
@@ -42,6 +42,12 @@ integration tooling remains deliberately separate.
 
 The [P20 native-build report](docs/developer/acceptance/native-builds-and-tooling.md) records the
 exact Linux package evidence and the honest Windows, macOS, signing, and Codespaces boundaries.
+The German [first-steps and Lichterhain guide](docs/guides/erste-schritte-und-lichterhain.md)
+explains the complete user workflow, storage/recovery rules, and Godot integration. In the
+packaged app, **Create Lichterhain example** creates and opens the complete sample in a selected
+empty folder without developer tools. The corresponding
+[P21 acceptance report](docs/developer/acceptance/example-vault-and-user-guide.md) records the
+production-service, reopen, Unicode-copy, and export evidence.
 
 ## Embedded Template Tooling
 

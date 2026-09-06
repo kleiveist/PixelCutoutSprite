@@ -20,6 +20,15 @@ function client(overrides: Partial<VaultClient>): VaultClient {
   return {
     chooseDirectory: vi.fn(async () => "/vault"),
     inspect: vi.fn(async (): Promise<VaultInspection> => ({ state: "empty", path: "/vault" })),
+    generateExample: vi.fn(async () => ({
+      vault_path: "/vault",
+      project_id: "project",
+      area_id: "area",
+      profile_ref: { id: "profile", revision: 1 },
+      generated_asset_count: 272,
+      motions: [],
+      npcs: [],
+    })),
     initialize: vi.fn(async () => opened),
     open: vi.fn(async () => opened),
     close: vi.fn(async () => undefined),
@@ -49,6 +58,19 @@ describe("VaultWelcome", () => {
     render(<VaultWelcome client={api} onOpened={onOpened} />);
     fireEvent.click(screen.getByRole("button", { name: /Choose vault/ }));
     await waitFor(() => expect(api.initialize).toHaveBeenCalledWith("/vault"));
+    expect(onOpened).toHaveBeenCalledWith(opened);
+  });
+
+  it("generates and opens Lichterhain through the packaged-app action", async () => {
+    const onOpened = vi.fn();
+    const api = client({});
+    render(<VaultWelcome client={api} onOpened={onOpened} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Lichterhain example" }));
+
+    await waitFor(() => expect(api.generateExample).toHaveBeenCalledWith("/vault"));
+    expect(api.open).toHaveBeenCalledWith("/vault");
+    expect(api.inspect).not.toHaveBeenCalled();
     expect(onOpened).toHaveBeenCalledWith(opened);
   });
 

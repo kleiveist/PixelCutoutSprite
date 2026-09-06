@@ -5,15 +5,18 @@ use std::path::{Path, PathBuf};
 use crate::domain::{
     parse_document, AnimationBinding, Appearance, Area, Asset, AssetKind, AssetRevision, Character,
     CharacterStatus, Direction, DirectionFit, DomainDocument, Equipment, EquipmentMotionTrack,
-    EquipmentPart, ExportManifest, MotionRevision, MotionTemplate, ObjectId, OutfitDraft,
+    EquipmentPart, ExportManifest, Label, MotionRevision, MotionTemplate, ObjectId, OutfitDraft,
     OutfitDraftStatus, OutfitFitting, ProfileRevision, RevisionRef, SlotId, SlotRef,
 };
-use crate::storage::{JsonStore, VaultRoot};
+use crate::storage::{
+    managed_json_kind, JsonStore, ManagedJsonKind, ManagedSupportJsonKind, VaultLayout, VaultRoot,
+};
 
 use super::appearance_service::{
     direction_rank, sort_fittings, AppearanceServiceError, OutfitAssetOption,
     OutfitCharacterChoice, OutfitDraftChoice, OutfitLabelOption,
 };
+use super::workspace_documents::{load_json, LabelCatalog};
 
 #[derive(Debug)]
 pub(super) struct AreaSnapshot {
@@ -733,16 +736,10 @@ pub(super) fn validate_project_labels(
     if requested.is_empty() {
         return Ok(());
     }
-    let matching = collect_documents(vault, vault.path(), 0, false)?
+    let matching = project_label_documents(vault, project_id)?
         .into_iter()
-        .filter_map(|(_, document)| match document {
-            DomainDocument::Label(label)
-                if label.project_id == Some(project_id) && requested_set.contains(&label.id) =>
-            {
-                Some(label.id)
-            }
-            _ => None,
-        })
+        .filter(|label| requested_set.contains(&label.id))
+        .map(|label| label.id)
         .collect::<HashSet<_>>();
     if matching != requested_set {
         return Err(AppearanceServiceError::InvalidState(
@@ -756,21 +753,75 @@ pub(super) fn project_labels(
     vault: &VaultRoot,
     project_id: ObjectId,
 ) -> Result<Vec<OutfitLabelOption>, AppearanceServiceError> {
-    let mut labels = collect_documents(vault, vault.path(), 0, false)?
+    let mut labels = project_label_documents(vault, project_id)?
         .into_iter()
-        .filter_map(|(_, document)| match document {
-            DomainDocument::Label(label) if label.project_id == Some(project_id) => {
-                Some(OutfitLabelOption {
-                    id: label.id,
-                    name: label.name,
-                    color: label.color,
-                })
-            }
-            _ => None,
+        .map(|label| OutfitLabelOption {
+            id: label.id,
+            name: label.name,
+            color: label.color,
         })
         .collect::<Vec<_>>();
     labels.sort_by(|left, right| left.name.cmp(&right.name).then(left.id.cmp(&right.id)));
     Ok(labels)
+}
+
+fn project_label_documents(
+    vault: &VaultRoot,
+    project_id: ObjectId,
+) -> Result<Vec<Label>, AppearanceServiceError> {
+    let mut labels = collect_documents(vault, vault.path(), 0, false)?
+        .into_iter()
+        .filter_map(|(_, document)| match document {
+            DomainDocument::Label(label) if label.project_id == Some(project_id) => Some(label),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    if let Some(catalog) = load_project_label_catalog(vault, project_id)? {
+        labels.extend(catalog.labels);
+    }
+    labels.sort_by_key(|label| label.id);
+    for pair in labels.windows(2) {
+        if pair[0].id == pair[1].id && pair[0] != pair[1] {
+            return Err(AppearanceServiceError::InvalidState(
+                "the NPC project contains conflicting label documents".to_owned(),
+            ));
+        }
+    }
+    labels.dedup_by_key(|label| label.id);
+    Ok(labels)
+}
+
+fn load_project_label_catalog(
+    vault: &VaultRoot,
+    project_id: ObjectId,
+) -> Result<Option<LabelCatalog>, AppearanceServiceError> {
+    let manifest = collect_documents(vault, vault.path(), 0, false)?
+        .into_iter()
+        .find_map(|(path, document)| match document {
+            DomainDocument::Project(project) if project.id == project_id => Some(path),
+            _ => None,
+        })
+        .ok_or_else(|| {
+            AppearanceServiceError::InvalidState(
+                "the NPC area project does not exist in this vault".to_owned(),
+            )
+        })?;
+    let project_folder = manifest.parent().and_then(Path::parent).ok_or_else(|| {
+        AppearanceServiceError::InvalidState(
+            "the NPC area project manifest has an invalid path".to_owned(),
+        )
+    })?;
+    let catalog_path = VaultLayout::new(vault.clone()).project_labels(project_folder)?;
+    let catalog = load_json(&catalog_path, LabelCatalog::validate)?;
+    if catalog
+        .as_ref()
+        .is_some_and(|catalog| catalog.project_id != Some(project_id))
+    {
+        return Err(AppearanceServiceError::InvalidState(
+            "the NPC label catalog belongs to a different project".to_owned(),
+        ));
+    }
+    Ok(catalog)
 }
 
 fn collect_documents(
@@ -830,7 +881,7 @@ fn collect_documents(
             let document = if is_derived_export_path(vault, &path) {
                 read_export_manifest_candidate(&path)
             } else {
-                read_domain_document(&path)
+                read_domain_document(vault, &path)
             }?;
             if let Some(document) = document {
                 let relative = path
@@ -892,33 +943,30 @@ fn read_export_manifest_candidate(
     }
 }
 
-fn read_domain_document(path: &Path) -> Result<Option<DomainDocument>, AppearanceServiceError> {
+fn read_domain_document(
+    vault: &VaultRoot,
+    path: &Path,
+) -> Result<Option<DomainDocument>, AppearanceServiceError> {
     let bytes = fs::read(path).map_err(|error| {
         AppearanceServiceError::InvalidState(format!("could not read area source: {error}"))
     })?;
+    let relative = path.strip_prefix(vault.path()).map_err(|_| {
+        AppearanceServiceError::InvalidState("area source escaped the vault".to_owned())
+    })?;
+    let classification = managed_json_kind(vault.path(), relative);
     match parse_document(&bytes) {
         Ok(document) => Ok(Some(document)),
-        Err(error) if is_managed_document_path(path) => Err(error.into()),
+        Err(error) if matches!(classification, Some(ManagedJsonKind::Domain(_))) => {
+            Err(error.into())
+        }
+        Err(error)
+            if matches!(
+                classification,
+                Some(ManagedJsonKind::Support(ManagedSupportJsonKind::Other))
+            ) && path.components().any(|part| part.as_os_str() == ".area") =>
+        {
+            Err(error.into())
+        }
         Err(_) => Ok(None),
     }
-}
-
-fn is_managed_document_path(path: &Path) -> bool {
-    if path
-        .components()
-        .any(|part| matches!(part.as_os_str().to_str(), Some(".area")))
-    {
-        return true;
-    }
-    let name = path.file_name().and_then(|value| value.to_str());
-    if matches!(
-        name,
-        Some("vault.json" | "character.json" | "binding.json" | "asset.json" | "template.json")
-    ) {
-        return true;
-    }
-    path.parent()
-        .and_then(Path::file_name)
-        .and_then(|value| value.to_str())
-        .is_some_and(|name| name == "appearances")
 }

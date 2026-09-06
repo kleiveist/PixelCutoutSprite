@@ -5,7 +5,7 @@
 
 **Planungsstand:** 6. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P20 abgeschlossen; P21 ist der nächste Schritt
+**Implementierung:** P00–P21 abgeschlossen; P22 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -194,6 +194,19 @@ autorisiertem Workflowlauf ausdrücklich nicht laufzeitabgenommen. Der
 [P20-Buildbericht](../acceptance/native-builds-and-tooling.md) dokumentiert Artefakt, Hash,
 Codespaces-Grenze, Signierungsfreigabe und alle Blocker.
 
+P21 macht den ersten vollständigen Nutzerweg ohne Entwicklerwerkzeuge direkt auf der Startseite
+erreichbar. „Create Lichterhain example“ erzeugt in einem ausgewählten leeren Ordner über die
+Produktionsservices eine portable Vault mit Projekt, 80-px-Humanoidbereich, 272 geprüften
+RGBA8-Assetrevisionen, drei gemeinsamen unveränderlichen Motion-Freigaben, den verschieden
+ausgestatteten NPCs Mira und Borin sowie vollständigen generischen und Godot-4.7.2-Paketen. Der
+Integrationstest schließt und öffnet die Vault neu, prüft gemeinsame Revisionen, lokale
+Korrekturen, statisches Equipment und Herkunft/Lizenz, kopiert sie an einen Leerzeichen-/
+Unicodepfad und exportiert von dort erneut. Die
+[deutsche Nutzeranleitung](../../guides/erste-schritte-und-lichterhain.md) erklärt zusätzlich den
+manuellen Weg, Hierarchie, Spiegelgrenzen, Recovery, Quell-/Exporttrennung und datensparsames
+Fehlerreporting. Der [P21-Bericht](../acceptance/example-vault-and-user-guide.md) hält die
+ausgeführten Nachweise und Grenzen fest.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -227,7 +240,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P18](../prompts/pixelcutoutsprite/18.md) | Recovery, Autosave und Datenintegrität härten | Abgeschlossen |
 | [P19](../prompts/pixelcutoutsprite/19.md) | Desktop-Usability und Leistung prüfen | Abgeschlossen |
 | [P20](../prompts/pixelcutoutsprite/20.md) | Native Builds, Tooling und Codespaces | Abgeschlossen |
-| [P21](../prompts/pixelcutoutsprite/21.md) | Anleitung und nachvollziehbare Beispiel-Vault | Nicht begonnen |
+| [P21](../prompts/pixelcutoutsprite/21.md) | Anleitung und nachvollziehbare Beispiel-Vault | Abgeschlossen |
 | [P22](../prompts/pixelcutoutsprite/22.md) | Gesamtabnahme und überprüfbarer Abschluss | Nicht begonnen |
 
 ## Progress
@@ -265,6 +278,9 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
   Manifest-/SHA-256-Artefaktprüfung, hostgebundene Paket-Smokes, Studio-CI-Matrix,
   Devcontainergrenze und ein tatsächlich geprüftes Linux-DEB erstellt und gegatet; Windows und
   macOS bleiben mit offenem Host-/Workflowblocker ausdrücklich nicht abgenommen.
+- [x] P21: produktionsservicebasierten Lichterhain-Generator in Desktop-App und CLI, vollständige
+  Beispiel-Vault, Reopen-/Unicode-Kopie-/Reexport-Test sowie deutsche Nutzer- und
+  Godot-Integrationsanleitung erstellt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
 - [x] Meilenstein C: Figuren, P12–P15.
@@ -528,6 +544,19 @@ aus, doch ohne Push oder passende lokale Hosts bleiben diese Resultate blockiert
 als PASS bezeichnet. Dasselbe gilt für den Devcontainer-Quellvertrag ohne verfügbaren
 Docker-/Podman-Daemon.
 
+**2026-09-06 / P21:** Der erste reale Durchlauf aus freigegebenen Motions in die Outfit-Erzeugung
+deckte auf, dass der Snapshot-Scanner unterstützende `motion_draft`-JSON irrtümlich als
+DomainDocument behandelte und Projektlabels nur in ihrem Katalog, nicht als einzelne Dateien
+vorliegen. Die gemeinsame Storage-Pfadklassifizierung überspringt nun Supportdokumente; der
+Outfitpfad lädt und validiert den projektbezogenen Labelkatalog ausdrücklich. Der vollständige
+Lichterhain-Test schützt beide zuvor von isolierten Fixtures verdeckten Übergänge.
+
+**2026-09-06 / P21:** 272 Beispielassets überschreiten absichtlich das harte Limit von 64
+Einträgen pro Import. Der Generator zerlegt deshalb sein eigenes geprüftes Paket in fünf normale
+Inspect-/Confirm-/Importläufe. Damit bleibt der Beispielweg innerhalb derselben Mengen- und
+Bytegrenzen wie eine manuelle Desktopoperation, statt eine privilegierte Fixture-Abkürzung zu
+verwenden.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -555,6 +584,7 @@ Docker-/Podman-Daemon.
 | ADR-022 | Mehrdatei-Mutationen verwenden einen eigentumsgeprüften, digest-versiegelten Journalplan; Writer-Exklusivität kommt aus einer OS-Dateisperre, nicht aus Alter oder Existenz der JSON-Metadaten. | Verhindert falsche Atomaritätszusagen, stille Übernahme aktiver Vaults und unprüfbare Recovery nach einem Rename-vor-Cursor-Crashfenster. |
 | ADR-023 | Große Inventare liefern cursorbasierte Metadatenseiten und getrennte sichtbarkeitsgeladene Thumbnails; Vorschau und Quellbitmaps teilen einen exakt gezählten 256-MiB-LRU, Importjobs besitzen harte Mengen-/Bytebudgets und einen nativen Abbruchzustand. | Verhindert unbegrenzte IPC-/React-Payloads und gleichzeitig dekodierte Bilder, ohne einen zweiten Rasterer oder eine neue Beschleunigungsabhängigkeit einzuführen. |
 | ADR-024 | Native Pakete sind zunächst unsignierte, kurzlebige Testkandidaten; jeder Host baut frisch, prüft reguläre repositorygebundene Artefakte, schreibt SHA-256-Evidenz und startet den Paketpayload mit isoliertem Nutzerzustand. | Trennt reproduzierbare technische Abnahme von Schlüsseln, Notarisierung und Veröffentlichung und verhindert, dass alte, fremde oder nutzerbehaftete Dateien als neuer Build gelten. |
+| ADR-025 | Die Beispiel-Vault wird lokal in einem ausdrücklich leeren Ordner durch Komposition der Produktionsservices erzeugt und über dieselbe Tauri-Aktion auch der paketierten App angeboten; es wird keine mutable Binär-/Fixture-Vault eingecheckt. | Hält Pfad-, Import-, Revisions-, Lock-, Export- und Lizenzregeln im Lernweg wirksam, verhindert stille Überschreibung und macht den vollständigen Einstieg ohne Entwicklerwerkzeuge reproduzierbar. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -663,6 +693,10 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-06 / P20 | vollständige `tools/tests`- und `tests/source`-Suite | Abschluss-Container, Python 3.11.2 | PASS: 1.272 Tests, 4 erwartete profilabhängige Skips | Portable Tooling-, Quality-, Profil-, CI-, Artefakt-, Capability-, ESLint- und Produktverträge bestehen gemeinsam; keine zuvor offene Source-Fixtureabweichung bleibt übrig. |
 | 2026-09-06 / P20 | rustfmt, `cargo check --locked --all-targets --all-features`, Clippy `-D warnings`, `cargo test --locked` sowie alle Frontend-Gates | Abschluss-Container, Rust 1.97.1, Node 24.19.0, npm 11.17.0 | PASS: 241 Rusttests, 4 Sonderläufe ignoriert; 177 Frontendtests in 40 Dateien; Build mit 118 Modulen | Direkter Produktcode, exakt ausgerichteter Tauri-Dialogstack, Compiler, Lints, Typen, Formatierung und Produktionsbundle bleiben nach der Toolingänderung grün. |
 | 2026-09-06 / P20 | `quality lint`, `quality architecture --format json`, `docs check`, `integrate --full-fix`, `integrate --check --json` und `git diff --check` | sauberer P20-Commitzustand; Quality zusätzlich mit frischem Cargo-Ziel und flüchtigem Debian-Sysroot | PASS | Zentrale Python-/TypeScript-/Rust-Gates, 142 TypeScript-Quelldateien, 146 Dokumentseiten und das vollständig integrierte Desktopprofil sind ohne getrackte Nachkorrektur grün; CI und Devcontainer installieren die für den All-Features-Build benötigte D-Bus-Entwicklungsabhängigkeit ausdrücklich. |
+| 2026-09-06 / P21 | fokussierter `example_vault`-Integrationstest über den öffentlichen Tauri-Command | Abschluss-Container, Rust 1.97.1 | PASS: 2 Tests; vollständiger Generieren-/Reopen-/Unicodekopie-/Reexport-Lauf 69,24 s | Der Produktionsservice erzeugt Lichterhain in einem leeren Ordner; gemeinsame Releases, getrennte NPCs, lokale Korrekturen, statisches Equipment, vollständige Exporte und der Schutz eines nichtleeren Ziels sind belegt. |
+| 2026-09-06 / P21 | `cargo test --locked --all-targets`, rustfmt, Check, Clippy `-D warnings` sowie Frontendtests, Typecheck, ESLint, Prettier und Vite-Build | Abschluss-Container, Rust 1.97.1, Node 24.19.0, npm 11.17.0 | PASS: 243 Rusttests, 4 begründete Sonderläufe ignoriert; 179 Frontendtests in 40 Dateien; Build mit 118 Modulen | Generator, Tauri-IPC und paketierte Startseitenaktion nutzen denselben Vertrag; eine zeitabhängige bestehende Polling-Assertion wartet nun auf den zuständigen React-Effekt. |
+| 2026-09-06 / P21 | `quality lint`, `quality architecture --format json`, `docs check --docs-dir docs`, `integrate --check --json` und `git diff --check` | Abschluss-Container | PASS | Python-/TypeScript-/Rust-Gates ohne Befund, 142 TypeScript-Quelldateien, 149 konsistente Dokumentseiten, sauberes Patchformat und Desktopprofil `INTEGRATED` ohne ausstehende Operation. GitHub-CI wurde auf ausdrücklichen Nutzerwunsch nicht gestartet. |
+| 2026-09-06 / P21 | aktuelles Linux-DEB bauen, SHA-256 und Payloadinhalt prüfen | flüchtiger Debian-12-Container, Linux x86_64 | PASS: 5.492.410 Bytes; SHA-256 `16a36b6199154625ebb9cab53c7eb9bc68035178591add7ef4b2083a1297e727` | Das Paket enthält den registrierten Generator und keine Entwicklerlaufzeit. Ein neuer Fensterstart ist wegen fehlendem Display und unvollständigem XKB im Container nicht belegt; der reale P20-Paketstart bleibt der native Laufnachweis. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -672,8 +706,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P21 für die deutsche Nutzeranleitung und eine nachvollziehbare
-Beispiel-Vault „Lichterhain“ über die echten Produktionsservices ausführen.
+**Nächster ausführbarer Schritt:** P22 als durchgehende Gesamtabnahme von leerer Vault bis Reopen,
+Preview-/Exportvergleich, Godot-4.7.2-Import und abschließender RQ-/E2E-Bewertung ausführen.
 
 ## Outcomes & Retrospective
 
@@ -754,5 +788,12 @@ zusätzliche Python-/Godot-Laufzeit. Windows, macOS und der Devcontainer-Imagebu
 beschönigt: Ihre Implementierungen und Runnerpfade sind eingecheckt, ihre in dieser Sitzung nicht
 verfügbaren Laufzeitergebnisse sind als konkrete Blocker protokolliert. Signierung und
 Veröffentlichung bleiben getrennte Freigabeschritte.
+P21 liefert die nachvollziehbare Produktbelegung dazu: Die installierte App kann in einem leeren
+Ordner selbst eine rechtlich klare Lichterhain-Vault erzeugen. Mira und Borin teilen Walk,
+Sprint und Jump als unveränderliche Freigaben, verwenden getrennte Sprites und starres Equipment
+und demonstrieren lokale Korrekturen ohne Vorlagenkopie. Vollständige PNG-/JSON- und
+Godot-Pakete, Reopen, Kopie an einen Unicodepfad und erneuter Export werden durch einen
+Produktionsservice-E2E-Test abgesichert; die deutsche Anleitung führt denselben Ablauf manuell
+und erklärt die betrieblichen Grenzen ohne unbelegte Plattform- oder Signierungszusagen.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

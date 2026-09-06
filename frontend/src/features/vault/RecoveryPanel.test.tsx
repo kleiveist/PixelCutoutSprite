@@ -35,6 +35,7 @@ function client(overrides: Partial<VaultClient> = {}): VaultClient {
   return {
     chooseDirectory: vi.fn(async () => null),
     inspect: vi.fn(),
+    generateExample: vi.fn(),
     initialize: vi.fn(),
     open: vi.fn(),
     close: vi.fn(async () => undefined),

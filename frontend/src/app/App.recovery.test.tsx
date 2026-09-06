@@ -197,6 +197,7 @@ function createVaultClient(vault: OpenVault, recover: VaultClient["recover"]): V
       writer_present: false,
       lock_recovery: null,
     })),
+    generateExample: vi.fn(),
     initialize: vi.fn(async () => vault),
     open: vi.fn(async () => vault),
     close: vi.fn(async () => undefined),

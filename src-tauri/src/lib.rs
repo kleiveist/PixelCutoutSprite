@@ -56,6 +56,7 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         .invoke_handler(tauri::generate_handler![
             desktop_identity,
             commands::inspect_vault,
+            commands::generate_example_vault,
             commands::initialize_vault,
             commands::open_vault,
             commands::close_vault,

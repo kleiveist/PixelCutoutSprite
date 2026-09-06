@@ -394,6 +394,7 @@ describe("desktop shell", () => {
         writer_present: false,
         lock_recovery: null,
       })),
+      generateExample: vi.fn(),
       initialize: vi.fn(),
       open: vi.fn(async (): Promise<OpenVault> => ({
         session_id: "session",
@@ -670,7 +671,9 @@ describe("desktop shell", () => {
     fireEvent.click(screen.getByRole("button", { name: /Choose vault/ }));
     await screen.findByRole("region", { name: "Active asset import" });
     await waitFor(() => expect(importJob).toHaveBeenCalledTimes(2), { timeout: 2_000 });
-    expect(screen.getByRole("contentinfo")).toHaveTextContent("cancelled safely");
+    await waitFor(() =>
+      expect(screen.getByRole("contentinfo")).toHaveTextContent("cancelled safely"),
+    );
   });
 
   it("does not close or switch away from a vault with an active import", async () => {
@@ -732,6 +735,7 @@ function appVaultClient(sessionId: string): VaultClient {
       writer_present: false,
       lock_recovery: null,
     })),
+    generateExample: vi.fn(),
     initialize: vi.fn(),
     open: vi.fn(async (): Promise<OpenVault> => ({
       session_id: sessionId,

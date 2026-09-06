@@ -23,6 +23,14 @@ beforeEach(() => {
 });
 
 describe("vault client", () => {
+  it("generates the example only at the explicitly selected path", async () => {
+    await vaultClient.generateExample("/vault/Lichterhain");
+
+    expect(runtime.invoke).toHaveBeenCalledWith("generate_example_vault", {
+      path: "/vault/Lichterhain",
+    });
+  });
+
   it("addresses recovery only by session and opaque transaction identity", async () => {
     await vaultClient.listRecovery("session-1");
     await vaultClient.recover("session-1", "transaction-1", "rollback");
