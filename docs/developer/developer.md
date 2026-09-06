@@ -1,6 +1,8 @@
 <!-- AUTO-GENERATED:backlink START -->
+
 [← Back](../index.md)
 <!-- AUTO-GENERATED:backlink END -->
+
 # Developer documentation
 
 <!-- AUTO-GENERATED:docs-index START -->
@@ -10,6 +12,7 @@
 - 📦 [P20 — Native Builds, Tooling und Codespaces](acceptance/native-builds-and-tooling.md)
 - 🌲 [P21 — Beispiel-Vault und Nutzeranleitung](acceptance/example-vault-and-user-guide.md)
 - ✅ [P22 — Gesamtabnahme](acceptance/final-acceptance.md)
+- 🧬 [P27 — PixelPromptStudio-Integrationsabnahme](acceptance/prompt-studio-integration.md)
 - 📋 [Requirement ledger](acceptance/requirements.md)
 - 🧭 [Decisions](decisions/decisions.md)
 - 🖥️ [ADR-001: Tauri desktop profile](decisions/adr-001-tauri-desktop.md)
@@ -29,6 +32,7 @@
 - 🗺️ [Plans](plans/plans.md)
 - 🧭 [PixelCutoutSprite Studio ExecPlan](plans/pixelcutoutsprite-execplan.md)
 - 🧭 [PixelPromptStudio integration plan](plans/prompt-studio-integration.md)
+- 🧬 [PixelPromptStudio integration architecture](prompt-generator-architecture.md)
 - 🧩 [Prompts](prompts/prompts.md)
 - 🧾 [Repository inventory](repository-inventory.md)
 - 💾 [Storage](storage/storage.md)

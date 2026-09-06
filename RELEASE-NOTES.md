@@ -1,4 +1,4 @@
-# Unreleased — PixelPromptStudio integration shell
+# Unreleased — PixelPromptStudio integration
 
 Date: 6 September 2026
 
@@ -27,9 +27,15 @@ Date: 6 September 2026
   in-memory adapters only for browser development and tests.
 - Added a versioned Prompt handoff that is enabled only for a selected writable Cutout Area,
   preserves the source as a JSON reference and returns to the retained Cutout context.
+- Added five Playwright system scenarios for the shared header, isolated navigation/styles, legacy
+  PixelForge V2 import, persisted prompt workflow and all three handoff availability states.
+- Kept the Prompt schema/domain feature graph in one WebKit-safe production chunk after native
+  acceptance exposed a cyclic forced-split initialization that Chromium did not reproduce.
+- Verified the exact Node 24.19.0 and Rust 1.97.1 gates, visible Tauri/WebKitGTK restart and offline
+  recovery, a Linux DEB, its SHA-256 manifest and the native installer-payload smoke.
 
-Final E2E/native cross-workflow acceptance remains P27. This local unreleased work does not imply
-a push, package, publication or platform acceptance.
+P23–P27 are complete in the local repository. This unreleased work does not imply a push,
+publication, signing or Windows/macOS runtime acceptance.
 
 # Template Tooling 0.4.0
 

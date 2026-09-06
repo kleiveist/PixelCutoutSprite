@@ -25,8 +25,9 @@ P00 through P22 provide the completed native Cutout application, deterministic e
 recovery and desktop hardening, reproducible native build tooling, the production-generated
 Lichterhain example vault, and the final requirement/E2E acceptance. P23 adds the isolated
 PixelPromptStudio source boundary, P24 the shared accessible studio header and guarded switch, and
-P25 the complete embedded Prompt workspace, and P26 native app-data persistence, dialog-based
-import/export and the controlled Cutout handoff. Final cross-workflow acceptance remains P27.
+P25 the complete embedded Prompt workspace, P26 native app-data persistence, dialog-based
+import/export and the controlled Cutout handoff, and P27 the integrated browser/native acceptance.
+The complete P00–P27 implementation series is locally finished.
 Start and validate the application through the repository's existing control entry point:
 
 ```sh
@@ -61,6 +62,12 @@ The [P22 final acceptance](docs/developer/acceptance/final-acceptance.md) maps R
 E2E A–J to implementation and executed evidence, including pixel-exact preview/export comparison
 and a fresh Godot 4.7.2 import.
 
+The [P27 PixelPromptStudio acceptance](docs/developer/acceptance/prompt-studio-integration.md)
+records the exact Node 24/Rust 1.97 gates, five Playwright system scenarios, visible WebKitGTK
+restart/offline evidence and the verified Linux DEB. The German
+[Prompt Generator guide](docs/guides/prompt-generator.md) explains profile import, drafts, native
+exports, recovery and the controlled handoff into a writable Cutout Area.
+
 The [PixelPromptStudio integration plan](docs/developer/plans/prompt-studio-integration.md)
 records phases P23–P27. P23 ports only the prompt-facing PixelForgeStudio modules and documents
 their source revisions and license. It does not add the PixelForge start page, application shell,
@@ -69,7 +76,8 @@ unchanged Cutout router and protects editor state before switching. P25 embeds D
 Wizard, Output and Settings with local Prompt navigation and scoped styles. P26 stores settings,
 profiles, the active draft and migration backup under the native app-data directory, uses native
 import/export dialogs and writes a versioned prompt reference only after an explicit handoff into
-a writable selected Area. P27 is the remaining integrated acceptance phase.
+a writable selected Area. P27 completes the cross-workflow regression, native package and
+documentation acceptance; no second app, outer PixelForge shell or external web page is included.
 
 ## Embedded Template Tooling
 

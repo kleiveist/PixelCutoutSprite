@@ -7,7 +7,7 @@
 
 **Planungsstand:** 6. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P26 abgeschlossen; P27 freigegeben und als abschließende Abnahme als Nächstes
+**Implementierung:** P00–P27 abgeschlossen; PixelPromptStudio-Integrationsgate bestanden
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -283,8 +283,8 @@ Prompt-Übergabe.
 
 ## Concrete Steps
 
-P00–P22 sind abgeschlossen. P23–P26 wurden separat umgesetzt und geprüft. P27 ist ausdrücklich
-freigegeben und beginnt nach dem separat committed P26-Gate.
+P00–P22 sind abgeschlossen. P23–P27 wurden separat umgesetzt, geprüft und dokumentiert. Es gibt
+keine offene Implementierungsphase in dieser Serie.
 
 | Phase                                     | Auftrag                                                 | Status                     |
 | ----------------------------------------- | ------------------------------------------------------- | -------------------------- |
@@ -315,7 +315,7 @@ freigegeben und beginnt nach dem separat committed P26-Gate.
 | [P24](../prompts/pixelcutoutsprite/24.md) | Gemeinsamer Header und sichere Studio-Umschaltung       | Abgeschlossen; Gate PASS   |
 | [P25](../prompts/pixelcutoutsprite/25.md) | Vollständige PixelPromptStudio-Oberfläche portieren     | Abgeschlossen; Gate PASS   |
 | [P26](../prompts/pixelcutoutsprite/26.md) | Native Prompt-Persistenz, Export und Cutout-Handoff     | Abgeschlossen; Gate PASS   |
-| [P27](../prompts/pixelcutoutsprite/27.md) | Integrierte Studio-Workflows abnehmen und dokumentieren | Freigegeben; als Nächstes  |
+| [P27](../prompts/pixelcutoutsprite/27.md) | Integrierte Studio-Workflows abnehmen und dokumentieren | Abgeschlossen; Gate PASS  |
 
 ## Progress
 
@@ -366,15 +366,15 @@ freigegeben und beginnt nach dem separat committed P26-Gate.
       Navigationsschutz umsetzen, prüfen und separat committen.
 - [x] P25: vollständige Prompt-Oberfläche, Provider, Navigation und isolierte Styles portieren.
 - [x] P26: native Prompt-Persistenz, Import/Export und versionierten Cutout-Handoff umsetzen.
-- [ ] P27: integrierte Frontend-, Rust- und Browserworkflows abnehmen und dokumentieren.
+- [x] P27: integrierte Frontend-, Rust-, Browser-, native Restart-/Offline- und Paketworkflows
+      abnehmen und dokumentieren.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
 - [x] Meilenstein C: Figuren, P12–P15.
 - [x] Meilenstein D: Spieleinbindung, P16–P17.
 - [x] Meilenstein E: belastbare Desktop-Version, P18–P22; Windows/macOS-Laufzeitevidenz bleibt
       als ausdrücklich offener betrieblicher Plattformnachweis dokumentiert.
-- [ ] Meilenstein F: PixelPromptStudio vollständig einbetten und abnehmen; P23–P26 sind
-      abgeschlossen, P27 ist freigegeben und als Nächstes auszuführen.
+- [x] Meilenstein F: PixelPromptStudio vollständig einbetten und mit P23–P27 abnehmen.
 
 Bei jeder Phasenänderung ergänzen: Datum, tatsächlicher Umfang, betroffene Dateien, Prüfungen und nächster Schritt. Noch nicht geprüfte Plattformen werden nicht als fertig markiert.
 
@@ -439,6 +439,20 @@ bestimmt einmal den vertrauenswürdigen App-Datenpfad und übergibt an Commands 
 feste Dateien-Enum. Nur der ausdrücklich ausgelöste Handoff verwendet den vorhandenen
 area-serialisierten Vault-Schreibpfad und erzeugt dort eine versionierte Referenz. Dadurch kann der
 Generator ohne Vault starten, während vorhandene Vaults ohne Übergabe byteweise unberührt bleiben.
+
+**2026-09-06 / P27:** Die erzwungene `maxSize`-Aufteilung der Prompt-Featuregruppe erzeugte im
+Vite-Produktionsbundle zwei zyklisch voneinander abhängige Schema-/Domain-Chunks. Chromium lud den
+Graphen scheinbar korrekt; WebKitGTK wertete einen noch nicht initialisierten Enum-Export aus und
+Zod brach beim Start mit `Object.values` auf `undefined` ab. Das P27-Custom-Protocol-Gate machte
+den Fehler sichtbar. Prompt-Domain, -Features und -Store bleiben deshalb als ein Chunk mit
+575,08 kB beziehungsweise 154,24 kB gzip zusammen. Der anschließende WebKitGTK-Lauf und das neu
+gebaute DEB rendern beide Studios fehlerfrei.
+
+**2026-09-06 / P27:** Der unprivilegierte Abschlusscontainer erlaubt weder `unshare` noch
+Bubblewrap-Netznamespaces. Der Offline-Nachweis verwendet daher das eingebettete DEB mit allen
+externen Proxywegen auf `127.0.0.1:9`, lässt nur Loopback und `tauri.localhost` aus und kombiniert
+dies mit der Quellprüfung auf fehlende externe Prompt-Endpunkte. Dieser belegte Umfang wird nicht
+als Kernel-Netzisolation ausgegeben.
 
 **2026-09-05:** „Nicht animiertes“ Equipment muss seinem Träger trotzdem folgen können. Sichtbarkeit, Mitführen und Eigenbewegung sind deshalb getrennte Eigenschaften.
 
@@ -890,6 +904,13 @@ Prüflog ersetzt diesen Anfangsbefund mit den tatsächlich ausgeführten Ergebni
 | 2026-09-06 / P26             | `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test -- --exclude 'e2e/**'`, `npm run build`                                                                                                                              | aktueller Workspace, Node 22.22.2, npm 10.9.7                                                                                                                                    | PASS: 149 Dateien / 771 Tests; Vite-Build mit 401 Modulen                                                                                       | Der vollständige Cutout-/Prompt-Satz bleibt grün. Die bereits vorbereitete, noch nicht zu P26 gehörende Playwright-Datei benötigt in P27 eine dauerhafte Vitest-Exklusion; der P26-Lauf schloss sie deshalb ausdrücklich aus.                                                                                                                                                |
 | 2026-09-06 / P26             | `cargo fmt --check`, `cargo test --manifest-path src-tauri/Cargo.toml --all-targets`, fokussierter Filter `prompt_`                                                                                                                        | Rust 1.97.1; isolierter Debian-12-Sysroot für fehlende Tauri-Entwicklungspakete                                                                                                  | PASS: vollständiger Rust-Satz; fokussiert 13 Prompt-Tests                                                                                       | Reopen-Persistenz, feste Schemas/Größen, atomarer letzter guter Stand, Pending-/Previous-Recovery, Symlinkschutz, Draft-Entfernung, Import, Export, Handoff und Read-only-Ablehnung bestehen; vier bereits dokumentierte Hardware-/Godot-Sonderläufe bleiben ignoriert.                                                                                 |
 | 2026-09-06 / P26             | `python3 tools/control.py test --suite frontend`, `python3 tools/control.py tauri test --cargo`                                                                                                                                             | Node 22.22.2; Rust 1.97.1; isolierter Debian-12-Sysroot                                                                                                                          | PASS: zentrale Frontend- und Cargo-Check-/Test-Gates                                                                                            | Die Repository-Einstiegspunkte bestätigen denselben vollständigen Frontend- und nativen Rust-Stand. Native GUI-Run-, Paket-, Smoke- und Offline-Evidenz folgen gebündelt in P27.                                                                                                                                                                  |
+| 2026-09-06 / P27             | `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run build`, `python3 tools/control.py test --suite frontend`                                                                                                  | exaktes Node 24.19.0, npm 11.17.0                                                                                                                                                | PASS: 149 Vitest-Dateien / 771 Tests; Vite-Build mit 401 Modulen; Control-Gate OK                                                                | Der bisher blockierte exakte Node-Pin ist mit der offiziellen Binärdistribution nachgeholt. Nach der WebKit-Korrektur misst der bewusst ungeteilte Prompt-Chunk 575,08 kB beziehungsweise 154,24 kB gzip.                                                                                                                                             |
+| 2026-09-06 / P27             | `npm run test:e2e`                                                                                                                                                                                                                           | Playwright 1.63.0, Chromium, 1440 × 900, ein Worker; zuvor Vite-Produktionsbuild                                                                                                  | PASS: 5 Szenarien in 9,9 s                                                                                                                       | Misst Header/Fokus/Grün/Vollbreite/Scroll/CSS, erhält beide Navigationskontexte, importiert PixelForge V2, führt den profilgestützten Wizard bis Ausgabe/Export/Reload und prüft Handoff ohne Vault, read-only sowie schreibbar mit Rückkehr zur Area.                                                                                                  |
+| 2026-09-06 / P27             | `cargo fmt --manifest-path src-tauri/Cargo.toml --check`, `python3 tools/control.py tauri test --cargo`                                                                                                                                      | Rust 1.97.1; isolierter Debian-12-Sysroot                                                                                                                                        | PASS                                                                                                                                             | Vollständiger Rust-Satz einschließlich 13 fokussierter Prompt-Tests; vier historische Hardware-/Godot-Sonderläufe bleiben erwartungsgemäß ignoriert.                                                                                                                                                                                               |
+| 2026-09-06 / P27             | `python3 tools/control.py tauri run --foreground` plus sichtbare X11/WebKitGTK-Bedienung und echter Prozessneustart                                                                                                                         | isoliertes X11 1440 × 900, temporärer Debian-12-GTK/WebKit-Sysroot                                                                                                               | PASS im belegten Linux-Umfang; nach Beobachtung kontrolliert beendet                                                                             | Beide Studios sind bedienbar. `draft.json` wurde nativ bis `wizard/category` geschrieben, nach vollständigem App-Neustart auf dem Dashboard angeboten und wieder geöffnet.                                                                                                                                                                        |
+| 2026-09-06 / P27             | Custom-Protocol-Debuglauf, danach `python3 tools/control.py tauri build --target linux --bundles deb` und `python3 tools/control.py tauri smoke --target linux`                                                                             | Linux x86_64, WebKitGTK, exakte Node-/Rust-Pins                                                                                                                                  | PASS: DEB 5.689.148 Byte; SHA-256 `16e896d09abfcfefe42484dde6773e42f3dbf7de26081953f522e79c229a2997`; Smoke 3,052 s | Das native Gate fand und beseitigte den zyklischen Prompt-Chunk-Startfehler. Der neu gebaute Installer-Payload blieb aktiv und beide Studios rendern aus dem extrahierten endgültigen DEB.                                                                                                                                                           |
+| 2026-09-06 / P27             | extrahiertes endgültiges DEB mit `HTTP(S)_PROXY`/`ALL_PROXY=http://127.0.0.1:9`, sichtbarer Prompt-Draft und vollständigem Prozessneustart                                                                                                  | isolierter App-Datenpfad; nur Loopback/`tauri.localhost` von Proxyumleitung ausgenommen                                                                                           | PASS im dokumentierten Proxy-/Quellumfang                                                                                                        | Cutout und Prompt öffnen ohne externen Dienst; „Offline restart proof“ wird nativ gespeichert und nach Neustart als Schritt `category` fortsetzbar. Unprivilegierte Kernel-Netznamespace-Isolation war nicht verfügbar und wird nicht behauptet.                                                                                                     |
+| 2026-09-06 / P27             | `python3 tools/control.py docs check --docs-dir docs`, `.tooling-state/venv/bin/python -m pytest -q -p no:cacheprovider tests/source/test_repository_documentation.py`                                                                     | Abschluss-Workspace, Python 3.11.2                                                                                                                                                | PASS: 159 Dokumentseiten konsistent; 3 Tests                                                                                                     | Nutzeranleitung, Architektur, Release Notes, Einstieg, Integrationsplan, P27-Nachweis und alle Phasenstatus entsprechen dem belegten Endstand.                                                                                                                                                                                                      |
 
 Die vorhandenen Repository-Gates wurden während der Implementierung entsprechend ihrer
 tatsächlichen Verfügbarkeit verwendet; Änderungen an ihren Verträgen sind im Prüflog und in den
@@ -901,12 +922,10 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster Implementierungsschritt:** Den separat geprüften P26-Stand committen und anschließend die
-bereits ausdrücklich freigegebene P27-Gesamtabnahme ausführen: Vitest/Playwright dauerhaft
-abgrenzen, vollständige Frontend-/Rust-/native Run-/Build-/Smoke-Gates belegen und Nutzer-,
-Architektur-, Release- sowie Einstiegsdokumentation auf den realen Endstand bringen. Reale
-Windows-/macOS-Abnahmen, Signierung, Notarisierung, Tag, Release und Push bleiben getrennte Schritte
-mit eigener Freigabe.
+**Nächster Implementierungsschritt:** Keiner innerhalb P00–P27. Die PixelPromptStudio-Integration
+ist implementiert, gegatet und dokumentiert. Reale Windows-/macOS-Abnahmen, Signierung,
+Notarisierung, Tag, Release und Push bleiben getrennte optionale Schritte mit eigener Freigabe und
+werden nicht aus diesem Abschluss abgeleitet.
 
 ## Outcomes & Retrospective
 
@@ -1002,10 +1021,11 @@ mit der offiziellen Godot-4.7.2-Binärdatei frisch ohne seine Vault sowie erneut
 Unicode-Relocation. RQ-01–RQ-40 und E2E A–J sind in der Abschlussmatrix bewertet; nur die reale
 Windows-/macOS-Laufzeitevidenz bleibt ausdrücklich offen und wird nicht als PASS ausgegeben.
 
-Die Dokumentationsfortschreibung vom 6. September 2026 verändert diesen Abschluss nicht. Sie
-behandelt P00–P22 als abgeschlossene Basis und eröffnet mit P23–P27 einen neuen
-Erweiterungsmeilenstein. P23 liefert dessen isolierte Prompt-Codebasis, P24 die geprüfte gemeinsame
-Shell und sichere Umschaltung und P25 die vollständige browserentwicklungsfähige Prompt-
-Oberfläche. P26 ergänzt die native App-Daten-Persistenz, Dialogimporte und -exporte sowie den
-versionierten, nur bei schreibbarem Area-Kontext möglichen Cutout-Handoff. P27 ist als
-abschließende integrierte Abnahme ausdrücklich freigegeben.
+Die Erweiterung P23–P27 ist ebenfalls abgeschlossen. P23 liefert ihre isolierte Prompt-Codebasis,
+P24 die geprüfte gemeinsame Shell und sichere Umschaltung, P25 die vollständige Prompt-Oberfläche
+und P26 native App-Daten-Persistenz, Dialogimporte/-exporte sowie den versionierten, nur bei
+schreibbarem Area-Kontext möglichen Cutout-Handoff. P27 belegt den Gesamtweg mit exakten
+Frontend-/Rust-Gates, fünf Playwright-Systemfällen, sichtbarem Tauri/WebKitGTK-Restart,
+Offline-Draft, korrigiertem Custom-Protocol-Produktionsbundle sowie verifiziertem Linux-DEB und
+Smoke-Test. Die Windows-/macOS-, Signierungs- und Veröffentlichungsgrenzen bleiben unverändert
+offen und werden nicht als Teil dieses Linux-Abschlusses behauptet.

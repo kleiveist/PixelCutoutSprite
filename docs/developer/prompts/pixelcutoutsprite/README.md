@@ -50,8 +50,9 @@ sie sind keine offene Aufgabenliste.
 | [P24](24.md) | Gemeinsamer Header und sichere Studio-Umschaltung       | P23            | Abgeschlossen; Gate bestanden |
 | [P25](25.md) | Vollständige PixelPromptStudio-Oberfläche portieren     | P24            | Abgeschlossen; Gate bestanden |
 | [P26](26.md) | Native Prompt-Persistenz, Export und Cutout-Handoff     | P25            | Abgeschlossen; Gate bestanden |
-| [P27](27.md) | Integrierte Studio-Workflows abnehmen und dokumentieren | P23–P26        | Freigegeben; als Nächstes     |
+| [P27](27.md) | Integrierte Studio-Workflows abnehmen und dokumentieren | P23–P26        | Abgeschlossen; Gate bestanden |
 
-Maßgeblich für den tatsächlichen Fortschritt ist der lebende ExecPlan, nicht die Existenz einer
-Prompt-Datei. Die tatsächlich ausgeführten Nachweise und der nächste freizugebende Schritt stehen
-im ExecPlan.
+P23–P27 sind durch die
+[P27-Integrationsabnahme](../../acceptance/prompt-studio-integration.md) abgeschlossen. Maßgeblich
+bleiben die tatsächlich ausgeführten Nachweise im lebenden ExecPlan, nicht die bloße Existenz der
+Prompt-Dateien.

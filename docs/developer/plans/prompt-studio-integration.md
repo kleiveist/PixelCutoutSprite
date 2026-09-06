@@ -6,15 +6,16 @@
 # PixelPromptStudio in PixelCutoutSprite integrieren
 
 **Planungsstand:** 6. September 2026
-**Status:** P23–P26 abgeschlossen; P27 freigegeben und als abschließende Abnahme als Nächstes
+**Status:** P23–P27 abgeschlossen; vollständiges Integrationsgate bestanden
 **Zielrepository:** `kleiveist/PixelCutoutSprite`
 **Quellrepository:** `kleiveist/PixelForgeStudio`
 
 Dieser Plan erweitert die abgeschlossene PixelCutoutSprite-Basisserie P00–P22 um die fünf
 aufeinander aufbauenden Phasen P23–P27. P23 stellt den isolierten Prompt-Namensraum bereit, P24
 die gemeinsame Shell und P25 die produktive Prompt-Oberfläche. P26 ergänzt native Persistenz,
-Import/Export und Cutout-Handoff; die Gesamtabnahme folgt in P27. Ausgeführte Nachweise werden im
-[lebenden ExecPlan](pixelcutoutsprite-execplan.md) geführt.
+Import/Export und Cutout-Handoff; P27 schließt die browserseitige, native und dokumentarische
+Gesamtabnahme ab. Ausgeführte Nachweise werden im [lebenden ExecPlan](pixelcutoutsprite-execplan.md)
+und in der [P27-Integrationsabnahme](../acceptance/prompt-studio-integration.md) geführt.
 
 ## Verifizierte Ausgangsbasis
 
@@ -209,7 +210,7 @@ den vorherigen Cutout-Kontext zurückkehren.
 | [P24](../prompts/pixelcutoutsprite/24.md) | gemeinsamer Header, StudioMode und sicherer Wechsel                     | Abgeschlossen; Phase-2-Gate bestanden | `🧩 Add shared studio header switcher`                |
 | [P25](../prompts/pixelcutoutsprite/25.md) | vollständige Prompt-Oberfläche, Provider, Navigation und CSS-Isolierung | Abgeschlossen; Phase-3-Gate bestanden | `🧬 Port PixelPromptStudio generator`                 |
 | [P26](../prompts/pixelcutoutsprite/26.md) | native Persistenz, Import/Export und Cutout-Handoff                     | Abgeschlossen; Phase-4-Gate bestanden | `💾 Add native prompt persistence and cutout handoff` |
-| [P27](../prompts/pixelcutoutsprite/27.md) | Regression, E2E, native Abnahme und Dokumentation                       | Freigegeben; als Nächstes              | `✅ Verify integrated studio workflows`               |
+| [P27](../prompts/pixelcutoutsprite/27.md) | Regression, E2E, native Abnahme und Dokumentation                       | Abgeschlossen; Gesamt-Gate bestanden   | `✅ Verify integrated studio workflows`               |
 
 Die Commitzeilen sind Vorschläge, keine Erlaubnis für automatische Commits oder Pushes. Eine Phase
 beginnt erst, wenn das Gate ihrer Vorgängerphase belegt ist.
@@ -268,8 +269,13 @@ Größenlimits, gestufte atomare Writes und Recovery werden zusätzlich in Rust 
 Markdown-/JSON-Export laufen über native Dialoge. Der versionierte Handoff schreibt nur nach einer
 ausdrücklichen Aktion und nur mit schreibbarer Vault plus gewählter Area eine JSON-Referenz unter
 `prompt-references/`; ohne gültigen Kontext bleibt er begründet deaktiviert, während Kopieren und
-Export verfügbar bleiben. P27 bleibt die freigegebene abschließende Gesamtprüfung und
-Dokumentation.
+Export verfügbar bleiben.
+
+P27 ergänzt fünf Playwright-Systemfälle, die dauerhafte Vitest-/Playwright-Abgrenzung, exakte
+Node-24- und Rust-1.97-Gates sowie reale Tauri/WebKitGTK-, Restart-, Offline-, DEB- und
+Installer-Smoke-Nachweise. Die native Prüfung beseitigte außerdem eine von Chromium verdeckte
+zyklische Chunkinitialisierung: Prompt-Domain, -Features und -Store bleiben im Produktionsbuild
+bewusst in einem WebKit-sicheren Chunk. Damit ist die Definition of Done erfüllt.
 
 Zusätzlich gelten:
 

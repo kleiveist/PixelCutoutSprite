@@ -9,6 +9,7 @@
 - 📦 [P20 — Native Builds, Tooling und Codespaces](native-builds-and-tooling.md)
 - 🌲 [P21 — Beispiel-Vault und Nutzeranleitung](example-vault-and-user-guide.md)
 - ✅ [P22 — Gesamtabnahme](final-acceptance.md)
+- 🧬 [P27 — PixelPromptStudio-Integrationsabnahme](prompt-studio-integration.md)
 - 📋 [Requirement ledger](requirements.md)
 
 <!-- AUTO-GENERATED:docs-index END -->

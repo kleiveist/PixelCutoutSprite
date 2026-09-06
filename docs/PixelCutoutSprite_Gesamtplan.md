@@ -12,7 +12,7 @@
 > **Historischer Abschluss:** Diese Ein-Datei-Fassung bewahrt den initialen Planungsstand für
 > P00–P22. Die Basisserie ist seit dem 6. September 2026 vollständig abgeschlossen; Aussagen im
 > eingebetteten Ausgangsplan wie „noch nicht implementiert“ sind keine Beschreibung des heutigen
-> Repository-Stands. Die neu eröffnete Erweiterungsserie P23–P27 und ihr aktueller Fortschritt
+> Repository-Stands. Die ebenfalls abgeschlossene Erweiterungsserie P23–P27 und ihre Abnahme
 > stehen im
 > [PixelPromptStudio-Integrationsplan](developer/plans/prompt-studio-integration.md) und im
 > [aktuellen Phasenindex](developer/prompts/pixelcutoutsprite/README.md).

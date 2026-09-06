@@ -1,7 +1,7 @@
 # PixelCutoutSprite Studio — Einstieg
 
-**Stand:** 6. September 2026 · **Inhalt:** funktional abgeschlossene Cutout-Basis P00–P22 und
-abgeschlossene PixelPromptStudio-Phasen P23–P26; P27 ist als Gesamtabnahme freigegeben.
+**Stand:** 6. September 2026 · **Inhalt:** vollständig abgeschlossene Cutout-Basis P00–P22 und
+PixelPromptStudio-Integration P23–P27.
 
 ## Anwendung starten
 
@@ -27,7 +27,9 @@ WebView gebündelt und nicht als eigenständiges Webprodukt ausgeliefert.
 | [P20-Build-Abnahme](docs/developer/acceptance/native-builds-and-tooling.md)             | Native Build-, Paket-, CI-, Devcontainer- und Plattformnachweise samt Blockern.                    |
 | [P21-Beispiel-Abnahme](docs/developer/acceptance/example-vault-and-user-guide.md)       | Produktionsnah erzeugte Beispiel-Vault „Lichterhain“ und deutsche Nutzeranleitung.                 |
 | [P22-Gesamtabnahme](docs/developer/acceptance/final-acceptance.md)                      | Abschlussmatrix für RQ-01–RQ-40 und E2E A–J mit ausgeführten Tests und ehrlichen Plattformgrenzen. |
+| [P27-Prompt-Abnahme](docs/developer/acceptance/prompt-studio-integration.md)            | Integrierte Browser-, Tauri-, Offline-, Restart-, Handoff- und Linux-Paketnachweise.                |
 | [PixelPromptStudio-Integrationsplan](docs/developer/plans/prompt-studio-integration.md) | Architekturgrenze, fünf neue Phasen, native Persistenz und Cutout-Handoff.                         |
+| [Prompt-Generator-Anleitung](docs/guides/prompt-generator.md)                          | Assetentwurf, Profile, native Ablage/Exporte, Recovery und Übergabe an Cutout.                      |
 | [Phasenindex](docs/developer/prompts/pixelcutoutsprite/README.md)                       | P00–P27 mit aktuellem Umsetzungs- und Prüfstatus.                                                  |
 | [Masterauftrag](docs/developer/prompts/pixelcutoutsprite/MASTERPROMPT.md)               | Übergeordneter Arbeitsauftrag einschließlich Serienmodus.                                          |
 | [Fortsetzungsauftrag](docs/developer/prompts/pixelcutoutsprite/FORTSETZEN.md)           | Wiederaufnahme in einer neuen Arbeitssitzung.                                                      |
@@ -128,9 +130,10 @@ Profilbibliothek, vollständigen Wizard, Ausgabeprüfung und Einstellungen. Die 
 bleibt vom Cutout-Router getrennt; Prompt-Tokens und Resetregeln gelten nur innerhalb von
 `.prompt-generator-root`.
 
-P26 ergänzt native App-Daten, nativen Import/Export und die kontrollierte Cutout-Übergabe. P27 ist
-für die Gesamtabnahme und Abschlussdokumentation freigegeben. Jede Phase erhält einen eigenen
-Commit.
+P26 ergänzt native App-Daten, nativen Import/Export und die kontrollierte Cutout-Übergabe. P27
+belegt den vollständigen Workflow mit Frontend-, Rust-, Playwright-, WebKitGTK-, Offline-,
+Restart-, DEB- und Smoke-Prüfungen. Die Erweiterungsserie ist abgeschlossen; die fünf Phasen
+besitzen getrennte Commits.
 
 ## Leitentscheidungen
 

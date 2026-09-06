@@ -554,15 +554,17 @@ describe("guided Wizard integration", () => {
     const detailSummary = screen.getByRole("complementary", {
       name: "Technische Zusammenfassung",
     });
-    expect(within(detailSummary).getByText("Objektklasse").nextElementSibling).toHaveTextContent(
-      "Karren / Wagen",
-    );
-    expect(within(detailSummary).getByText("Standfläche").nextElementSibling).toHaveTextContent(
-      "2 × 1 Tiles",
-    );
-    expect(within(detailSummary).getByText("Bewegungsart").nextElementSibling).toHaveTextContent(
-      "Rollen",
-    );
+    await waitFor(() => {
+      expect(within(detailSummary).getByText("Objektklasse").nextElementSibling).toHaveTextContent(
+        "Karren / Wagen",
+      );
+      expect(within(detailSummary).getByText("Standfläche").nextElementSibling).toHaveTextContent(
+        "2 × 1 Tiles",
+      );
+      expect(within(detailSummary).getByText("Bewegungsart").nextElementSibling).toHaveTextContent(
+        "Rollen",
+      );
+    });
 
     await user.click(screen.getByRole("button", { name: /Weiter/ }));
     expect(await screen.findByRole("heading", { level: 2, name: "Richtungen" })).toHaveFocus();

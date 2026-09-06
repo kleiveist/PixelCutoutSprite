@@ -6,8 +6,8 @@
 # Übergeordneter Arbeitsauftrag — PixelCutoutSprite Studio
 
 Diesen Auftrag als historischen Implementierungsrahmen verwenden. P00–P22 bilden die
-abgeschlossene Cutout-Basis. P23–P26 sind abgeschlossen; P27 ist ausdrücklich freigegeben und als
-abschließende Abnahme als Nächstes auszuführen. Der ExecPlan ist für den tatsächlichen Fortschritt
+abgeschlossene Cutout-Basis; P23–P27 bilden die ebenfalls abgeschlossene PixelPromptStudio-
+Integration. Der ExecPlan und die P27-Integrationsabnahme sind für den tatsächlichen Endstand
 maßgeblich.
 
 ```text
@@ -72,7 +72,8 @@ Abschlussformat:
 ## Serienmodus: mehrere oder alle Phasen
 
 ```text
-Führe die noch nicht abgeschlossenen Phasen P23 bis P27 nacheinander aus.
+Führe noch nicht abgeschlossene Phasen P23 bis P27 nacheinander aus. Im aktuellen Stand sind alle
+fünf Phasen abgeschlossen; dieser Absatz bleibt als historischer Serienauftrag erhalten.
 Beginne bei der ersten Phase, deren Abhängigkeiten erfüllt und deren Gate noch
 nicht bestanden ist. Lies ihren vollständigen Prompt und arbeite ihn ab.
 Gehe nur bei bestandenem Gate zur nächsten Phase weiter. Belege erhaltene

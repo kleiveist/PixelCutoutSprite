@@ -7,9 +7,10 @@
 **Repository:** `kleiveist/PixelCutoutSprite`
 **Status:** Verbindliche Produktspezifikation; P00–P22 sind umgesetzt und die tatsächlichen
 Nachweise stehen in der [Gesamtabnahme](../acceptance/final-acceptance.md). Historische
-Planungsformulierungen beschreiben weiterhin den jeweiligen Sollzustand. Die
+Planungsformulierungen beschreiben weiterhin den jeweiligen Sollzustand. Die abgeschlossene
 PixelPromptStudio-Erweiterung P23–P27 wird getrennt im
-[Integrationsplan](../plans/prompt-studio-integration.md) geführt.
+[Integrationsplan](../plans/prompt-studio-integration.md) und der
+[P27-Abnahme](../acceptance/prompt-studio-integration.md) geführt.
 **Verbindlichkeit:** Nutzeranforderungen werden als Muss-Anforderungen behandelt. Ergänzende Entscheidungen sind hier als Planungsfestlegungen dokumentiert und können durch einen begründeten Architekturentscheid geändert werden.
 
 > **Implementierungskorrektur:** Der tatsächliche Checkout ist Template Tooling 0.4.0 und
