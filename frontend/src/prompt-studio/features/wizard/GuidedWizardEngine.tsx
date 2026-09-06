@@ -39,7 +39,12 @@ export interface GuidedWizardStepComponentProps<Values extends FieldValues, Cont
    * Re-projects and autosaves the current form snapshot after a step applies
    * several values programmatically. Native controls do not need to call it.
    */
-  readonly notifyProgrammaticChange: () => void;
+  readonly notifyProgrammaticChange: (options?: GuidedWizardProgrammaticChangeOptions) => void;
+}
+
+export interface GuidedWizardProgrammaticChangeOptions {
+  readonly allowIncompleteStep?: boolean;
+  readonly persistImmediately?: boolean;
 }
 
 export interface GuidedWizardSummaryComponentProps<Values extends FieldValues, Context> {
@@ -364,7 +369,7 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
   );
 
   const applyFormChange = useCallback(
-    (values: Values) => {
+    (values: Values, options: GuidedWizardProgrammaticChangeOptions = {}) => {
       cancelAutosave();
       setSubmitError(null);
       setActiveStepConfirmed(false);
@@ -372,7 +377,7 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
       onValuesChanged?.(values);
 
       const stepResult = activeStepRef.current.schema.safeParse(values);
-      if (!stepResult.success) {
+      if (!stepResult.success && !options.allowIncompleteStep) {
         const dirty =
           !jsonValuesEqual(draftRef.current, baselineRef.current) ||
           !jsonValuesEqual(values, baselineValuesRef.current);
@@ -383,11 +388,18 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
         return;
       }
 
+      const projectedValues = stepResult.success ? stepResult.data : values;
+
+      if (options.persistImmediately) {
+        persistValues(projectedValues, currentStepRef.current);
+        return;
+      }
+
       let candidate: WizardDraft | null;
       try {
         candidate = flow.updateDraft({
           draft: draftRef.current,
-          values: stepResult.data,
+          values: projectedValues,
           stepId: currentStepRef.current,
           context,
         });
@@ -413,15 +425,18 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
 
       autosaveTimerRef.current = setTimeout(() => {
         autosaveTimerRef.current = null;
-        persistValues(stepResult.data, currentStepRef.current);
+        persistValues(projectedValues, currentStepRef.current);
       }, AUTOSAVE_DELAY_MS);
     },
     [applyEditedDraft, cancelAutosave, context, flow, onValuesChanged, persistValues],
   );
 
-  const notifyProgrammaticChange = useCallback(() => {
-    applyFormChange(getValues());
-  }, [applyFormChange, getValues]);
+  const notifyProgrammaticChange = useCallback(
+    (options?: GuidedWizardProgrammaticChangeOptions) => {
+      applyFormChange(getValues(), options);
+    },
+    [applyFormChange, getValues],
+  );
 
   useEffect(() => {
     const subscription = watch((_formValues, event) => {

@@ -32,4 +32,14 @@ describe("prompt studio integration boundary", () => {
       /from\s+["'][^"']*(?:animationProject|spriteSheetMetadata)[^"']*["']/u,
     );
   });
+
+  it("scopes imported tokens and reset rules to the prompt generator root", () => {
+    const tokens = readFileSync(join(promptRoot, "styles", "tokens.css"), "utf8");
+    const reset = readFileSync(join(promptRoot, "styles", "prompt-studio.css"), "utf8");
+    const combined = `${tokens}\n${reset}`;
+
+    expect(combined).toContain(".prompt-generator-root");
+    expect(combined).not.toMatch(/(^|\n)\s*:root\b/u);
+    expect(combined).not.toMatch(/(^|\n)\s*(?:html|body|#root)(?:\s|,|\{|$)/u);
+  });
 });

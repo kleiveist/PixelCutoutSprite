@@ -7,7 +7,7 @@
 
 **Planungsstand:** 6. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P24 abgeschlossen; P25–P27 offen und nur einzeln nach Nutzerfreigabe
+**Implementierung:** P00–P25 abgeschlossen; P26–P27 offen und nur einzeln nach Nutzerfreigabe
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -245,9 +245,13 @@ Recovery-, Mutations- und Dirty-Editor-Guards wie die Cutout-Navigation. Route, 
 Area, Template-, NPC- und Binding-Auswahl bleiben im App-Zustand und werden beim Zurückkehren
 wiederhergestellt. Vor Prompt → Cutout wird eine asynchrone Lifecycle-Flush-Grenze abgewartet.
 
-P25–P27 bleiben offen. Der in P24 sichtbare volle Prompt-Mount-Punkt ist bewusst noch kein Ersatz
-für Dashboard, Profile, Wizard, Ausgabe und Einstellungen; diese vollständige Oberfläche folgt
-erst nach Freigabe in P25. Native Persistenz und Cutout-Handoff bleiben P26 vorbehalten.
+P25 ersetzt den P24-Mount-Punkt durch den vollständigen `PromptGeneratorRoot`. Dashboard,
+Profilbibliothek, Neun-Kategorien-Wizard, Ausgabeprüfung und Einstellungen teilen ausschließlich
+die Prompt-relevanten Provider. Der integrierte Adapter verwaltet `PromptView` im App-Zustand ohne
+History-/Query-Schreibzugriff. Gültige Wizard-Änderungen werden lokal automatisch gespeichert;
+solange ein Entwurf schmutzig oder ungültig ist, blockiert der Studiowechsel. Prompt-Tokens und
+Resetregeln sind auf `.prompt-generator-root` begrenzt, der innere Arbeitsbereich scrollt ohne das
+Cutout-Grid zu verändern. Native Persistenz und Cutout-Handoff bleiben P26 vorbehalten.
 
 ## Scope and Non-Goals
 
@@ -269,7 +273,7 @@ Prompt-Übergabe.
 
 ## Concrete Steps
 
-P00–P22 sind abgeschlossen. P23 und P24 wurden separat umgesetzt und geprüft. P25–P27 beginnen jeweils
+P00–P22 sind abgeschlossen. P23–P25 wurden separat umgesetzt und geprüft. P26–P27 beginnen jeweils
 erst nach ausdrücklicher Nutzerfreigabe und bestandenem Vorgängergate.
 
 | Phase                                     | Auftrag                                                 | Status                     |
@@ -299,7 +303,7 @@ erst nach ausdrücklicher Nutzerfreigabe und bestandenem Vorgängergate.
 | [P22](../prompts/pixelcutoutsprite/22.md) | Gesamtabnahme und überprüfbarer Abschluss               | Abgeschlossen              |
 | [P23](../prompts/pixelcutoutsprite/23.md) | Prompt-Integrationsgrenze und technische Basis          | Abgeschlossen; Gate PASS   |
 | [P24](../prompts/pixelcutoutsprite/24.md) | Gemeinsamer Header und sichere Studio-Umschaltung       | Abgeschlossen; Gate PASS   |
-| [P25](../prompts/pixelcutoutsprite/25.md) | Vollständige PixelPromptStudio-Oberfläche portieren     | Offen; wartet auf Freigabe |
+| [P25](../prompts/pixelcutoutsprite/25.md) | Vollständige PixelPromptStudio-Oberfläche portieren     | Abgeschlossen; Gate PASS   |
 | [P26](../prompts/pixelcutoutsprite/26.md) | Native Prompt-Persistenz, Export und Cutout-Handoff     | Offen                      |
 | [P27](../prompts/pixelcutoutsprite/27.md) | Integrierte Studio-Workflows abnehmen und dokumentieren | Offen                      |
 
@@ -350,7 +354,7 @@ erst nach ausdrücklicher Nutzerfreigabe und bestandenem Vorgängergate.
       Prompt-Abhängigkeiten isolieren.
 - [x] P24: gemeinsamen Studiowechsler, Prompt-Lifecycle-Flush und zustandserhaltenden
       Navigationsschutz umsetzen, prüfen und separat committen.
-- [ ] P25: vollständige Prompt-Oberfläche, Provider, Navigation und isolierte Styles portieren.
+- [x] P25: vollständige Prompt-Oberfläche, Provider, Navigation und isolierte Styles portieren.
 - [ ] P26: native Prompt-Persistenz, Import/Export und versionierten Cutout-Handoff umsetzen.
 - [ ] P27: integrierte Frontend-, Rust- und Browserworkflows abnehmen und dokumentieren.
 - [x] Meilenstein A: Grundlage, P00–P06.
@@ -359,8 +363,8 @@ erst nach ausdrücklicher Nutzerfreigabe und bestandenem Vorgängergate.
 - [x] Meilenstein D: Spieleinbindung, P16–P17.
 - [x] Meilenstein E: belastbare Desktop-Version, P18–P22; Windows/macOS-Laufzeitevidenz bleibt
       als ausdrücklich offener betrieblicher Plattformnachweis dokumentiert.
-- [ ] Meilenstein F: PixelPromptStudio vollständig einbetten und abnehmen; P23–P24 sind
-      abgeschlossen, P25–P27 bleiben offen.
+- [ ] Meilenstein F: PixelPromptStudio vollständig einbetten und abnehmen; P23–P25 sind
+      abgeschlossen, P26–P27 bleiben offen.
 
 Bei jeder Phasenänderung ergänzen: Datum, tatsächlicher Umfang, betroffene Dateien, Prüfungen und nächster Schritt. Noch nicht geprüfte Plattformen werden nicht als fertig markiert.
 
@@ -388,6 +392,30 @@ ausgehängt und bei der Rückkehr aus den erhaltenen stabilen IDs wieder geöffn
 Verstecken hätte nach einer bestätigten Verwerfen-Abfrage den ungespeicherten Kindzustand weiter im
 Speicher gehalten und den Dirty-Status widersprüchlich gelöscht. Der übergeordnete App-Zustand
 erhält weiterhin Route, Vault, Projekt, Area, Template, NPC und Binding.
+
+**2026-09-06 / P25:** PixelForgeStudios Prompt-Theme war ursprünglich über `:root`, `html`, `body`
+und `#root` definiert. P25 überführt ausschließlich die benötigten Tokens und Resetregeln unter
+`.prompt-generator-root`; auch der Themezustand liegt als lokales `data-theme` am Prompt-Bereich.
+Dadurch bleiben das 1280-px-Cutout-Grid, sein Overflow und seine Editorregeln unverändert.
+
+**2026-09-06 / P25:** Der portierte Wizard speichert gültige Änderungen verzögert, verwirft aber
+beim Unmount bewusst keinen ungültigen Zwischenstand. Der Shell-Wechsel blockiert deshalb bei
+`draftDirty`, bis Autosave oder Korrektur den Zustand sauber gemacht haben, und wartet erst danach
+auf die P24-Lifecycle-Flush-Grenze. Prompt-interne Ansichtswechsel erhalten die Wizard-Session im
+Providerbaum; ein App-Wechsel hängt den Prompt-Baum erst im sauberen Zustand aus.
+
+**2026-09-06 / P25:** Der sichtbare Autosave-Status und der Dirty-Guard der äußeren Shell dürfen
+keinen Renderzyklus auseinanderliegen. Die Dirty-Rückmeldung läuft deshalb als Layout-Effekt vor
+dem Paint. Außerdem löst das ausdrückliche Löschen der gerade gewählten Produktionsfamilie deren
+Referenz sofort aus einem gültigen partiellen Draft und persistiert diese Änderung, damit kein
+Autosave auf ein inzwischen fehlendes Profil zeigt.
+
+**2026-09-06 / P25:** Die erstmals erreichbare vollständige Prompt-Oberfläche erhöht den
+Produktionsgraphen von 119 auf 398 transformierte Module. Ein einzelner ungegliederter Buildchunk
+lag bei rund 1,17 MB. Die bereits in PixelForgeStudio bewährte Rolldown-Gruppierung wurde auf den
+isolierten Zielpfad angepasst; React, Formular-/Schemaabhängigkeiten, sonstige Vendoren und
+Prompt-Funktionen liegen nun in getrennten Chunks, deren größter unkomprimierter JavaScriptanteil
+im P25-Build rund 262 kB misst.
 
 **2026-09-05:** „Nicht animiertes“ Equipment muss seinem Träger trotzdem folgen können. Sichtbarkeit, Mitführen und Eigenbewegung sind deshalb getrennte Eigenschaften.
 
@@ -695,6 +723,7 @@ ausführbaren Prozess-/Sidecar- und konkret emittierten Godot-Konstrukten.
 | ADR-028 | Der PixelForgeStudio-Prompt-Bereich wird in `frontend/src/prompt-studio/` isoliert portiert; äußere PixelForge-Shell und Animationsstudio bleiben ausgeschlossen. | Ermöglicht genau einen Tauri-Header und verhindert, dass gemeinsame Barrels oder globale Styles unnötige Animationsmodule und konkurrierende App-Wurzeln einziehen. |
 | ADR-029 | Prompt-Arbeitsdaten liegen hinter einem Adapter nativ im Tauri-App-Datenverzeichnis; die Cutout-Übergabe verwendet einen versionierten DTO und eine ausdrückliche Nutzeraktion. | Der Generator muss ohne Vault funktionieren, während bestehende Vaults unverändert bleiben und Wizard sowie Cutout-Editoren nicht direkt voneinander abhängen. |
 | ADR-030 | Der Cutout-View-Baum wird erst nach erfolgreichem Studio-Guard ausgehängt; seine stabilen Auswahl-IDs bleiben im App-Zustand. | Entspricht der bestehenden Verwerfen-Semantik der Editor-Guards, ohne Route, Vault, Projekt, Area oder Detailauswahl beim Wechsel zu verlieren. |
+| ADR-031 | Der eingebettete Prompt-Root verwendet nur Settings-, Profil-, Navigations- und Wizard-Provider; Prompt-Theme und Reset leben ausschließlich unter `.prompt-generator-root`, und ein schmutziger Draft blockiert das Aushängen. | Verhindert eine zweite Anwendungshülle, globale CSS-Kollisionen und den Verlust eines noch nicht gültig autospeicherbaren Formularzustands. Native Adapter bleiben bewusst P26. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -829,6 +858,9 @@ Prüflog ersetzt diesen Anfangsbefund mit den tatsächlich ausgeführten Ergebni
 | 2026-09-06 / P24             | `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run build`, `tools/control.py test --suite frontend`                                                                                                           | isolierter Phasen-Worktree, Node 22.22.2, npm 10.9.7                                                                                                                             | PASS: 116 Dateien / 574 Tests; Vite-Build mit 119 Modulen; Control-Gate OK                                                                       | Bestehende Cutout- und isolierte Prompt-Basis bleiben zusammen grün. Der exakte Node-24-Pin bleibt wegen des in P23 dokumentierten Wrapperblockers für P27 zu wiederholen.                                                                                                                                                                                                                                        |
 | 2026-09-06 / P24             | Headless-Chrome-Messung bei 1280×720 mit Enter und Leertaste                                                                                                                                                                                 | Chrome for Testing 153.0.8010.12                                                                                                                                                 | PASS: beide Buttons 196×46 px; Prompt-Inhalt 1280 px breit                                                                                       | Inaktives Prompt-Label, Unterzeile und SVG messen `rgb(145, 232, 117)`; aktiv ist derselbe grüne Hintergrund gesetzt. Genau ein Banner und eine Statusbar bleiben sichtbar, die Cutout-Navigation ist im Prompt-Modus nicht vorhanden.                                                                                                                                                                            |
 | 2026-09-06 / P24             | `tools/control.py docs check --docs-dir docs`, `pytest tests/source/test_repository_documentation.py`, `git diff --check`                                                                                                                    | isolierter Phasen-Worktree, Python 3.11.2                                                                                                                                        | PASS: 156 Dokumentseiten; 3 Tests; sauberes Patchformat                                                                                          | P24 ist nachvollziehbar abgeschlossen; P25 bleibt bis zur ausdrücklichen Nutzerfreigabe offen.                                                                                                                                                                                                                                                                                                                    |
+| 2026-09-06 / P25             | `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run build`, `python3 tools/control.py test --suite frontend`                                                                                                  | isolierter Phasen-Worktree, Node 22.22.2, npm 10.9.7                                                                                                                             | PASS: 146 Dateien / 761 Tests; Vite-Build mit 398 Modulen; Control-Gate OK                                                                        | Dashboard, Profile, vollständiger Neun-Kategorien-Wizard, Ausgabe und Einstellungen bestehen zusammen mit allen Cutout-Regressionen. Der größte unkomprimierte JavaScriptchunk misst 261,79 kB; der Node-24-Wrapperblocker bleibt wie in P23 dokumentiert für P27 sichtbar.                                                                                                                                           |
+| 2026-09-06 / P25             | Headless-Chrome-Lauf bei 1280×720 durch alle fünf Prompt-Ansichten sowie statische Import- und CSS-Grenzprüfung                                                                                                                              | Chrome for Testing 153.0.8010.12; isolierter Phasen-Worktree                                                                                                                     | PASS: genau ein Header und eine Statusbar; interner Prompt-Scroll ohne Seitenüberlauf                                                             | Prompt-Root und App-Frame messen 1280 px, der Wizard läuft ohne horizontalen Überlauf, das Theme bleibt lokal am Prompt-Root und keine PixelForge-Gesamtshell, Animationsstudio-, History-, Tauri- oder Handoff-Abhängigkeit wird eingezogen.                                                                                                                                                                       |
+| 2026-09-06 / P25             | `python3 tools/control.py docs check --docs-dir docs`, `pytest tests/source/test_repository_documentation.py`, `git diff --check`                                                                                                           | isolierter Phasen-Worktree, Python 3.11.2                                                                                                                                        | PASS: 156 Dokumentseiten; 3 Tests; sauberes Patchformat                                                                                          | P25 ist nachvollziehbar abgeschlossen; native Persistenz, Cutout-Handoff und P27-Abnahme bleiben bis zu ihren ausdrücklichen Nutzerfreigaben offen.                                                                                                                                                                                                                                                               |
 
 Die vorhandenen Repository-Gates wurden während der Implementierung entsprechend ihrer
 tatsächlichen Verfügbarkeit verwendet; Änderungen an ihren Verträgen sind im Prüflog und in den
@@ -840,9 +872,9 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster Implementierungsschritt:** Auf die ausdrückliche Nutzerfreigabe für P25 warten. Danach
-nur die vollständige Prompt-Oberfläche, ihre Provider, getrennte Navigation und isolierten Styles
-portieren, prüfen und separat committen. P26 darf nicht vor einer weiteren Freigabe beginnen. Reale
+**Nächster Implementierungsschritt:** Auf die ausdrückliche Nutzerfreigabe für P26 warten. Danach
+nur native Prompt-Persistenz, nativen Import/Export und den versionierten Cutout-Handoff umsetzen,
+prüfen und separat committen. P27 darf nicht vor einer weiteren Freigabe beginnen. Reale
 Windows-/macOS-Abnahmen, Signierung, Notarisierung, Tag, Release und Push bleiben getrennte Schritte
 mit eigener Freigabe.
 
@@ -942,5 +974,6 @@ Windows-/macOS-Laufzeitevidenz bleibt ausdrücklich offen und wird nicht als PAS
 
 Die Dokumentationsfortschreibung vom 6. September 2026 verändert diesen Abschluss nicht. Sie
 behandelt P00–P22 als abgeschlossene Basis und eröffnet mit P23–P27 einen neuen
-Erweiterungsmeilenstein. P23 liefert dessen isolierte Prompt-Codebasis; P24 ergänzt die geprüfte
-gemeinsame Shell und sichere Umschaltung. P25–P27 bleiben bis zur jeweiligen Nutzerfreigabe offen.
+Erweiterungsmeilenstein. P23 liefert dessen isolierte Prompt-Codebasis, P24 die geprüfte gemeinsame
+Shell und sichere Umschaltung und P25 die vollständige browserentwicklungsfähige Prompt-
+Oberfläche. P26–P27 bleiben bis zur jeweiligen Nutzerfreigabe offen.

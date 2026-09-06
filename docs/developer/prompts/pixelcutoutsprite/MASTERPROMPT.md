@@ -6,7 +6,7 @@
 # Übergeordneter Arbeitsauftrag — PixelCutoutSprite Studio
 
 Diesen Auftrag als historischen Implementierungsrahmen verwenden. P00–P22 bilden die
-abgeschlossene Cutout-Basis. P23 und P24 sind abgeschlossen; P25–P27 bleiben bis zur jeweils
+abgeschlossene Cutout-Basis. P23–P25 sind abgeschlossen; P26–P27 bleiben bis zur jeweils
 ausdrücklichen Freigabe offen. Der ExecPlan ist für den tatsächlichen Fortschritt maßgeblich.
 
 ```text

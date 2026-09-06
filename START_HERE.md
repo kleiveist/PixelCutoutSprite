@@ -1,7 +1,7 @@
 # PixelCutoutSprite Studio — Einstieg
 
 **Stand:** 6. September 2026 · **Inhalt:** funktional abgeschlossene Cutout-Basis P00–P22 und
-abgeschlossene PixelPromptStudio-Phasen P23–P24; P25–P27 sind offen.
+abgeschlossene PixelPromptStudio-Phasen P23–P25; P26–P27 sind offen.
 
 ## Anwendung starten
 
@@ -123,11 +123,14 @@ P23 portiert die Prompt-Domain, Schemas, Providerbasis und Ansichten aus PixelFo
 isolierten Namensraum `frontend/src/prompt-studio/`. Nicht übernommen werden PixelForge-Startseite,
 Gesamtheader, Animation Studio, Footer oder ein eigenes `main.tsx`. P24 ergänzt im einzigen
 App-Header zwei gleich große Studiobuttons, den grünen Generator-Akzent und einen geschützten
-Wechsel, der den vollständigen Cutout-Kontext erhält.
+Wechsel, der den vollständigen Cutout-Kontext erhält. P25 ersetzt den Mount-Punkt durch Dashboard,
+Profilbibliothek, vollständigen Wizard, Ausgabeprüfung und Einstellungen. Die Prompt-Navigation
+bleibt vom Cutout-Router getrennt; Prompt-Tokens und Resetregeln gelten nur innerhalb von
+`.prompt-generator-root`.
 
-P25–P27 bleiben für die vollständige Prompt-Oberfläche, native App-Daten, Export, kontrollierte
-Cutout-Übergabe und Gesamtabnahme vorgesehen. Jede Phase beginnt erst nach ausdrücklicher
-Freigabe und erhält einen eigenen Commit.
+P26–P27 bleiben für native App-Daten, nativen Export, kontrollierte Cutout-Übergabe und
+Gesamtabnahme vorgesehen. Jede Phase beginnt erst nach ausdrücklicher Freigabe und erhält einen
+eigenen Commit.
 
 ## Leitentscheidungen
 

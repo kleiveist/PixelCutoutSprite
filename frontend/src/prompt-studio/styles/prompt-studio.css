@@ -1,0 +1,94 @@
+.prompt-generator-root,
+.prompt-generator-root *,
+.prompt-generator-root *::before,
+.prompt-generator-root *::after {
+  box-sizing: border-box;
+}
+
+.prompt-generator-root {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  color: var(--color-text);
+  background:
+    radial-gradient(circle at 76% 10%, var(--color-page-glow), transparent 31rem), var(--color-page);
+  font-family: var(--font-sans);
+  font-synthesis: none;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.prompt-generator-root button,
+.prompt-generator-root input,
+.prompt-generator-root select,
+.prompt-generator-root textarea {
+  color: inherit;
+  font: inherit;
+}
+
+.prompt-generator-root button:not(:disabled),
+.prompt-generator-root summary {
+  cursor: pointer;
+}
+
+.prompt-generator-root a,
+.prompt-generator-root button,
+.prompt-generator-root summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.prompt-generator-root img,
+.prompt-generator-root svg {
+  max-width: 100%;
+}
+
+.prompt-generator-root :focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.prompt-generator-root ::selection {
+  color: var(--color-selection-text);
+  background: var(--color-selection);
+}
+
+.prompt-generator-navigation {
+  min-width: 0;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-panel);
+}
+
+.prompt-generator-scroll {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.prompt-generator-content {
+  width: min(1240px, calc(100% - 2rem));
+  min-width: 0;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 4rem) 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prompt-generator-root *,
+  .prompt-generator-root *::before,
+  .prompt-generator-root *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .prompt-generator-root :focus-visible {
+    outline-color: Highlight;
+  }
+}

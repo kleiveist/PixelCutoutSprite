@@ -1,0 +1,131 @@
+.navigationRow,
+.quickNavigation {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.navigationRow {
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-3) 0;
+}
+
+.primaryNavigation {
+  min-width: 0;
+}
+
+.navigationList {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  list-style: none;
+}
+
+.navigationLink,
+.primaryAction,
+.secondaryAction {
+  min-height: var(--control-min-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 750;
+  line-height: 1;
+  text-decoration: none;
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.navigationLink {
+  position: relative;
+  padding: 0.65rem var(--space-3);
+  color: var(--color-text-muted);
+  background: transparent;
+}
+
+.navigationLink:hover {
+  color: var(--color-text);
+  background: var(--color-control-hover);
+}
+
+.navigationLink[aria-current="page"] {
+  color: var(--color-accent-text);
+  background: var(--color-accent-wash);
+  border-color: var(--color-accent-line);
+}
+
+.navigationLink[aria-current="page"]::before {
+  width: 0.38rem;
+  aspect-ratio: 1;
+  margin-right: var(--space-2);
+  background: currentColor;
+  box-shadow: 0 0 0 0.2rem var(--color-accent-wash-strong);
+  content: "";
+}
+
+.quickNavigation {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.primaryAction,
+.secondaryAction {
+  padding: 0.65rem var(--space-4);
+}
+
+.primaryAction {
+  gap: var(--space-2);
+  color: var(--color-ink-inverse);
+  background: var(--color-accent);
+  border-color: var(--color-accent-strong);
+  box-shadow: var(--shadow-control);
+}
+
+.primaryAction:hover {
+  background: var(--color-accent-strong);
+}
+
+.secondaryAction {
+  color: var(--color-text);
+  background: var(--color-control);
+  border-color: var(--color-control-border);
+}
+
+.secondaryAction:hover {
+  background: var(--color-control-hover);
+}
+
+.primaryAction[aria-current="page"],
+.secondaryAction[aria-current="page"] {
+  box-shadow:
+    0 0 0 2px var(--color-panel),
+    0 0 0 4px var(--color-accent-line);
+}
+
+@media (max-width: 1020px) {
+  .navigationRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quickNavigation {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigationLink,
+  .primaryAction,
+  .secondaryAction {
+    transition: none;
+  }
+}

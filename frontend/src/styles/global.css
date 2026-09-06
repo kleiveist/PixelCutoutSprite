@@ -288,31 +288,12 @@ select:focus-visible {
   grid-template-rows: minmax(0, 1fr);
 }
 .prompt-workspace {
-  display: grid;
   min-width: 0;
   min-height: 0;
-  place-items: center;
-  overflow: auto;
-  background: radial-gradient(circle at 50% 42%, rgba(145, 232, 117, 0.08), transparent 34%);
+  overflow: hidden;
 }
-.prompt-workspace-placeholder {
-  width: min(680px, calc(100% - 80px));
-  padding: 42px;
-  border: 1px solid var(--line);
-  background: var(--surface-raised);
-}
-.prompt-workspace-placeholder h1 {
-  margin: 0;
-  color: #91e875;
-  font-size: 48px;
-  font-weight: 500;
-  letter-spacing: -0.045em;
-}
-.prompt-workspace-placeholder > p:last-child {
-  max-width: 560px;
-  margin: 22px 0 0;
-  color: #bbb5c0;
-  line-height: 1.7;
+.prompt-workspace > .prompt-generator-root {
+  height: 100%;
 }
 .breadcrumbs {
   display: flex;

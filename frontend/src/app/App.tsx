@@ -25,6 +25,14 @@ import type { AreaCard } from "../domain/areas";
 import type { MotionOpenTarget } from "../domain/animations";
 import type { RevisionRef } from "../domain/common";
 import type { AssetImportJobView } from "../domain/inventory";
+import { PromptGeneratorRoot } from "../prompt-studio/app";
+import {
+  createBrowserOutputWorkspaceAdapter,
+  initializeBrowserWorkspaceStorage,
+  type LegacyV1StorageMigrationResult,
+  type OutputWorkspaceAdapter,
+  type V2StorageAdapter,
+} from "../prompt-studio/services";
 import { AnimationDashboard } from "../features/animations/AnimationDashboard";
 import { MotionDummyEditorRoute } from "../features/dummy-editor/MotionDummyEditorRoute";
 import { ExportWorkspace } from "../features/export";
@@ -52,7 +60,7 @@ import {
 import type { KeyboardAction } from "./shortcuts";
 import { useKeyboardActions } from "./useKeyboardActions";
 
-interface AppProps {
+export interface AppProps {
   areasApi?: AreaClient;
   assetsApi?: AssetClient;
   exportsApi?: ExportClient;
@@ -60,11 +68,17 @@ interface AppProps {
   npcsApi?: NpcClient;
   outfitsApi?: OutfitClient;
   projectsApi?: ProjectClient;
+  promptOutputAdapter?: OutputWorkspaceAdapter;
+  promptStartupMigration?: LegacyV1StorageMigrationResult;
+  promptStorageAdapter?: V2StorageAdapter;
   flushPromptStorage?: () => Promise<void>;
   vaultApi?: VaultClient;
 }
 
 async function noOpPromptStorageFlush(): Promise<void> {}
+
+const browserPromptWorkspace = initializeBrowserWorkspaceStorage();
+const browserPromptOutput = createBrowserOutputWorkspaceAdapter();
 
 export function App({
   areasApi = areaClient,
@@ -74,11 +88,15 @@ export function App({
   npcsApi = npcClient,
   outfitsApi = outfitClient,
   projectsApi = projectClient,
+  promptOutputAdapter = browserPromptOutput,
+  promptStartupMigration = browserPromptWorkspace.migration,
+  promptStorageAdapter = browserPromptWorkspace.storageAdapter,
   flushPromptStorage = noOpPromptStorageFlush,
   vaultApi = vaultClient,
 }: AppProps = {}) {
   const [activeStudio, setActiveStudio] = useState<StudioMode>("cutout");
-  const [promptView] = useState<PromptView>("dashboard");
+  const [promptView, setPromptView] = useState<PromptView>("dashboard");
+  const [promptDraftDirty, setPromptDraftDirty] = useState(false);
   const [route, setRoute] = useState<WorkspaceRoute>("welcome");
   const [helpOpen, setHelpOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -274,7 +292,7 @@ export function App({
       return;
     }
     mainContent.current?.focus();
-  }, [activeStudio, route]);
+  }, [activeStudio, promptView, route]);
 
   const sessionId = vault?.session_id ?? null;
   const heartbeatSessionId =
@@ -386,6 +404,7 @@ export function App({
       !npcMutationInFlight &&
       !releaseRunning &&
       !exportRunning &&
+      !promptDraftDirty &&
       !isActiveAssetImport(assetImportJob)
     )
       return;
@@ -395,7 +414,7 @@ export function App({
     };
     window.addEventListener("beforeunload", beforeUnload);
     return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [assetImportJob, exportRunning, npcMutationInFlight, releaseRunning]);
+  }, [assetImportJob, exportRunning, npcMutationInFlight, promptDraftDirty, releaseRunning]);
 
   function allowCutoutContextChange(blockActiveImport: boolean): boolean {
     if ((vault?.recovery?.length ?? 0) > 0) {
@@ -474,6 +493,10 @@ export function App({
     if (nextStudio === activeStudio || studioSwitchInFlight.current) return;
     if (activeStudio === "cutout" && !allowCutoutContextChange(true)) return;
     if (activeStudio === "prompt") {
+      if (promptDraftDirty) {
+        setStatus("Studio switch blocked · wait for prompt autosave or correct the active step");
+        return;
+      }
       studioSwitchInFlight.current = true;
       try {
         await flushPromptStorage();
@@ -840,14 +863,14 @@ export function App({
             aria-label="PixelPromptStudio Generator"
             data-prompt-view={promptView}
           >
-            <section className="prompt-workspace-placeholder">
-              <p className="view-eyebrow">Generator</p>
-              <h1>PixelPromptStudio</h1>
-              <p>
-                Der gemeinsame Arbeitsbereich ist bereit. Dashboard, Profile, Wizard, Ausgabe und
-                Einstellungen werden in Phase 3 eingebunden.
-              </p>
-            </section>
+            <PromptGeneratorRoot
+              view={promptView}
+              onNavigate={setPromptView}
+              onDirtyChange={setPromptDraftDirty}
+              outputAdapter={promptOutputAdapter}
+              startupMigration={promptStartupMigration}
+              storageAdapter={promptStorageAdapter}
+            />
           </main>
         </div>
       )}

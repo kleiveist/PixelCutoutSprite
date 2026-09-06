@@ -639,7 +639,10 @@ export function BaseProfileStep({
         shouldTouch: true,
         shouldValidate: true,
       });
-      notifyProgrammaticChange();
+      notifyProgrammaticChange({
+        allowIncompleteStep: true,
+        persistImmediately: true,
+      });
     }
     setPendingDeleteBase(null);
     setDeleteError(null);

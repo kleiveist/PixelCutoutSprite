@@ -6,14 +6,14 @@
 # PixelPromptStudio in PixelCutoutSprite integrieren
 
 **Planungsstand:** 6. September 2026
-**Status:** P23–P24 abgeschlossen; P25–P27 offen und nur phasenweise nach Nutzerfreigabe auszuführen
+**Status:** P23–P25 abgeschlossen; P26–P27 offen und nur phasenweise nach Nutzerfreigabe auszuführen
 **Zielrepository:** `kleiveist/PixelCutoutSprite`
 **Quellrepository:** `kleiveist/PixelForgeStudio`
 
 Dieser Plan erweitert die abgeschlossene PixelCutoutSprite-Basisserie P00–P22 um die fünf
-aufeinander aufbauenden Phasen P23–P27. P23 stellt den isolierten Prompt-Namensraum bereit und P24
-die gemeinsame Shell. Produktive Prompt-Oberfläche, native Persistenz und Gesamtabnahme folgen erst
-in P25–P27. Ausgeführte Nachweise werden im
+aufeinander aufbauenden Phasen P23–P27. P23 stellt den isolierten Prompt-Namensraum bereit, P24
+die gemeinsame Shell und P25 die produktive Prompt-Oberfläche. Native Persistenz und
+Gesamtabnahme folgen in P26–P27. Ausgeführte Nachweise werden im
 [lebenden ExecPlan](pixelcutoutsprite-execplan.md) geführt.
 
 ## Verifizierte Ausgangsbasis
@@ -207,7 +207,7 @@ den vorherigen Cutout-Kontext zurückkehren.
 | ----------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------- |
 | [P23](../prompts/pixelcutoutsprite/23.md) | Integrationsgrenze, isolierter Prompt-Namensraum und Abhängigkeiten     | Abgeschlossen; Phase-1-Gate bestanden | `🧭 Define prompt generator integration boundary`     |
 | [P24](../prompts/pixelcutoutsprite/24.md) | gemeinsamer Header, StudioMode und sicherer Wechsel                     | Abgeschlossen; Phase-2-Gate bestanden | `🧩 Add shared studio header switcher`                |
-| [P25](../prompts/pixelcutoutsprite/25.md) | vollständige Prompt-Oberfläche, Provider, Navigation und CSS-Isolierung | Offen; wartet auf Nutzerfreigabe      | `🧬 Port PixelPromptStudio generator`                 |
+| [P25](../prompts/pixelcutoutsprite/25.md) | vollständige Prompt-Oberfläche, Provider, Navigation und CSS-Isolierung | Abgeschlossen; Phase-3-Gate bestanden | `🧬 Port PixelPromptStudio generator`                 |
 | [P26](../prompts/pixelcutoutsprite/26.md) | native Persistenz, Import/Export und Cutout-Handoff                     | Offen                                 | `💾 Add native prompt persistence and cutout handoff` |
 | [P27](../prompts/pixelcutoutsprite/27.md) | Regression, E2E, native Abnahme und Dokumentation                       | Offen                                 | `✅ Verify integrated studio workflows`               |
 
@@ -251,8 +251,16 @@ P24 führt `StudioMode` getrennt von `WorkspaceRoute` ein und macht den bisherig
 zusammen mit dem grünen PixelPromptStudio-Lockup zu zwei gleich großen, zugänglichen Buttons. Der
 Wechsel verwendet die vorhandenen Recovery-, Mutations- und Dirty-Editor-Guards, bewahrt den
 Cutout-Kontext und wartet beim Verlassen des Prompt-Modus auf dessen Lifecycle-Flush. Der
-Prompt-Modus besitzt bereits die volle Shell-Breite; sein temporärer Mount-Punkt wird erst in P25
-durch den vollständigen Generator ersetzt.
+Prompt-Modus besitzt bereits die volle Shell-Breite.
+
+P25 ersetzt den temporären Mount-Punkt durch `PromptGeneratorRoot`. Der Root setzt ausschließlich
+Einstellungen, Profilbibliothek, integrierte Prompt-Navigation und Wizard-Session zusammen.
+Dashboard, Profile, vollständiger Neun-Kategorien-Wizard, Ausgabeprüfung und Einstellungen laufen
+innerhalb derselben Tauri-Shell. Die Navigation hält `PromptView` ausschließlich im App-Zustand und
+verändert die Browser-History nicht. Ein schmutziger Wizard blockiert den Studiowechsel, bis sein
+gültiger Autosave abgeschlossen ist; danach wird der bestehende Lifecycle-Flush abgewartet.
+Design-Tokens, Resetregeln, Fokus- und Auswahlregeln sind unter `.prompt-generator-root` gekapselt,
+und nur der innere Prompt-Arbeitsbereich scrollt.
 
 Native Persistenz und Cutout-Handoff bleiben P26 vorbehalten. P27 bleibt die abschließende
 Gesamtprüfung und Dokumentation. Ein Commit oder Gate einer späteren Phase wird erst nach

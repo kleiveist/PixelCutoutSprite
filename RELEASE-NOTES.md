@@ -16,10 +16,15 @@ Date: 6 September 2026
   Vault, project, area, route and detailed selection state and waits for the Prompt lifecycle flush
   before returning.
 - Added a full-width Prompt mount point while retaining exactly one app header and one status bar.
+- Replaced that mount point with the complete embedded Prompt dashboard, profile library, guided
+  nine-category Wizard, review/output workspace and settings view.
+- Added host-state Prompt navigation, browser-development persistence and output adapters, dirty
+  draft switch protection, and Prompt-root-scoped design tokens and reset rules.
+- Ported the Prompt component, provider, category-editor, Wizard and recovery test coverage.
 
-The complete Prompt UI, native persistence, Cutout handoff and final E2E acceptance remain the
-separately approved P25–P27 phases. This local unreleased work does not imply a push, package,
-publication or platform acceptance.
+Native persistence, Cutout handoff and final E2E acceptance remain the separately approved
+P26–P27 phases. This local unreleased work does not imply a push, package, publication or platform
+acceptance.
 
 # Template Tooling 0.4.0
 
