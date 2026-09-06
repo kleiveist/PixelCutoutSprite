@@ -1,0 +1,28 @@
+{
+  "name": "PixelCutoutSprite Studio",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "args": {
+      "NODE_VERSION": "24.19.0",
+      "NPM_VERSION": "11.17.0",
+      "RUST_VERSION": "1.97.1"
+    }
+  },
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONNOUSERSITE": "1"
+  },
+  "postCreateCommand": "python3 -m venv .tooling-state/venv && .tooling-state/venv/bin/python -m pip install --disable-pip-version-check --requirement tools/requirements.txt && npm --prefix frontend ci --ignore-scripts --no-audit --no-fund",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "rust-lang.rust-analyzer",
+        "tauri-apps.tauri-vscode"
+      ]
+    }
+  }
+}

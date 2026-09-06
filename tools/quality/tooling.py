@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 from tools.core.context import load_context
@@ -233,79 +231,32 @@ def run_rust_format(root: Path) -> CheckResult:
     )
 
 
-def _matches_exception(
-    entry: ExceptionEntry,
-    rule_id: str,
-    relative_path: str,
-    symbol: str,
-) -> bool:
-    return entry.rule_id == rule_id and entry.path == relative_path and (entry.symbol is None or entry.symbol == symbol)
-
-
-def _clippy_metric_thresholds(
-    config: QualityConfig,
-    metrics: list[SourceMetrics],
-    exceptions: tuple[ExceptionEntry, ...],
-) -> tuple[int, int]:
-    function_limit = config.function.maximum
-    parameter_limit = config.parameters.maximum
-    for source in metrics:
-        if Path(source.relative_path).suffix.lower() != ".rs":
-            continue
-        for scope in source.scopes:
-            if scope.kind == "function" and any(
-                _matches_exception(entry, "CQ101", source.relative_path, scope.symbol) for entry in exceptions
-            ):
-                function_limit = max(function_limit, scope.code_lines)
-        for function in source.rust_functions:
-            if any(_matches_exception(entry, "CQ104", source.relative_path, function.symbol) for entry in exceptions):
-                parameter_limit = max(parameter_limit, function.parameters)
-    return function_limit, parameter_limit
-
-
 def run_rust_lint(
     root: Path,
     config: QualityConfig,
     metrics: list[SourceMetrics] | None = None,
     exceptions: tuple[ExceptionEntry, ...] = (),
 ) -> CheckResult:
+    # Size and parameter limits are evaluated by the metric checks. Clippy owns
+    # compiler linting here, using the same warning contract as the Studio CI.
+    del config, metrics, exceptions
     if not _rust_exists(root):
         return CheckResult("Rust Clippy", detail="Tauri is not enabled in this project")
-    function_limit, parameter_limit = _clippy_metric_thresholds(config, metrics or [], exceptions)
-    with tempfile.TemporaryDirectory(prefix="template-clippy-") as temporary:
-        config_directory = Path(temporary)
-        (config_directory / "clippy.toml").write_text(
-            "\n".join(
-                [
-                    f"too-many-arguments-threshold = {parameter_limit}",
-                    f"too-many-lines-threshold = {function_limit}",
-                    "",
-                ]
-            ),
-            encoding="utf-8",
-        )
-        environment = os.environ.copy()
-        environment["CLIPPY_CONF_DIR"] = str(config_directory)
-        return _cargo_command(
-            root,
-            [
-                "clippy",
-                "--locked",
-                "--manifest-path",
-                _tauri_manifest(root),
-                "--all-targets",
-                "--all-features",
-                "--",
-                "-F",
-                "warnings",
-                "-F",
-                "clippy::too_many_lines",
-                "-F",
-                "clippy::too_many_arguments",
-            ],
-            "Rust Clippy",
-            env=environment,
-        )
+    return _cargo_command(
+        root,
+        [
+            "clippy",
+            "--locked",
+            "--manifest-path",
+            _tauri_manifest(root),
+            "--all-targets",
+            "--all-features",
+            "--",
+            "-D",
+            "warnings",
+        ],
+        "Rust Clippy",
+    )
 
 
 def run_rust_check(root: Path) -> CheckResult:

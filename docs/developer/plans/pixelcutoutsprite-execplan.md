@@ -3,9 +3,9 @@
 <!-- AUTO-GENERATED:backlink END -->
 # PixelCutoutSprite Studio — lebender ExecPlan
 
-**Planungsstand:** 5. September 2026
+**Planungsstand:** 6. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P19 abgeschlossen; P20 ist der nächste Schritt
+**Implementierung:** P00–P20 abgeschlossen; P21 ist der nächste Schritt
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -181,6 +181,19 @@ Vorschau- und Quellbild-LRU zählt seine Payloads gegen 256 MiB und wird beim Va
 Hardwarebezogene Raster-, Export-, Öffnungs-, Inventar- und Importwerte sowie alle Einschränkungen
 stehen in der [P19-Desktop-Abnahme](../acceptance/desktop-usability-and-performance.md).
 
+P20 aktiviert die native Tauri-Bündelung und verankert Node, npm, Rust sowie die direkten
+Tauri-Versionen in Supportmatrix, Manifests, CI und Devcontainer. Die zentrale Quality-Schicht
+ignoriert ihren eigenen `.tooling-state` sowie `.build` und verwendet Clippys kompatibles
+`-D warnings`. Sichere Artefaktprüfer erzeugen pro Plattform atomare Manifeste und
+SHA-256-Listen; ein hostgebundener
+Smoke startet ausschließlich den erzeugten Paketpayload mit isoliertem Nutzerzustand. Das finale
+Linux-DEB wurde wirklich gebaut, geprüft, gestartet und bis zum nativen GTK-Ordnerdialog sowie
+zum gespeicherten Produktions-Export durchlaufen. Die schreibgeschützte Studio-CI-Matrix bereitet
+NSIS unter Windows und DMG unter macOS vor. Beide Plattformen bleiben mangels passendem Host und
+autorisiertem Workflowlauf ausdrücklich nicht laufzeitabgenommen. Der
+[P20-Buildbericht](../acceptance/native-builds-and-tooling.md) dokumentiert Artefakt, Hash,
+Codespaces-Grenze, Signierungsfreigabe und alle Blocker.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -213,7 +226,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P17](../prompts/pixelcutoutsprite/17.md) | Portables Godot-Paket und echter Importtest | Abgeschlossen |
 | [P18](../prompts/pixelcutoutsprite/18.md) | Recovery, Autosave und Datenintegrität härten | Abgeschlossen |
 | [P19](../prompts/pixelcutoutsprite/19.md) | Desktop-Usability und Leistung prüfen | Abgeschlossen |
-| [P20](../prompts/pixelcutoutsprite/20.md) | Native Builds, Tooling und Codespaces | Nicht begonnen |
+| [P20](../prompts/pixelcutoutsprite/20.md) | Native Builds, Tooling und Codespaces | Abgeschlossen |
 | [P21](../prompts/pixelcutoutsprite/21.md) | Anleitung und nachvollziehbare Beispiel-Vault | Nicht begonnen |
 | [P22](../prompts/pixelcutoutsprite/22.md) | Gesamtabnahme und überprüfbarer Abschluss | Nicht begonnen |
 
@@ -248,6 +261,10 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
   seitenweises Inventar, sichtbarkeitsgeladene Thumbnails, begrenzten gemeinsamen Bildcache,
   fokuserhaltende Serverfilter, abbrechbare Importjobs sowie Linux-/Offline-/Leistungsmessungen
   erstellt und gegatet.
+- [x] P20: reproduzierbar gepinnte Toolchains, aktive native Bündelung, sichere
+  Manifest-/SHA-256-Artefaktprüfung, hostgebundene Paket-Smokes, Studio-CI-Matrix,
+  Devcontainergrenze und ein tatsächlich geprüftes Linux-DEB erstellt und gegatet; Windows und
+  macOS bleiben mit offenem Host-/Workflowblocker ausdrücklich nicht abgenommen.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
 - [x] Meilenstein C: Figuren, P12–P15.
@@ -499,6 +516,18 @@ bleibt deshalb während der nächsten nativen Anfrage montiert; Kontext-, Query-
 Generationsprüfungen verhindern weiterhin, dass eine alte Antwort übernommen wird. Ein fokussierter
 DOM-Test und kontinuierliche native Eingabe bis `Asset 0999` belegen die Korrektur.
 
+**2026-09-05 / P20:** Ein erfolgreiches Tauri-Release-Executable beweist noch kein
+Installationspaket. Erst der Paketinhalt des finalen DEB zeigte, dass die zunächst implizite
+Iconauswahl die Linux-Symbole nicht vollständig enthielt. Eine explizite plattformübergreifende
+Iconliste und der erneute Build schließen diese Lücke; Manifest, SHA-256 und Start-Smoke beziehen
+sich nur auf das neu erzeugte Paket.
+
+**2026-09-05 / P20:** Ein plattformübergreifender Befehlsplan ist keine native
+Windows-/macOS-Abnahme. Die Matrix führt Build und Paketstart auf expliziten Betriebssystemrunnern
+aus, doch ohne Push oder passende lokale Hosts bleiben diese Resultate blockiert und werden nicht
+als PASS bezeichnet. Dasselbe gilt für den Devcontainer-Quellvertrag ohne verfügbaren
+Docker-/Podman-Daemon.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -525,6 +554,7 @@ DOM-Test und kontinuierliche native Eingabe bis `Asset 0999` belegen die Korrekt
 | ADR-021 | Ein Godot-Job baut zuerst den unveränderlichen generischen Build und das vollständige abgeleitete Paket; erst danach darf derselbe Job `current.json` publizieren. | Ein fehlgeschlagenes oder abgebrochenes Engine-Paket darf keinen nur teilweise erfolgreichen Gesamtzustand als aktuell markieren; sichere inhaltsadressierte Orphans bleiben wiederverwendbar. |
 | ADR-022 | Mehrdatei-Mutationen verwenden einen eigentumsgeprüften, digest-versiegelten Journalplan; Writer-Exklusivität kommt aus einer OS-Dateisperre, nicht aus Alter oder Existenz der JSON-Metadaten. | Verhindert falsche Atomaritätszusagen, stille Übernahme aktiver Vaults und unprüfbare Recovery nach einem Rename-vor-Cursor-Crashfenster. |
 | ADR-023 | Große Inventare liefern cursorbasierte Metadatenseiten und getrennte sichtbarkeitsgeladene Thumbnails; Vorschau und Quellbitmaps teilen einen exakt gezählten 256-MiB-LRU, Importjobs besitzen harte Mengen-/Bytebudgets und einen nativen Abbruchzustand. | Verhindert unbegrenzte IPC-/React-Payloads und gleichzeitig dekodierte Bilder, ohne einen zweiten Rasterer oder eine neue Beschleunigungsabhängigkeit einzuführen. |
+| ADR-024 | Native Pakete sind zunächst unsignierte, kurzlebige Testkandidaten; jeder Host baut frisch, prüft reguläre repositorygebundene Artefakte, schreibt SHA-256-Evidenz und startet den Paketpayload mit isoliertem Nutzerzustand. | Trennt reproduzierbare technische Abnahme von Schlüsseln, Notarisierung und Veröffentlichung und verhindert, dass alte, fremde oder nutzerbehaftete Dateien als neuer Build gelten. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -625,6 +655,14 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-05 / P19 | `cargo test --locked`, `cargo check --locked --all-targets`, Clippy `-D warnings` und rustfmt | Abschluss-Container, Rust 1.97.1 | PASS: 241 Tests, 4 vorgesehene Sonderläufe ignoriert und alle Compiler-/Formatgates | Zwei Hardwaremessungen, der gehaltene native Walkthrough-Fixturegenerator und der echte Godot-Test bleiben explizit separat; Cache-/Bytebudgets, Pagination, Jobabbruch, Pixel-Goldens und alle früheren Rust-Verträge sind in der normalen Suite grün. |
 | 2026-09-05 / P19 | `npm test -- --run`, Typecheck, ESLint, Prettier und normaler Vite-Build | Abschluss-Container, Node 24.19.0 / npm 11.17.0 | PASS: 177 Tests in 40 Dateien und alle Frontend-Gates | Der neue Fokusfall ergänzt Modalfokus, Shortcut-/Texteingabeschutz, Dropdownmodelle, Mindestlayout, Reduced Motion, DPR-Geometrie, Metadatenseiten, sichtbare Thumbnails sowie Importfortschritt/-abbruch; der Build umfasst 118 Module und keinen Probe-Marker. |
 | 2026-09-05 / P19 | `tools/control.py docs check`, `quality architecture --format json`, `integrate --check --json` und `git diff --check` | Abschluss-Container | PASS | 145 Dokumentseiten sind konsistent, die TypeScript-AST-Prüfung parst 142 Quelldateien, das Desktopprofil ist ohne offene Operation integriert und das Patchformat ist sauber. Die bekannten zentralen Toolingkorrekturen bleiben ausdrücklich P20. |
+| 2026-09-05 / P20 | `tauri build --target linux --bundles deb`, SHA-256-/Inhaltsprüfung und `tauri smoke --target linux --startup-seconds 5` | flüchtiger Debian-12-Container, Linux x86_64, virtuelles X11 | PASS: finales DEB mit 5.432.744 Bytes und SHA-256 `1e8d763e8bccfefd37f58d180804c4884004d84816c89a74366f67f79b1ce15d`; Paketpayload 5,045 s aktiv | DEB enthält Programm, Desktopdatei und drei Icongrößen, aber keine Vault, Secrets, Python- oder Godot-Laufzeit. Der Smoke extrahiert den Paketpayload und isoliert HOME/XDG. |
+| 2026-09-05 / P20 | finalen DEB-Payload bei 1440×900 starten und „Choose vault“ auslösen | gleicher Container, Xvfb/Software-Rendering | PASS im belegten Linux-Umfang | Das echte Studiofenster öffnet den nativen GTK-Dialog „Choose a PixelCutoutSprite vault“ bei 1096×822. Der Nachweis ist kein Windows-/macOS-Dialogtest. |
+| 2026-09-05 / P20 | Produktions-Speichern-/Export-Smoke `authoritative_npc_export_renders_multiple_actions_and_current_pointer_controls_freshness` | Linux-Host, Rust 1.97.1 | PASS: 1 Test | Ein gespeicherter NPC mit mehreren Aktionen durchläuft den Produktionsservice bis zum Export und aktuellen Pointer; Endnutzer benötigen keinen Python- oder Godot-Prozess. |
+| 2026-09-05 / P20 | native Windows-NSIS-/macOS-DMG-Befehlspläne und Studio-CI-Verträge | Linux-Host ohne Windows/macOS; kein Push autorisiert | BLOCKIERT / nicht abgenommen | Exakte Dry-runs und 141 fokussierte Python-Vertragstests bestehen; tatsächliche Pakete, Starts und Dialoge warten auf die eingecheckte `windows-2025`-/`macos-15`-Matrix. |
+| 2026-09-05 / P20 | Devcontainer-/Codespaces-Quellvertrag | Abschluss-Container ohne Docker/Podman | BLOCKIERT für Image-Build; Quelltests PASS | Gepinnter Linux-Container und geeignete Headless-Gates sind definiert. Codespaces-Portweiterleitung wird ausdrücklich nicht als native GUI-Vorschau ausgegeben. |
+| 2026-09-06 / P20 | vollständige `tools/tests`- und `tests/source`-Suite | Abschluss-Container, Python 3.11.2 | PASS: 1.272 Tests, 4 erwartete profilabhängige Skips | Portable Tooling-, Quality-, Profil-, CI-, Artefakt-, Capability-, ESLint- und Produktverträge bestehen gemeinsam; keine zuvor offene Source-Fixtureabweichung bleibt übrig. |
+| 2026-09-06 / P20 | rustfmt, `cargo check --locked --all-targets --all-features`, Clippy `-D warnings`, `cargo test --locked` sowie alle Frontend-Gates | Abschluss-Container, Rust 1.97.1, Node 24.19.0, npm 11.17.0 | PASS: 241 Rusttests, 4 Sonderläufe ignoriert; 177 Frontendtests in 40 Dateien; Build mit 118 Modulen | Direkter Produktcode, exakt ausgerichteter Tauri-Dialogstack, Compiler, Lints, Typen, Formatierung und Produktionsbundle bleiben nach der Toolingänderung grün. |
+| 2026-09-06 / P20 | `quality lint`, `quality architecture --format json`, `docs check`, `integrate --full-fix`, `integrate --check --json` und `git diff --check` | sauberer P20-Commitzustand; Quality zusätzlich mit frischem Cargo-Ziel und flüchtigem Debian-Sysroot | PASS | Zentrale Python-/TypeScript-/Rust-Gates, 142 TypeScript-Quelldateien, 146 Dokumentseiten und das vollständig integrierte Desktopprofil sind ohne getrackte Nachkorrektur grün; CI und Devcontainer installieren die für den All-Features-Build benötigte D-Bus-Entwicklungsabhängigkeit ausdrücklich. |
 
 Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
 
@@ -634,9 +672,8 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P20 für native Windows-/Linux-/macOS-Buildartefakte,
-Tooling-/CI-Integration, Plattform-Smokes sowie ehrlich dokumentierte Signierungs- und
-Codespaces-Grenzen ausführen.
+**Nächster ausführbarer Schritt:** P21 für die deutsche Nutzeranleitung und eine nachvollziehbare
+Beispiel-Vault „Lichterhain“ über die echten Produktionsservices ausführen.
 
 ## Outcomes & Retrospective
 
@@ -709,5 +746,13 @@ gemeinsamer 256-MiB-LRU schließen die Performance- und Speicherziele ohne geän
 oder neue Beschleunigungsabhängigkeit. Der Post-Review-Lauf des aktuellen Release-Executables
 bestätigt Projektquery, Pagination, Vollbestandssuche, Dropdownsortierung und Frame-Probe auf dem
 erzeugten 100/1000-Bestand in beiden Pflichtgrößen.
+P20 macht daraus einen reproduzierbaren nativen Distributionspfad: exakte Toolchainverträge,
+aktive Tauri-Bündelung, sichere frische Artefaktmanifeste, ein Paketpayload-Smoke und eine
+schreibgeschützte Drei-Plattform-CI-Matrix. Das tatsächlich neu gebaute Linux-DEB besteht Hash-,
+Inhalts-, Start-, Dialog- und Produktionsserviceprüfungen ohne eingebettete Nutzerdaten oder
+zusätzliche Python-/Godot-Laufzeit. Windows, macOS und der Devcontainer-Imagebuild bleiben nicht
+beschönigt: Ihre Implementierungen und Runnerpfade sind eingecheckt, ihre in dieser Sitzung nicht
+verfügbaren Laufzeitergebnisse sind als konkrete Blocker protokolliert. Signierung und
+Veröffentlichung bleiben getrennte Freigabeschritte.
 Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
 Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.

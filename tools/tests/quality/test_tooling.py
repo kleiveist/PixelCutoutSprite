@@ -66,19 +66,13 @@ def test_ruff_metrics_are_classified_from_central_limits(
     monkeypatch.setattr(
         tooling,
         "_run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            ["ruff"], 1, stdout=json.dumps(payload), stderr=""
-        ),
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(["ruff"], 1, stdout=json.dumps(payload), stderr=""),
     )
 
-    result = tooling.run_python_metrics(
-        tmp_path, [_python_metric(tmp_path)], quality_config
-    )
+    result = tooling.run_python_metrics(tmp_path, [_python_metric(tmp_path)], quality_config)
 
     assert result.status == ("FAIL" if expected is Severity.ERROR else "PASS")
-    assert [
-        (finding.rule.rule_id, finding.severity) for finding in result.findings
-    ] == [(rule_id, expected)]
+    assert [(finding.rule.rule_id, finding.severity) for finding in result.findings] == [(rule_id, expected)]
 
 
 def test_duplicate_ruff_nesting_diagnostics_collapse_to_the_highest_depth(
@@ -99,14 +93,10 @@ def test_duplicate_ruff_nesting_diagnostics_collapse_to_the_highest_depth(
     monkeypatch.setattr(
         tooling,
         "_run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            ["ruff"], 1, stdout=json.dumps(payload), stderr=""
-        ),
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(["ruff"], 1, stdout=json.dumps(payload), stderr=""),
     )
 
-    result = tooling.run_python_metrics(
-        tmp_path, [_python_metric(tmp_path)], quality_config
-    )
+    result = tooling.run_python_metrics(tmp_path, [_python_metric(tmp_path)], quality_config)
 
     assert len(result.findings) == 1
     assert result.findings[0].actual == 5
@@ -138,9 +128,7 @@ def test_ruff_metrics_use_qualified_ast_symbols_as_distinct_exception_keys(
     monkeypatch.setattr(
         tooling,
         "_run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            ["ruff"], 1, stdout=json.dumps(payload), stderr=""
-        ),
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(["ruff"], 1, stdout=json.dumps(payload), stderr=""),
     )
 
     result = tooling.run_python_metrics(tmp_path, [metric], quality_config)
@@ -180,9 +168,7 @@ def test_real_ruff_metrics_ignore_inline_noqa(
         pytest.skip("Ruff is not installed")
     monkeypatch.setattr(tooling, "_ruff", lambda _root: ruff)
 
-    result = tooling.run_python_metrics(
-        tmp_path, [scan_file(source, tmp_path)], quality_config
-    )
+    result = tooling.run_python_metrics(tmp_path, [scan_file(source, tmp_path)], quality_config)
 
     assert any(finding.rule.rule_id == "CQ102" for finding in result.findings)
     assert result.status == "FAIL"
@@ -241,9 +227,7 @@ def test_eslint_metrics_are_classified_from_central_limits(
     monkeypatch.setattr(
         tooling,
         "_run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            ["eslint"], 0, stdout=json.dumps(payload), stderr=""
-        ),
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(["eslint"], 0, stdout=json.dumps(payload), stderr=""),
     )
 
     result = tooling.run_typescript_metrics(tmp_path, [metric], quality_config)
@@ -284,14 +268,10 @@ def test_eslint_metric_uses_ast_function_symbol_for_narrow_exceptions(
     monkeypatch.setattr(
         tooling,
         "_run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            ["eslint"], 1, stdout=json.dumps(payload), stderr=""
-        ),
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(["eslint"], 1, stdout=json.dumps(payload), stderr=""),
     )
 
-    result = tooling.run_typescript_metrics(
-        tmp_path, [metric], quality_config, analysis
-    )
+    result = tooling.run_typescript_metrics(tmp_path, [metric], quality_config, analysis)
 
     assert result.findings[0].symbol == "measured"
 
@@ -322,24 +302,17 @@ def test_eslint_metrics_prefer_class_qualified_ast_symbols_for_exact_exception_s
     payload = [
         {
             "filePath": str(source),
-            "messages": [
-                {"ruleId": "complexity", "message": metric_message, "line": line}
-                for line in (2, 5)
-            ],
+            "messages": [{"ruleId": "complexity", "message": metric_message, "line": line} for line in (2, 5)],
         }
     ]
     monkeypatch.setattr(tooling, "_frontend_binary", lambda _root, _name: "eslint")
     monkeypatch.setattr(
         tooling,
         "_run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            ["eslint"], 1, stdout=json.dumps(payload), stderr=""
-        ),
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(["eslint"], 1, stdout=json.dumps(payload), stderr=""),
     )
 
-    result = tooling.run_typescript_metrics(
-        tmp_path, [metric], quality_config, analysis
-    )
+    result = tooling.run_typescript_metrics(tmp_path, [metric], quality_config, analysis)
     apply_exceptions(
         [result],
         (
@@ -399,9 +372,7 @@ def test_eslint_fatal_parser_error_fails_metric_analysis(
     monkeypatch.setattr(
         tooling,
         "_run",
-        lambda *_args, **_kwargs: subprocess.CompletedProcess(
-            ["eslint"], 1, stdout=json.dumps(payload), stderr=""
-        ),
+        lambda *_args, **_kwargs: subprocess.CompletedProcess(["eslint"], 1, stdout=json.dumps(payload), stderr=""),
     )
 
     result = tooling.run_typescript_metrics(tmp_path, [metric], quality_config)
@@ -410,22 +381,18 @@ def test_eslint_fatal_parser_error_fails_metric_analysis(
     assert "could not parse frontend/src/invalid.ts" in result.detail
 
 
-def test_clippy_receives_central_hard_limits(
+def test_clippy_uses_locked_all_target_denied_warning_contract(
     monkeypatch,
     tmp_path: Path,
     quality_config: QualityConfig,
 ) -> None:
     (tmp_path / "src-tauri").mkdir()
-    (tmp_path / "src-tauri/Cargo.toml").write_text(
-        "[package]\nname='test'\n", encoding="utf-8"
-    )
-    captured: dict[str, str | list[str]] = {}
+    (tmp_path / "src-tauri/Cargo.toml").write_text("[package]\nname='test'\n", encoding="utf-8")
+    captured: dict[str, object] = {}
 
     def fake_cargo(root, arguments, name, *, env=None):
         captured["arguments"] = arguments
-        captured["config"] = (Path(env["CLIPPY_CONF_DIR"]) / "clippy.toml").read_text(
-            encoding="utf-8"
-        )
+        captured["env"] = env
         return CheckResult(name)
 
     monkeypatch.setattr(tooling, "_cargo_command", fake_cargo)
@@ -433,17 +400,22 @@ def test_clippy_receives_central_hard_limits(
     result = tooling.run_rust_lint(tmp_path, quality_config)
 
     assert result.status == "PASS"
-    assert "too-many-arguments-threshold = 10" in captured["config"]
-    assert "too-many-lines-threshold = 120" in captured["config"]
-    assert "cognitive-complexity-threshold" not in captured["config"]
-    assert "clippy::too_many_lines" in captured["arguments"]
-    assert "clippy::cognitive_complexity" not in captured["arguments"]
-    assert "--all-targets" in captured["arguments"]
-    assert "--all-features" in captured["arguments"]
+    assert captured["arguments"] == [
+        "clippy",
+        "--locked",
+        "--manifest-path",
+        "src-tauri/Cargo.toml",
+        "--all-targets",
+        "--all-features",
+        "--",
+        "-D",
+        "warnings",
+    ]
+    assert captured["env"] is None
 
 
 @pytest.mark.parametrize("suffix", [".rs", ".RS"])
-def test_valid_rust_metric_exceptions_widen_only_duplicate_clippy_thresholds(
+def test_rust_metric_exceptions_do_not_change_the_clippy_warning_contract(
     monkeypatch,
     tmp_path: Path,
     quality_config: QualityConfig,
@@ -455,9 +427,7 @@ def test_valid_rust_metric_exceptions_widen_only_duplicate_clippy_thresholds(
     (tauri / "Cargo.toml").write_text("[package]\nname='test'\n", encoding="utf-8")
     parameters = ", ".join(f"value_{index}: usize" for index in range(11))
     statements = "\n".join(f"    let local_{index} = {index};" for index in range(119))
-    source.write_text(
-        f"fn measured({parameters}) {{\n{statements}\n}}\n", encoding="utf-8"
-    )
+    source.write_text(f"fn measured({parameters}) {{\n{statements}\n}}\n", encoding="utf-8")
     metric = scan_file(source, tmp_path)
     exceptions = (
         ExceptionEntry(
@@ -475,12 +445,11 @@ def test_valid_rust_metric_exceptions_widen_only_duplicate_clippy_thresholds(
             "measured",
         ),
     )
-    captured: dict[str, str] = {}
+    captured: dict[str, object] = {}
 
-    def fake_cargo(_root, _arguments, name, *, env=None):
-        captured["config"] = (Path(env["CLIPPY_CONF_DIR"]) / "clippy.toml").read_text(
-            encoding="utf-8"
-        )
+    def fake_cargo(_root, arguments, name, *, env=None):
+        captured["arguments"] = arguments
+        captured["env"] = env
         return CheckResult(name)
 
     monkeypatch.setattr(tooling, "_cargo_command", fake_cargo)
@@ -488,21 +457,19 @@ def test_valid_rust_metric_exceptions_widen_only_duplicate_clippy_thresholds(
     result = tooling.run_rust_lint(tmp_path, quality_config, [metric], exceptions)
 
     assert result.status == "PASS"
-    assert "too-many-lines-threshold = 121" in captured["config"]
-    assert "too-many-arguments-threshold = 11" in captured["config"]
+    assert captured["arguments"][-2:] == ["-D", "warnings"]
+    assert "clippy::too_many_lines" not in captured["arguments"]
+    assert "clippy::too_many_arguments" not in captured["arguments"]
+    assert captured["env"] is None
 
 
-def test_real_clippy_forbids_inline_allow_for_hard_limit(
-    tmp_path: Path, quality_config: QualityConfig
-) -> None:
+def test_real_clippy_denies_default_warnings(tmp_path: Path, quality_config: QualityConfig) -> None:
     cargo = tooling.shutil.which("cargo")
     if not (ROOT / "src-tauri/Cargo.toml").is_file():
         pytest.skip("Tauri is not enabled in this project")
     if cargo is None:
         pytest.skip("Cargo is not installed")
-    clippy = subprocess.run(
-        [cargo, "clippy", "--version"], capture_output=True, text=True, check=False
-    )
+    clippy = subprocess.run([cargo, "clippy", "--version"], capture_output=True, text=True, check=False)
     if clippy.returncode != 0:
         pytest.skip("Clippy is not installed")
     tauri = tmp_path / "src-tauri"
@@ -512,10 +479,8 @@ def test_real_clippy_forbids_inline_allow_for_hard_limit(
         '[package]\nname = "quality-suppression-probe"\nversion = "0.1.0"\nedition = "2021"\n',
         encoding="utf-8",
     )
-    statements = "\n".join(f"    total += {index};" for index in range(121))
     source.write_text(
-        f"#[allow(clippy::too_many_lines)]\nfn measured() -> usize {{\n    let mut total = 0;\n"
-        f'{statements}\n    total\n}}\n\nfn main() {{ println!("{{}}", measured()); }}\n',
+        'fn main() {\n    let values = vec![1, 2, 3];\n    println!("{}", values.len());\n}\n',
         encoding="utf-8",
     )
     subprocess.run(
@@ -528,16 +493,12 @@ def test_real_clippy_forbids_inline_allow_for_hard_limit(
     result = tooling.run_rust_lint(tmp_path, quality_config)
 
     assert result.status == "FAIL"
-    assert "allow" in result.output.lower() or "too_many_lines" in result.output
+    assert "useless_vec" in result.output
 
 
-def test_rust_check_covers_all_targets_and_features(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_rust_check_covers_all_targets_and_features(monkeypatch, tmp_path: Path) -> None:
     (tmp_path / "src-tauri").mkdir()
-    (tmp_path / "src-tauri/Cargo.toml").write_text(
-        "[package]\nname='test'\n", encoding="utf-8"
-    )
+    (tmp_path / "src-tauri/Cargo.toml").write_text("[package]\nname='test'\n", encoding="utf-8")
     captured: list[str] = []
 
     def fake_cargo(root, arguments, name, *, env=None):
@@ -554,9 +515,7 @@ def test_rust_check_covers_all_targets_and_features(
     assert "--all-features" in captured
 
 
-@pytest.mark.parametrize(
-    ("line_count", "expected"), [(700, Severity.STRONG_WARNING), (701, Severity.ERROR)]
-)
+@pytest.mark.parametrize(("line_count", "expected"), [(700, Severity.STRONG_WARNING), (701, Severity.ERROR)])
 def test_typescript_class_line_hard_boundary(
     tmp_path: Path,
     quality_config: QualityConfig,

@@ -12,21 +12,14 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_ROOT = REPOSITORY_ROOT / ".github" / "workflows"
-SETUP_ACTION = (
-    REPOSITORY_ROOT / ".github" / "actions" / "setup-tooling-environment" / "action.yml"
-)
-DOCUMENTATION_ACTION = (
-    REPOSITORY_ROOT
-    / ".github"
-    / "actions"
-    / "setup-documentation-environment"
-    / "action.yml"
-)
+SETUP_ACTION = REPOSITORY_ROOT / ".github" / "actions" / "setup-tooling-environment" / "action.yml"
+DOCUMENTATION_ACTION = REPOSITORY_ROOT / ".github" / "actions" / "setup-documentation-environment" / "action.yml"
 REQUIRED_WORKFLOWS = frozenset(
     {
         "ci-quality.yml",
         "ci-core.yml",
         "ci-system.yml",
+        "ci-studio.yml",
         "ci-acceptance.yml",
         "ci-upgrade.yml",
         "ci-documentation.yml",
@@ -37,22 +30,13 @@ REQUIRED_WORKFLOWS = frozenset(
 )
 _PINNED_ACTION = re.compile(r"^actions/[A-Za-z0-9_-]+@[0-9a-f]{40}$")
 _USES = re.compile(r"^\s*uses:\s*([^\s#]+)", re.MULTILINE)
-_NODE24_UPLOAD_ARTIFACT = (
-    "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
-)
-_DOWNLOAD_ARTIFACT = (
-    "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
-)
-_ATTEST_BUILD_PROVENANCE = (
-    "actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8"
-)
+_NODE24_UPLOAD_ARTIFACT = "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+_DOWNLOAD_ARTIFACT = "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+_ATTEST_BUILD_PROVENANCE = "actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8"
 
 
 def _workflows() -> dict[str, str]:
-    return {
-        path.name: path.read_text(encoding="utf-8")
-        for path in sorted(WORKFLOW_ROOT.glob("*.y*ml"))
-    }
+    return {path.name: path.read_text(encoding="utf-8") for path in sorted(WORKFLOW_ROOT.glob("*.y*ml"))}
 
 
 def test_required_portable_ci_workflows_are_present() -> None:
@@ -60,10 +44,7 @@ def test_required_portable_ci_workflows_are_present() -> None:
 
     assert set(workflows) == REQUIRED_WORKFLOWS
     assert "workflow_call:" in workflows["_portable-acceptance.yml"]
-    assert (
-        "uses: ./.github/workflows/_portable-acceptance.yml"
-        in workflows["ci-acceptance.yml"]
-    )
+    assert "uses: ./.github/workflows/_portable-acceptance.yml" in workflows["ci-acceptance.yml"]
     assert "final-ci-gate" in workflows["ci-acceptance.yml"]
     assert "real-version-upgrade" in workflows["ci-upgrade.yml"]
     assert "documentation-build" in workflows["ci-documentation.yml"]
@@ -84,6 +65,7 @@ def test_every_protected_merge_gate_runs_for_pull_requests() -> None:
         "ci-acceptance.yml",
         "ci-upgrade.yml",
         "ci-documentation.yml",
+        "ci-studio.yml",
     ):
         assert "  pull_request:\n" in workflows[name], name
 
@@ -118,10 +100,7 @@ def test_reusable_acceptance_fetches_history_for_historical_upgrades() -> None:
     reusable = _workflows()["_portable-acceptance.yml"]
     checkout = _step_block(reusable, "Check out source")
 
-    assert (
-        "fetch-depth: ${{ inputs.include-historical-upgrade && '0' || '1' }}"
-        in checkout
-    )
+    assert "fetch-depth: ${{ inputs.include-historical-upgrade && '0' || '1' }}" in checkout
     assert "include-historical-upgrade && 0" not in checkout
 
 
@@ -132,12 +111,8 @@ def test_reusable_acceptance_callers_pass_central_node_and_rust_versions() -> No
         for job in _job_blocks(content):
             if "uses: ./.github/workflows/_portable-acceptance.yml" not in job:
                 continue
-            assert (
-                "node-version: ${{ needs.support-matrix.outputs.node_primary }}" in job
-            ), (name, job)
-            assert (
-                "rust-version: ${{ needs.support-matrix.outputs.rust_channel }}" in job
-            ), (name, job)
+            assert "node-version: ${{ needs.support-matrix.outputs.node_primary }}" in job, (name, job)
+            assert "rust-version: ${{ needs.support-matrix.outputs.rust_channel }}" in job, (name, job)
             assert "profile-selection:" in job, (name, job)
 
     acceptance = _workflows()["ci-acceptance.yml"]
@@ -147,13 +122,9 @@ def test_reusable_acceptance_callers_pass_central_node_and_rust_versions() -> No
     assert "profile-selection: web-only or desktop-local" in copy_matrix
     assert "github.event_name == 'pull_request'" in copy_matrix
     profile_matrix = _job_block(acceptance, "acceptance-profile-integration")
-    assert (
-        "profile-selection: ${{ github.event_name == 'pull_request'" in profile_matrix
-    )
+    assert "profile-selection: ${{ github.event_name == 'pull_request'" in profile_matrix
     windows = _job_block(acceptance, "acceptance-windows")
-    assert (
-        "profile-selection: desktop-local or desktop-cloud or full-platform" in windows
-    )
+    assert "profile-selection: desktop-local or desktop-cloud or full-platform" in windows
     macos = _job_block(acceptance, "acceptance-macos")
     assert "profile-selection: web-only" in macos
 
@@ -203,10 +174,7 @@ def test_workflow_security_contract_is_minimal_and_pinned() -> None:
         assert "windows-latest" not in content, name
         assert "macos-latest" not in content, name
         if name != "_portable-acceptance.yml":
-            assert (
-                "cancel-in-progress: false" in content
-                or "cancel-in-progress:" in content
-            ), name
+            assert "cancel-in-progress: false" in content or "cancel-in-progress:" in content, name
         assert "shell: bash" not in content, name
         for action in _USES.findall(content):
             if action.startswith("actions/"):
@@ -251,10 +219,7 @@ def test_release_workflow_publishes_durable_verified_assets() -> None:
         ("release-acceptance-macos", "macos"),
     ):
         acceptance = _job_block(release, job_name)
-        assert (
-            f"runner: ${{{{ needs.support-matrix.outputs.{runner_output} }}}}"
-            in acceptance
-        )
+        assert f"runner: ${{{{ needs.support-matrix.outputs.{runner_output} }}}}" in acceptance
         assert job_name in finale
 
 
@@ -274,6 +239,9 @@ def test_setup_action_creates_only_external_isolated_environments() -> None:
     assert "runs:\n  using: composite" in content
     assert "actions/setup-python@" in content
     assert "actions/setup-node@" in content
+    assert "npm-version:" in content
+    assert 'npm install --global "npm@$env:NPM_VERSION"' in content
+    assert "--component clippy --component rustfmt" in content
     assert "RUSTUP_TOOLCHAIN=" in content
     assert "RUNNER_TEMP" in content
     assert "tools/.venv" not in content

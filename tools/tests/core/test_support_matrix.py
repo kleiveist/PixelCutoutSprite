@@ -37,7 +37,9 @@ def test_support_matrix_is_versioned_and_pins_supported_toolchains() -> None:
 
     node = matrix["node"]
     assert node["primary"] == "24.19.0"
+    assert node["npm"] == "11.17.0"
     assert _SEMVER.fullmatch(node["primary"]) is not None
+    assert _SEMVER.fullmatch(node["npm"]) is not None
 
     rust = matrix["rust"]
     with RUST_TOOLCHAIN_PATH.open("rb") as handle:
@@ -45,6 +47,15 @@ def test_support_matrix_is_versioned_and_pins_supported_toolchains() -> None:
     assert rust["channel"] == "1.97.1"
     assert rust["channel"] == rust_toolchain["toolchain"]["channel"]
     assert _SEMVER.fullmatch(rust["channel"]) is not None
+
+    tauri = matrix["tauri"]
+    assert tauri == {
+        "cli": "2.10.1",
+        "core": "2.11.5",
+        "build": "2.6.3",
+        "dialog": "2.7.3",
+    }
+    assert all(_SEMVER.fullmatch(version) is not None for version in tauri.values())
 
     tex = matrix["tex"]
     assert tex == {

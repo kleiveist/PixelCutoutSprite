@@ -7,6 +7,7 @@
 
 - ✅ [Acceptance](acceptance/acceptance.md)
 - 🖥️ [P19 — Desktop-Usability und Leistung](acceptance/desktop-usability-and-performance.md)
+- 📦 [P20 — Native Builds, Tooling und Codespaces](acceptance/native-builds-and-tooling.md)
 - 📋 [Requirement ledger](acceptance/requirements.md)
 - 🧭 [Decisions](decisions/decisions.md)
 - 🖥️ [ADR-001: Tauri desktop profile](decisions/adr-001-tauri-desktop.md)

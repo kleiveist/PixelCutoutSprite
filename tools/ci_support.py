@@ -19,7 +19,7 @@ from typing import Any
 import tomllib
 
 _VERSION = re.compile(r"\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.-]+)?$")
-_REQUIRED_TABLES = frozenset({"python", "node", "rust", "tex", "runners", "upgrade"})
+_REQUIRED_TABLES = frozenset({"python", "node", "rust", "tauri", "tex", "runners", "upgrade"})
 _OS_KEYS = ("linux", "windows", "macos")
 
 
@@ -36,7 +36,12 @@ class SupportMatrix:
     python_primary: str
     python_maximum: str
     node_primary: str
+    npm_version: str
     rust_channel: str
+    tauri_cli: str
+    tauri_core: str
+    tauri_build: str
+    tauri_dialog: str
     tex_distribution: str
     tex_release: str
     tex_compiler: str
@@ -45,11 +50,7 @@ class SupportMatrix:
 
     @property
     def python_versions(self) -> tuple[str, ...]:
-        return tuple(
-            dict.fromkeys(
-                (self.python_minimum, self.python_primary, self.python_maximum)
-            )
-        )
+        return tuple(dict.fromkeys((self.python_minimum, self.python_primary, self.python_maximum)))
 
     @property
     def os_matrix(self) -> tuple[dict[str, str], ...]:
@@ -64,7 +65,12 @@ class SupportMatrix:
             "python_maximum": self.python_maximum,
             "python_versions": json.dumps(self.python_versions),
             "node_primary": self.node_primary,
+            "npm_version": self.npm_version,
             "rust_channel": self.rust_channel,
+            "tauri_cli": self.tauri_cli,
+            "tauri_core": self.tauri_core,
+            "tauri_build": self.tauri_build,
+            "tauri_dialog": self.tauri_dialog,
             "tex_distribution": self.tex_distribution,
             "tex_release": self.tex_release,
             "tex_compiler": self.tex_compiler,
@@ -77,9 +83,7 @@ class SupportMatrix:
 
 
 def default_matrix_path() -> Path:
-    return (
-        Path(__file__).resolve().parent / "resources" / "config" / "support-matrix.toml"
-    )
+    return Path(__file__).resolve().parent / "resources" / "config" / "support-matrix.toml"
 
 
 def load_support_matrix(path: Path | None = None) -> SupportMatrix:
@@ -89,24 +93,21 @@ def load_support_matrix(path: Path | None = None) -> SupportMatrix:
     try:
         payload = tomllib.loads(matrix_path.read_text(encoding="utf-8"))
     except OSError as exc:
-        raise SupportMatrixError(
-            f"Could not read CI support matrix: {matrix_path}."
-        ) from exc
+        raise SupportMatrixError(f"Could not read CI support matrix: {matrix_path}.") from exc
     except tomllib.TOMLDecodeError as exc:
         raise SupportMatrixError(f"CI support matrix is invalid TOML: {exc}.") from exc
     if not isinstance(payload, dict):
         raise SupportMatrixError("CI support matrix must be a TOML document table.")
     missing = _REQUIRED_TABLES.difference(payload)
     if missing:
-        raise SupportMatrixError(
-            "CI support matrix is missing table(s): " + ", ".join(sorted(missing))
-        )
+        raise SupportMatrixError("CI support matrix is missing table(s): " + ", ".join(sorted(missing)))
     schema_version = payload.get("schema_version")
     if schema_version != 1 or isinstance(schema_version, bool):
         raise SupportMatrixError("CI support matrix must use schema_version = 1.")
     python = _table(payload, "python")
     node = _table(payload, "node")
     rust = _table(payload, "rust")
+    tauri = _table(payload, "tauri")
     tex = _table(payload, "tex")
     runners = _table(payload, "runners")
     upgrade = _table(payload, "upgrade")
@@ -116,7 +117,12 @@ def load_support_matrix(path: Path | None = None) -> SupportMatrix:
         python_primary=_version(python, "primary"),
         python_maximum=_version(python, "maximum"),
         node_primary=_version(node, "primary"),
+        npm_version=_version(node, "npm"),
         rust_channel=_version(rust, "channel"),
+        tauri_cli=_version(tauri, "cli"),
+        tauri_core=_version(tauri, "core"),
+        tauri_build=_version(tauri, "build"),
+        tauri_dialog=_version(tauri, "dialog"),
         tex_distribution=_identifier(tex, "distribution"),
         tex_release=_identifier(tex, "release"),
         tex_compiler=_identifier(tex, "compiler"),
@@ -143,41 +149,27 @@ def _version(table: dict[str, Any], key: str) -> str:
 
 def _identifier(table: dict[str, Any], key: str) -> str:
     value = table.get(key)
-    if not isinstance(value, str) or not re.fullmatch(
-        r"[A-Za-z0-9][A-Za-z0-9._-]*", value
-    ):
-        raise SupportMatrixError(
-            f"CI support matrix value {key!r} must be a safe identifier."
-        )
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", value):
+        raise SupportMatrixError(f"CI support matrix value {key!r} must be a safe identifier.")
     return value
 
 
 def _runner(table: dict[str, Any], key: str) -> str:
     value = table.get(key)
-    if not isinstance(value, str) or not re.fullmatch(
-        r"[A-Za-z0-9][A-Za-z0-9._-]*", value
-    ):
-        raise SupportMatrixError(
-            f"CI support matrix runner {key!r} must be a safe runner label."
-        )
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", value):
+        raise SupportMatrixError(f"CI support matrix runner {key!r} must be a safe runner label.")
     return value
 
 
 def _git_ref(table: dict[str, Any], key: str) -> str:
     value = table.get(key)
-    if not isinstance(value, str) or not re.fullmatch(
-        r"[0-9a-f]{40}|[A-Za-z0-9][A-Za-z0-9._/-]*", value
-    ):
-        raise SupportMatrixError(
-            f"CI support matrix value {key!r} must be a safe immutable Git ref."
-        )
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{40}|[A-Za-z0-9][A-Za-z0-9._/-]*", value):
+        raise SupportMatrixError(f"CI support matrix value {key!r} must be a safe immutable Git ref.")
     return value
 
 
 def _version_tuple(value: str) -> tuple[int, ...]:
-    return tuple(
-        int(part) for part in value.split("-", 1)[0].split("+", 1)[0].split(".")
-    )
+    return tuple(int(part) for part in value.split("-", 1)[0].split("+", 1)[0].split("."))
 
 
 def _validate_version_order(matrix: SupportMatrix) -> None:
@@ -185,15 +177,11 @@ def _validate_version_order(matrix: SupportMatrix) -> None:
     primary = _version_tuple(matrix.python_primary)
     maximum = _version_tuple(matrix.python_maximum)
     if not minimum <= primary <= maximum:
-        raise SupportMatrixError(
-            "Python support matrix must satisfy minimum <= primary <= maximum."
-        )
+        raise SupportMatrixError("Python support matrix must satisfy minimum <= primary <= maximum.")
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Read Template Tooling CI support values"
-    )
+    parser = argparse.ArgumentParser(description="Read Template Tooling CI support values")
     parser.add_argument("--matrix", type=Path, default=default_matrix_path())
     parser.add_argument(
         "--github-output",

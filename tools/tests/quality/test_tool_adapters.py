@@ -141,11 +141,11 @@ def test_clippy_adapter_propagates_success_and_failure_with_central_limits(
     tauri = tmp_path / "src-tauri"
     tauri.mkdir()
     (tauri / "Cargo.toml").write_text("[package]\nname = 'adapter-test'\n", encoding="utf-8")
-    captured: dict[str, str | list[str]] = {}
+    captured: dict[str, object] = {}
 
     def fake_run(command: list[str], *, cwd: Path, env=None):
         captured["command"] = command
-        captured["config"] = (Path(env["CLIPPY_CONF_DIR"]) / "clippy.toml").read_text(encoding="utf-8")
+        captured["env"] = env
         return _completed(command, returncode)
 
     monkeypatch.setattr(tooling.shutil, "which", lambda name: name)
@@ -165,13 +165,7 @@ def test_clippy_adapter_propagates_success_and_failure_with_central_limits(
         "--all-targets",
         "--all-features",
         "--",
-        "-F",
+        "-D",
         "warnings",
-        "-F",
-        "clippy::too_many_lines",
-        "-F",
-        "clippy::too_many_arguments",
     ]
-    assert "too-many-arguments-threshold = 10" in captured["config"]
-    assert "too-many-lines-threshold = 120" in captured["config"]
-    assert "cognitive-complexity-threshold" not in captured["config"]
+    assert captured["env"] is None

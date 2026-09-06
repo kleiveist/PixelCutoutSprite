@@ -100,9 +100,7 @@ def _app_identity() -> tuple[str, str]:
     identifier = payload.get("identifier")
     return (
         name if isinstance(name, str) and name.strip() else fallback[0],
-        identifier
-        if isinstance(identifier, str) and identifier.strip()
-        else fallback[1],
+        identifier if isinstance(identifier, str) and identifier.strip() else fallback[1],
     )
 
 
@@ -118,15 +116,9 @@ VENV_DIR = _DynamicPath(lambda: context().venv_root)
 FRONTEND_DIR = _DynamicPath(lambda: context().paths.frontend)
 TAURI_DIR = _DynamicPath(lambda: context().paths.tauri)
 DIST_DIR = _DynamicPath(lambda: context().project_root / ".dist" / "desktop")
-FRONTEND_PACKAGE_JSON = _DynamicPath(
-    lambda: _resolved_path("FRONTEND_DIR") / "package.json"
-)
-FRONTEND_PACKAGE_LOCK = _DynamicPath(
-    lambda: _resolved_path("FRONTEND_DIR") / "package-lock.json"
-)
-FRONTEND_PNPM_LOCK = _DynamicPath(
-    lambda: _resolved_path("FRONTEND_DIR") / "pnpm-lock.yaml"
-)
+FRONTEND_PACKAGE_JSON = _DynamicPath(lambda: _resolved_path("FRONTEND_DIR") / "package.json")
+FRONTEND_PACKAGE_LOCK = _DynamicPath(lambda: _resolved_path("FRONTEND_DIR") / "package-lock.json")
+FRONTEND_PNPM_LOCK = _DynamicPath(lambda: _resolved_path("FRONTEND_DIR") / "pnpm-lock.yaml")
 TAURI_CONFIG = _DynamicPath(lambda: _resolved_path("TAURI_DIR") / "tauri.conf.json")
 
 
@@ -161,10 +153,17 @@ def local_tauri_binary() -> Path:
     return _resolved_path("FRONTEND_DIR") / "node_modules" / ".bin" / binary_name
 
 
+def cargo_target_dir() -> Path:
+    configured = os.environ.get("CARGO_TARGET_DIR")
+    if configured:
+        candidate = Path(configured).expanduser()
+        return candidate.resolve() if candidate.is_absolute() else (ROOT / candidate).resolve()
+    return _resolved_path("TAURI_DIR") / "target"
+
+
 def bundle_roots() -> list[Path]:
-    tauri_dir = _resolved_path("TAURI_DIR")
-    roots = [tauri_dir / "target" / "release" / "bundle"]
-    target_root = tauri_dir / "target"
+    target_root = cargo_target_dir()
+    roots = [target_root / "release" / "bundle"]
     if target_root.exists():
         roots.extend(sorted(target_root.glob("*/release/bundle")))
     return roots

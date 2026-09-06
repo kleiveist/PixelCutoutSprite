@@ -163,7 +163,7 @@ def _verify_outputs(
 
 
 def _bundle_root() -> Path:
-    return paths.TAURI_DIR / "target" / "release" / "bundle"
+    return paths.cargo_target_dir() / "release" / "bundle"
 
 
 def _evidence_root() -> Path:

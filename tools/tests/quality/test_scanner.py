@@ -307,12 +307,14 @@ def test_generated_dependencies_outputs_and_lockfiles_are_excluded(
     config = replace(quality_config, source=source)
     included = ["src/kept.py", "tools/tauri/build/linux.py"]
     excluded = [
+        ".build/cargo/generated.js",
         ".cache/cache.py",
         ".dist/bundle.js",
         ".git/hooks/tool.py",
         "node_modules/library.py",
         ".generated/profile/generated.ts",
         ".pytest_cache/cache.py",
+        ".tooling-state/venv/probe.py",
         ".venv/lib/tool.py",
         "__pycache__/module.py",
         "coverage/report.js",

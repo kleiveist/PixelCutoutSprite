@@ -263,14 +263,14 @@ def render_linux_bundle_summary(result: VerificationResult) -> str:
 
 
 def main(args: argparse.Namespace) -> int:
-    if getattr(args, "target", "linux") != "linux":
-        logger.fail("Linux bundle verification supports only '--target linux'.")
-        return 1
+    target = getattr(args, "target", "linux")
+    if target != "linux":
+        return _main_native(args, target)
     try:
-        requested = normalize_linux_bundles(getattr(args, "bundles", None))
+        requested = normalize_linux_bundles(getattr(args, "bundles", None), default="deb")
         result, evidence = verify_and_write_linux_bundles(
             requested,
-            bundle_root=paths.TAURI_DIR / "target" / "release" / "bundle",
+            bundle_root=paths.cargo_target_dir() / "release" / "bundle",
             repository_root=paths.ROOT,
             evidence_root=paths.DIST_DIR / "linux",
         )
@@ -290,6 +290,38 @@ def main(args: argparse.Namespace) -> int:
                 stream.write(render_linux_bundle_summary(result))
         except OSError as exc:
             logger.fail(f"Could not write Linux bundle summary: {exc}")
+            return 1
+    return 0
+
+
+def _main_native(args: argparse.Namespace, target: str) -> int:
+    from tools.tauri.build import native_artifacts
+
+    try:
+        requested = native_artifacts.normalize_bundles(target, getattr(args, "bundles", None))
+        result, evidence = native_artifacts.verify_and_write(
+            target,
+            requested,
+            bundle_root=native_artifacts.default_bundle_root(target),
+            repository_root=paths.ROOT,
+            evidence_root=paths.DIST_DIR / target,
+        )
+    except (native_artifacts.NativeArtifactError, OSError) as exc:
+        logger.fail(str(exc))
+        return 1
+
+    native_artifacts.log_verification(result)
+    if not result.ok or evidence is None:
+        return 1
+    logger.ok(f"{target} bundle manifest: {evidence.manifest.relative_to(paths.ROOT)}")
+    logger.ok(f"{target} bundle checksums: {evidence.checksums.relative_to(paths.ROOT)}")
+    summary_file = getattr(args, "summary_file", None)
+    if summary_file:
+        try:
+            with Path(summary_file).open("a", encoding="utf-8") as stream:
+                stream.write(native_artifacts.render_summary(result))
+        except OSError as exc:
+            logger.fail(f"Could not write {target} bundle summary: {exc}")
             return 1
     return 0
 

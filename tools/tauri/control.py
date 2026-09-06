@@ -4,7 +4,7 @@ import argparse
 
 from tools import logger
 from tools.profiles import runtime as profile_runtime
-from tools.tauri import build, copy, doctor, install, paths, run, test
+from tools.tauri import build, copy, doctor, install, paths, run, smoke, test
 from tools.tauri.build import artifacts, installappimage
 
 
@@ -34,7 +34,7 @@ def configure_build_parser(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--bundles",
-        help="Linux bundle list, for example deb,rpm or appimage (default: deb,rpm,appimage)",
+        help=("native bundle list (Linux: deb,rpm,appimage; Windows: nsis,msi; macOS: dmg)"),
     )
     parser.add_argument(
         "--appimage",
@@ -72,6 +72,7 @@ Use '<command> --help' before an unfamiliar or destructive operation.
     _configure_stop_parser(tauri_subparsers)
     _configure_build_command_parser(tauri_subparsers)
     _configure_test_parser(tauri_subparsers)
+    _configure_smoke_parser(tauri_subparsers)
     _configure_copy_parser(tauri_subparsers)
     _configure_verify_artifacts_parser(tauri_subparsers)
 
@@ -204,6 +205,27 @@ def _configure_test_parser(tauri_subparsers: argparse._SubParsersAction) -> None
     )
 
 
+def _configure_smoke_parser(tauri_subparsers: argparse._SubParsersAction) -> None:
+    parser = tauri_subparsers.add_parser(
+        "smoke",
+        help="start a packaged native desktop payload",
+        description=(
+            "Extract and start the current native installer payload with isolated user state, "
+            "then write bounded JSON evidence."
+        ),
+        formatter_class=TauriHelpFormatter,
+    )
+    parser.add_argument("--target", required=True, choices=("linux", "windows", "macos"))
+    parser.add_argument("--executable", help="explicit repository-contained executable for diagnostics")
+    parser.add_argument(
+        "--startup-seconds",
+        type=float,
+        default=3.0,
+        help="seconds the application must remain alive (default: 3; maximum: 30)",
+    )
+    parser.epilog = "example:\n  python tools/control.py tauri smoke --target linux"
+
+
 def _configure_copy_parser(tauri_subparsers: argparse._SubParsersAction) -> None:
     parser = tauri_subparsers.add_parser(
         "copy",
@@ -225,22 +247,23 @@ def _configure_verify_artifacts_parser(
 ) -> None:
     parser = tauri_subparsers.add_parser(
         "verify-artifacts",
-        help="verify Linux desktop bundle evidence",
-        description="Verify nonempty Linux bundles and write a deterministic manifest and checksums.",
+        help="verify native desktop bundle evidence",
+        description="Verify nonempty native bundles and write a deterministic manifest and checksums.",
         formatter_class=TauriHelpFormatter,
     )
-    parser.add_argument("--target", default="linux", choices=("linux",))
+    parser.add_argument("--target", default="linux", choices=("linux", "windows", "macos"))
     parser.add_argument(
         "--bundles",
-        default="deb",
-        help="comma-separated Linux bundle list (default: deb)",
+        help="comma-separated bundle list (defaults: Linux deb, Windows nsis, macOS dmg)",
     )
     parser.add_argument(
         "--summary-file",
         help="append a Markdown verification table to this file",
     )
     parser.epilog = (
-        "example:\n  python tools/control.py tauri verify-artifacts --target linux --bundles deb,rpm,appimage"
+        "examples:\n"
+        "  python tools/control.py tauri verify-artifacts --target linux --bundles deb,appimage\n"
+        "  python tools/control.py tauri verify-artifacts --target windows --bundles nsis"
     )
 
 
@@ -278,6 +301,7 @@ def main(args: argparse.Namespace) -> int:
         "build": build.main,
         "install-appimage": installappimage.main,
         "test": test.main,
+        "smoke": smoke.main,
         "copy": copy.main,
         "verify-artifacts": artifacts.main,
     }

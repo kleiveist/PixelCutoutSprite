@@ -17,8 +17,9 @@ deterministic pixel-art cutout animations. It combines a React workspace with a 
 stores product data as ordinary JSON and PNG files in a user-selected local vault. Godot is an
 optional export target, not the application runtime.
 
-The first implementation milestone provides the native application shell. Start and validate it
-through the repository's existing control entry point:
+P00 through P20 provide the working native application, deterministic export path, recovery and
+desktop hardening, plus reproducible native build tooling. Start and validate it through the
+repository's existing control entry point:
 
 ```sh
 python tools/control.py tauri install --skip-system-deps
@@ -27,9 +28,20 @@ python tools/control.py tauri test --cargo
 python tools/control.py tauri run --foreground
 ```
 
+Create and start the current host's unsigned native test candidate with the same entry point. On
+Linux, for example:
+
+```sh
+python tools/control.py tauri build --target linux --bundles deb
+python tools/control.py tauri smoke --target linux
+```
+
 The product requirements, implementation phases, and current evidence are linked from
 [START_HERE.md](START_HERE.md). Product code lives in `frontend/` and `src-tauri/`; the reusable
 integration tooling remains deliberately separate.
+
+The [P20 native-build report](docs/developer/acceptance/native-builds-and-tooling.md) records the
+exact Linux package evidence and the honest Windows, macOS, signing, and Codespaces boundaries.
 
 ## Embedded Template Tooling
 
@@ -135,6 +147,12 @@ unreviewed growth beyond the recorded baseline.
 Existing workflows in a customer project remain customer-owned and are not replaced by the
 tooling. Source-only tests under `tests/source/` are CI evidence for this repository, not a
 customer-facing proof bundled with an export.
+
+PixelCutoutSprite Studio additionally has a read-only-permission native matrix in
+`.github/workflows/ci-studio.yml`. It uses pinned Linux, Windows, and macOS runners to create and
+start short-lived unsigned test candidates; it does not publish, tag, sign, or notarize them.
+The `.devcontainer/` setup supports source work and suitable Linux/headless checks, but a
+forwarded Vite port is not a native desktop preview.
 
 For repository work, follow the [contribution guide](docs/toolingdocs/development/contribution.md)
 and keep changes small, tested, and ownership-aware.

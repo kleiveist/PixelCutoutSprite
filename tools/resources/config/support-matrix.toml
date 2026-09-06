@@ -8,10 +8,19 @@ maximum = "3.13"
 [node]
 # Exact current LTS used for real frontend-capability jobs.
 primary = "24.19.0"
+npm = "11.17.0"
 
 [rust]
 # Kept in lockstep with quality/rust_analyzer/rust-toolchain.toml.
 channel = "1.97.1"
+
+[tauri]
+# Exact desktop build stack. Cargo.lock and package-lock.json remain authoritative
+# transitive locks; these values guard the direct cross-language boundary.
+cli = "2.10.1"
+core = "2.11.5"
+build = "2.6.3"
+dialog = "2.7.3"
 
 [tex]
 distribution = "texlive"

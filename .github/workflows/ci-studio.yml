@@ -1,0 +1,220 @@
+name: Studio desktop
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  support-matrix:
+    name: Read support matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      python_primary: ${{ steps.matrix.outputs.python_primary }}
+      node_primary: ${{ steps.matrix.outputs.node_primary }}
+      npm_version: ${{ steps.matrix.outputs.npm_version }}
+      rust_channel: ${{ steps.matrix.outputs.rust_channel }}
+      tauri_cli: ${{ steps.matrix.outputs.tauri_cli }}
+      tauri_core: ${{ steps.matrix.outputs.tauri_core }}
+      tauri_build: ${{ steps.matrix.outputs.tauri_build }}
+      tauri_dialog: ${{ steps.matrix.outputs.tauri_dialog }}
+      os_matrix: ${{ steps.matrix.outputs.os_matrix }}
+      linux: ${{ steps.matrix.outputs.linux_runner }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: matrix
+        name: Read central support contract
+        run: python tools/ci_support.py --github-output
+
+  studio-quality:
+    name: studio-quality
+    needs: support-matrix
+    runs-on: ${{ needs.support-matrix.outputs.linux }}
+    timeout-minutes: 60
+    env:
+      NODE_VERSION: ${{ needs.support-matrix.outputs.node_primary }}
+      NPM_VERSION: ${{ needs.support-matrix.outputs.npm_version }}
+      RUST_VERSION: ${{ needs.support-matrix.outputs.rust_channel }}
+      TAURI_CLI_VERSION: ${{ needs.support-matrix.outputs.tauri_cli }}
+      TAURI_CORE_VERSION: ${{ needs.support-matrix.outputs.tauri_core }}
+      TAURI_BUILD_VERSION: ${{ needs.support-matrix.outputs.tauri_build }}
+      TAURI_DIALOG_VERSION: ${{ needs.support-matrix.outputs.tauri_dialog }}
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONHASHSEED: "0"
+      PYTHONNOUSERSITE: "1"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up pinned Studio toolchains
+        uses: ./.github/actions/setup-tooling-environment
+        with:
+          python-version: ${{ needs.support-matrix.outputs.python_primary }}
+          node-version: ${{ needs.support-matrix.outputs.node_primary }}
+          npm-version: ${{ needs.support-matrix.outputs.npm_version }}
+          rust-version: ${{ needs.support-matrix.outputs.rust_channel }}
+      - name: Install Linux desktop build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            libayatana-appindicator3-dev \
+            libdbus-1-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            pkg-config
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify pinned desktop versions
+        shell: pwsh
+        run: |
+          if ((node --version).TrimStart("v") -ne $env:NODE_VERSION) { throw "Node version mismatch" }
+          if ((npm --version) -ne $env:NPM_VERSION) { throw "npm version mismatch" }
+          if (-not ((rustc --version) -like "rustc $env:RUST_VERSION *")) { throw "Rust version mismatch" }
+          $support = & $env:TOOLING_PYTHON tools/ci_support.py | ConvertFrom-Json
+          if ($support.tauri_cli -ne $env:TAURI_CLI_VERSION) { throw "Tauri CLI version mismatch" }
+          if ($support.tauri_core -ne $env:TAURI_CORE_VERSION) { throw "Tauri core version mismatch" }
+          if ($support.tauri_build -ne $env:TAURI_BUILD_VERSION) { throw "Tauri build version mismatch" }
+          if ($support.tauri_dialog -ne $env:TAURI_DIALOG_VERSION) { throw "Tauri dialog version mismatch" }
+      - name: Run Rust Studio gates
+        shell: pwsh
+        run: |
+          & cargo fmt --all --manifest-path src-tauri/Cargo.toml -- --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cargo check --locked --manifest-path src-tauri/Cargo.toml --all-targets --all-features
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cargo test --locked --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run frontend Studio gates
+        working-directory: frontend
+        shell: pwsh
+        run: |
+          & npm test -- --run
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & npm run typecheck
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & npm run lint -- --no-inline-config --report-unused-disable-directives-severity error
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & npm run format:check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & npm run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run repository architecture and policy gates
+        shell: pwsh
+        run: |
+          & $env:TOOLING_PYTHON tools/control.py quality lint
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $env:TOOLING_PYTHON tools/control.py quality architecture
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $env:TOOLING_PYTHON tools/control.py integrate --full-fix --json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & git diff --exit-code HEAD --
+          if ($LASTEXITCODE -ne 0) { throw "Integration changed tracked source in a clean checkout" }
+          & $env:TOOLING_PYTHON tools/control.py integrate --check --json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $env:TOOLING_PYTHON tools/control.py docs check --docs-dir docs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $env:TOOLING_PYTHON -m pytest -q -p no:cacheprovider tests/source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check patch whitespace
+        run: git diff --check
+
+  native-bundles:
+    name: native-${{ matrix.name }}
+    needs: support-matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.support-matrix.outputs.os_matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONHASHSEED: "0"
+      PYTHONNOUSERSITE: "1"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Set up pinned Studio toolchains
+        uses: ./.github/actions/setup-tooling-environment
+        with:
+          python-version: ${{ needs.support-matrix.outputs.python_primary }}
+          node-version: ${{ needs.support-matrix.outputs.node_primary }}
+          npm-version: ${{ needs.support-matrix.outputs.npm_version }}
+          rust-version: ${{ needs.support-matrix.outputs.rust_channel }}
+      - name: Install Linux native smoke prerequisites
+        if: matrix.name == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            libayatana-appindicator3-dev \
+            libdbus-1-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            pkg-config \
+            xauth \
+            xvfb
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify native dialog adapter contract
+        working-directory: frontend
+        run: npm test -- --run src/features/vault/VaultWelcome.test.tsx src/api/vault-client.test.ts
+      - name: Run production save and export smoke
+        run: >-
+          cargo test --locked --manifest-path src-tauri/Cargo.toml --test outfit_workflow
+          authoritative_npc_export_renders_multiple_actions_and_current_pointer_controls_freshness
+      - name: Build and verify unsigned native installer
+        shell: pwsh
+        env:
+          STUDIO_PLATFORM: ${{ matrix.name }}
+        run: |
+          if ($env:STUDIO_PLATFORM -eq "linux") {
+            & $env:TOOLING_PYTHON tools/control.py tauri build --target linux --bundles deb
+          } elseif ($env:STUDIO_PLATFORM -eq "windows") {
+            & $env:TOOLING_PYTHON tools/control.py tauri build --target windows --bundles nsis
+          } elseif ($env:STUDIO_PLATFORM -eq "macos") {
+            & $env:TOOLING_PYTHON tools/control.py tauri build --target macos --bundles dmg
+          } else {
+            throw "Unsupported Studio platform $env:STUDIO_PLATFORM"
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Start packaged Linux payload
+        if: matrix.name == 'linux'
+        run: xvfb-run --auto-servernum $TOOLING_PYTHON tools/control.py tauri smoke --target linux
+      - name: Start packaged Windows payload
+        if: matrix.name == 'windows'
+        shell: pwsh
+        run: "& $env:TOOLING_PYTHON tools/control.py tauri smoke --target windows"
+      - name: Start packaged macOS payload
+        if: matrix.name == 'macos'
+        shell: pwsh
+        run: "& $env:TOOLING_PYTHON tools/control.py tauri smoke --target macos"
+      - name: Upload unsigned native test candidate
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: studio-${{ matrix.name }}-unsigned-test-candidate
+          path: |
+            .dist/desktop/${{ matrix.name }}/
+            src-tauri/target/release/bundle/
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/
+          if-no-files-found: error
+          retention-days: 7

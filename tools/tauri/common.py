@@ -4,16 +4,17 @@ import os
 import platform
 import shutil
 import subprocess
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from tools import logger
+from tools.ci_support import load_support_matrix
 from tools.config import is_server_only_name
 from tools.process import prepare_command
 from tools.tauri import paths
 
-TAURI_CLI_PACKAGE = "@tauri-apps/cli@2.10.1"
+TAURI_CLI_PACKAGE = f"@tauri-apps/cli@{load_support_matrix().tauri_cli}"
 
 
 @dataclass(slots=True)
@@ -76,9 +77,9 @@ def find_build_artifacts(*, include_dist: bool = True) -> list[Path]:
         if not root.exists():
             continue
         for item in root.rglob("*"):
-            if item.is_file() and item.suffix.lower() in {".appimage", ".deb", ".rpm", ".dmg", ".msi", ".exe", ".zip"}:
-                artifacts.append(item)
-            elif item.is_dir() and item.suffix.lower() == ".app":
+            if (
+                item.is_file() and item.suffix.lower() in {".appimage", ".deb", ".rpm", ".dmg", ".msi", ".exe", ".zip"}
+            ) or (item.is_dir() and item.suffix.lower() == ".app"):
                 artifacts.append(item)
     return sorted(set(artifacts))
 

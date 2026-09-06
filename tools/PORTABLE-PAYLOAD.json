@@ -1390,8 +1390,8 @@
     },
     {
       "path": "tools/ci_support.py",
-      "sha256": "sha256:9f8da467d109caa4151d01e4e18d0494d54fb350a3d5e1ec4e6bd337aa154dc3",
-      "size": 7781,
+      "sha256": "sha256:743741d2d8ca4b88c24fb5fe7b904fb1f2d771636a7b5e4182663b336b2bce2d",
+      "size": 8104,
       "kind": "file",
       "executable": false
     },
@@ -1957,8 +1957,8 @@
     },
     {
       "path": "tools/quality/tooling.py",
-      "sha256": "sha256:ae30fd24e0766427b70d7a06b747a2ff30ab8736514924033814137f973ddea8",
-      "size": 20254,
+      "sha256": "sha256:d6bb66a31c169551116a357170fa83910d8ab9454c3ef2dc8bf400ae60d72439",
+      "size": 18370,
       "kind": "file",
       "executable": false
     },
@@ -1978,8 +1978,8 @@
     },
     {
       "path": "tools/resources/config/code-quality.toml",
-      "sha256": "sha256:b3ca31fd7e57078b8b42285804813ce780f8d1f6fe671e41b223e213044f6af2",
-      "size": 2011,
+      "sha256": "sha256:f9a369df107d72b4608ed6fb37843229803becb757872c4916104120d7e54196",
+      "size": 2043,
       "kind": "file",
       "executable": false
     },
@@ -1992,8 +1992,8 @@
     },
     {
       "path": "tools/resources/config/support-matrix.toml",
-      "sha256": "sha256:01e7c27b7a7fffac6d12e8f7e5eb072c2e62a7524dc5df595b0c58dc9a5f7c10",
-      "size": 661,
+      "sha256": "sha256:d842a2d5a11895c07bcad7df01d1b863356756d651c6ad32985489ea089a9200",
+      "size": 908,
       "kind": "file",
       "executable": false
     },
@@ -2076,8 +2076,8 @@
     },
     {
       "path": "tools/tauri/build/artifacts.py",
-      "sha256": "sha256:37d2756ebdcb07b770bb3df2afeba062d8c4190d00f81cb1eb2fd77b1f62c4d4",
-      "size": 17825,
+      "sha256": "sha256:5636aaf8413c38d33b5e47d98830da53c75077d868984123d798808fc1c35cbc",
+      "size": 19072,
       "kind": "file",
       "executable": false
     },
@@ -2090,22 +2090,29 @@
     },
     {
       "path": "tools/tauri/build/linux.py",
-      "sha256": "sha256:ff084e9754d42a30097dddd0aefbbb1d243029a401b13d7a7c1b26ed20d748cc",
-      "size": 6358,
+      "sha256": "sha256:5374e1906f60ea02bd05ff090f2a9835c8acf85f60d08b0f2ac9a1e6eec184a3",
+      "size": 6356,
       "kind": "file",
       "executable": false
     },
     {
       "path": "tools/tauri/build/macos.py",
-      "sha256": "sha256:4e9bf22f3a96f78dc88406258df06db750e41953959fdba0bd4fdc0c5cc6a19f",
-      "size": 806,
+      "sha256": "sha256:979bd4b4e23c0cb8fc855bfcd90271667b7be6170bd375ea268ba37293e5dae5",
+      "size": 2827,
+      "kind": "file",
+      "executable": false
+    },
+    {
+      "path": "tools/tauri/build/native_artifacts.py",
+      "sha256": "sha256:045aaa92565137d365f45fa293f80448b12ff6c154790f871dfe4292f1c76e8b",
+      "size": 17353,
       "kind": "file",
       "executable": false
     },
     {
       "path": "tools/tauri/build/windows.py",
-      "sha256": "sha256:d32e0f63fd773c23389c9068ca120ad3e89d0222d3d63adea8fd55215be1991d",
-      "size": 873,
+      "sha256": "sha256:498bbedc9d6daa76a16e5346e6bbbeb31c9843c030a53ec35e8b176d1636dc9c",
+      "size": 3020,
       "kind": "file",
       "executable": false
     },
@@ -2132,15 +2139,15 @@
     },
     {
       "path": "tools/tauri/common.py",
-      "sha256": "sha256:72fdfa0cd9bf92376b62b7cf46723c4e2bdefe922e6591203b57678850956857",
-      "size": 7464,
+      "sha256": "sha256:ab0ad71529ad6f677317accd9752edb5fede26945508c1710ce68ceab68b1738",
+      "size": 7530,
       "kind": "file",
       "executable": false
     },
     {
       "path": "tools/tauri/control.py",
-      "sha256": "sha256:f288689477c484812cb3cca63a7e754866cce2a589723ec141f4422e5120f578",
-      "size": 11457,
+      "sha256": "sha256:64c14175d5fb89aec4783c35530c2859c00891bb5d9cc0e9e64e08d98b1612be",
+      "size": 12555,
       "kind": "file",
       "executable": false
     },
@@ -2223,8 +2230,8 @@
     },
     {
       "path": "tools/tauri/paths.py",
-      "sha256": "sha256:663896e2168e95212ba62ab0bcd5649e9167eb6e1879f4c1cce481c0b612da46",
-      "size": 5141,
+      "sha256": "sha256:c7670287e2e63274ac0954c7e7a137fb69d359b25f376c42f9020be913760c5d",
+      "size": 5353,
       "kind": "file",
       "executable": false
     },
@@ -2232,6 +2239,13 @@
       "path": "tools/tauri/run.py",
       "sha256": "sha256:416b50f155237b6b61b1bc2bd005763424864f6dc24d472088aafa06bf66a1bf",
       "size": 26479,
+      "kind": "file",
+      "executable": false
+    },
+    {
+      "path": "tools/tauri/smoke.py",
+      "sha256": "sha256:d7d2e6c04b0a76d4f3892a747f6688ca6d84ef085f6864c4f7bd700e095a7c86",
+      "size": 9469,
       "kind": "file",
       "executable": false
     },
@@ -2363,8 +2377,8 @@
     },
     {
       "path": "tools/tests/core/test_support_matrix.py",
-      "sha256": "sha256:5bdbed2328d37de194e135e54cd3aad029c349b5806171bd5a8a558faa789f94",
-      "size": 2306,
+      "sha256": "sha256:60f7b8416227e840d912edc133c9a644b9282ce6fe9e1639d10f30ed5594406b",
+      "size": 2642,
       "kind": "file",
       "executable": false
     },
@@ -2559,22 +2573,22 @@
     },
     {
       "path": "tools/tests/quality/test_scanner.py",
-      "sha256": "sha256:4e5b0f7cd7af81315b03acb87f2c1986605d7a72fa025dc4d94c79d02b173096",
-      "size": 12405,
+      "sha256": "sha256:d14aa13695b24febd5501b25786300684fa9d0d2b752cf57465efe63b535e6bb",
+      "size": 12482,
       "kind": "file",
       "executable": false
     },
     {
       "path": "tools/tests/quality/test_tool_adapters.py",
-      "sha256": "sha256:076df68218f677deb5c8b1af249b6a7c676a14134af9973b54a6d9d37e3cf2b5",
-      "size": 5342,
+      "sha256": "sha256:f66dacd69a67b0cc95df71b00a90a3e422cc975fd7627f645882289969168f9a",
+      "size": 4989,
       "kind": "file",
       "executable": false
     },
     {
       "path": "tools/tests/quality/test_tooling.py",
-      "sha256": "sha256:20e858f55e4837634d5d60a4376bfeb3e29aa30ce88c7227a8eae3daa9442b1f",
-      "size": 19440,
+      "sha256": "sha256:04e63dff7a419d1bf589baebe20f74becc37115d04009e85e9a5686491db8bff",
+      "size": 18647,
       "kind": "file",
       "executable": false
     },
@@ -2789,6 +2803,13 @@
       "executable": false
     },
     {
+      "path": "tools/tests/test_tauri_native_artifacts.py",
+      "sha256": "sha256:4bff7109ca328fede1f753f72d15792cdeba237e51b2c2f3f5e796a38e43a14a",
+      "size": 7238,
+      "kind": "file",
+      "executable": false
+    },
+    {
       "path": "tools/tests/test_tauri_version.py",
       "sha256": "sha256:8e18fb52b7e6f0482febdfe1e246e8d661870cdd28a45db6db7ff5497122b702",
       "size": 1528,
@@ -2796,5 +2817,5 @@
       "executable": false
     }
   ],
-  "digest": "sha256:4939096be922c8b3a549a5a1b44fbfe10b17c924344cbd155f7f345158088d24"
+  "digest": "sha256:7c2cec2494902668b328500b5dcf498b84af1281bb47885a308f45262363ea73"
 }

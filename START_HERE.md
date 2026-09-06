@@ -23,6 +23,7 @@ WebView gebündelt und nicht als eigenständiges Webprodukt ausgeliefert.
 | [Produktspezifikation](docs/developer/features/pixelcutoutsprite-studio.md) | Vollständige Anforderungen, Bedienung, Datenstruktur, Exporte, Architektur und Abnahmen. |
 | [Lebender ExecPlan](docs/developer/plans/pixelcutoutsprite-execplan.md) | Tatsächlicher Fortschritt, Entscheidungen und Tests während der Umsetzung. |
 | [P19-Desktop-Abnahme](docs/developer/acceptance/desktop-usability-and-performance.md) | Ehrlich abgegrenzte Linux-Usability-, Offline-, DPI- und Leistungsevidenz. |
+| [P20-Build-Abnahme](docs/developer/acceptance/native-builds-and-tooling.md) | Native Build-, Paket-, CI-, Devcontainer- und Plattformnachweise samt Blockern. |
 | [Phasenindex](docs/developer/prompts/pixelcutoutsprite/README.md) | 23 Phasen P00–P22 in der erforderlichen Reihenfolge. |
 | [Masterauftrag](docs/developer/prompts/pixelcutoutsprite/MASTERPROMPT.md) | Übergeordneter Arbeitsauftrag einschließlich Serienmodus. |
 | [Fortsetzungsauftrag](docs/developer/prompts/pixelcutoutsprite/FORTSETZEN.md) | Wiederaufnahme in einer neuen Arbeitssitzung. |
@@ -95,8 +96,15 @@ Schließen einer Vault geleert. Der reale Tauri-/WebView-Lauf bestand 1280 × 72
 bei DPR 2 und den Kernworkflow in einem isolierten Linux-Netznamespace mit nur Loopback. DPR 1,25
 ist ausschließlich mathematisch getestet, und die
 AT-SPI-Evidenz umfasst Aktionen und Fokus, nicht einen behaupteten global synthetischen Tab-Lauf.
-Messwerte und Grenzen stehen in der P19-Desktop-Abnahme. Der nächste Schritt ist P20 für native
-Buildartefakte, Tooling-/CI-Integration und die ehrliche Plattformmatrix.
+Messwerte und Grenzen stehen in der P19-Desktop-Abnahme. P20 aktiviert die native Bündelung,
+fixiert Node 24.19.0, npm 11.17.0, Rust 1.97.1 und den direkten Tauri-Stack, korrigiert die
+zentralen Quality-Gates und ergänzt einen schreibgeschützten Studio-CI-Workflow für DEB, NSIS und
+DMG. Das finale Linux-DEB wurde samt SHA-256 geprüft, aus dem Paket gestartet und mit einem
+echten GTK-Vault-Dialog sowie dem Produktions-Speichern-/Exportpfad belegt. Windows und macOS
+sind im Workflow vorbereitet, aber mangels passendem Host und autorisiertem Runnerlauf
+ausdrücklich nicht abgenommen. Der Devcontainer dient Quellarbeit und Headless-/Linux-Tests;
+Portweiterleitung ist keine native GUI-Vorschau. Die genaue Matrix steht in der
+P20-Build-Abnahme. Der nächste Schritt ist P21 für Nutzeranleitung und Beispiel-Vault.
 
 ## Leitentscheidungen
 

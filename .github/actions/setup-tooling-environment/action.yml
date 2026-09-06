@@ -9,6 +9,10 @@ inputs:
     description: Optional Node.js version selected from tools/resources/config/support-matrix.toml.
     required: false
     default: ""
+  npm-version:
+    description: Optional npm version selected from tools/resources/config/support-matrix.toml.
+    required: false
+    default: ""
   rust-version:
     description: Optional Rust toolchain selected from tools/resources/config/support-matrix.toml.
     required: false
@@ -34,13 +38,23 @@ runs:
         node-version: ${{ inputs.node-version }}
         package-manager-cache: false
 
+    - name: Set up pinned npm
+      if: inputs.npm-version != ''
+      shell: pwsh
+      env:
+        NPM_VERSION: ${{ inputs.npm-version }}
+      run: |
+        & npm install --global "npm@$env:NPM_VERSION" --no-audit --no-fund
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        if ((npm --version) -ne $env:NPM_VERSION) { throw "npm version mismatch" }
+
     - name: Set up pinned Rust toolchain
       if: inputs.rust-version != ''
       shell: pwsh
       env:
         RUST_VERSION: ${{ inputs.rust-version }}
       run: |
-        & rustup toolchain install $env:RUST_VERSION --profile minimal --no-self-update
+        & rustup toolchain install $env:RUST_VERSION --profile minimal --component clippy --component rustfmt --no-self-update
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         "RUSTUP_TOOLCHAIN=$env:RUST_VERSION" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         & rustc --version

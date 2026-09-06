@@ -16,9 +16,7 @@ def test_container_baseline_is_non_root_and_profiled() -> None:
     if not deployment.is_dir():
         pytest.skip("Container baselines are absent from this source profile")
     backend = (deployment / "docker" / "backend.Dockerfile").read_text(encoding="utf-8")
-    frontend = (deployment / "docker" / "frontend.Dockerfile").read_text(
-        encoding="utf-8"
-    )
+    frontend = (deployment / "docker" / "frontend.Dockerfile").read_text(encoding="utf-8")
     compose = (deployment / "compose.yaml").read_text(encoding="utf-8")
 
     assert backend.count("FROM python:3.11.16-slim-bookworm") == 2
@@ -54,14 +52,8 @@ def test_production_locks_match_container_python_runtime() -> None:
     if profile.has_feature("postgres"):
         lock_names.append("requirements-postgres-production.lock")
     lock_paths = tuple(backend / name for name in lock_names)
-    missing = tuple(
-        path.relative_to(REPOSITORY_ROOT).as_posix()
-        for path in lock_paths
-        if not path.is_file()
-    )
-    assert not missing, (
-        f"source repository is missing production lock(s): {', '.join(missing)}"
-    )
+    missing = tuple(path.relative_to(REPOSITORY_ROOT).as_posix() for path in lock_paths if not path.is_file())
+    assert not missing, f"source repository is missing production lock(s): {', '.join(missing)}"
     locks = {path.name: path.read_text(encoding="utf-8") for path in lock_paths}
 
     assert all("pip-compile with Python 3.11" in content for content in locks.values())
@@ -78,5 +70,22 @@ def test_template_tauri_capability_is_least_privilege() -> None:
 
     assert capability["identifier"] == "default"
     assert capability["windows"] == ["main"]
-    assert capability["permissions"] == ["core:default"]
+    assert capability["permissions"] == ["core:default", "dialog:allow-open"]
     assert "remote" not in capability
+
+
+def test_frontend_eslint_source_contract_uses_the_current_flat_config() -> None:
+    package_path = REPOSITORY_ROOT / "frontend" / "package.json"
+    config_path = REPOSITORY_ROOT / "frontend" / "eslint.config.js"
+    assert package_path.is_file()
+    assert config_path.is_file()
+
+    package = json.loads(package_path.read_text(encoding="utf-8"))
+    config = config_path.read_text(encoding="utf-8")
+
+    assert package["scripts"]["lint"] == "eslint ."
+    assert package["devDependencies"]["eslint"] == "10.10.0"
+    assert package["devDependencies"]["typescript-eslint"] == "8.56.1"
+    assert "tseslint.config(" in config
+    assert 'ignores: ["dist", "coverage", "node_modules"]' in config
+    assert not (REPOSITORY_ROOT / "frontend" / ".eslintrc").exists()
