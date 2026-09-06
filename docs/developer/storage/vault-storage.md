@@ -32,7 +32,8 @@ an external change becomes a conflict instead of being overwritten. Replacement 
 the staged file and preserve the previous valid target.
 
 The writer lease uses an operating-system exclusive lock on the persistent
-`.pixelforge-studio/writer-lock.json.os-lock` guard. `writer-lock.json` is diagnostic metadata with
+`.pixelforge-studio/runtime/writer.lock.json.os-lock` guard. The adjacent
+`.pixelforge-studio/runtime/writer.lock.json` is diagnostic metadata with
 an instance ID, an unguessable writer token and a heartbeat; it is not the exclusivity primitive.
 A second process cannot take over an active OS lock and may inspect the Vault read-only. A stale or
 damaged metadata file is recoverable only after the guard can be locked and the caller repeats the

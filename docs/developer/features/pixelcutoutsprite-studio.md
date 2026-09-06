@@ -3,9 +3,11 @@
 <!-- AUTO-GENERATED:backlink END -->
 # PixelCutoutSprite Studio — Produktspezifikation und technische Planung
 
-**Version:** 1.0 · **Stand:** 5. September 2026 · **Sprache:** Deutsch
+**Version:** 1.0 · **Stand:** 6. September 2026 · **Sprache:** Deutsch
 **Repository:** `kleiveist/PixelCutoutSprite`
-**Status:** Planungsdokument. Die beschriebenen Studio-Funktionen sind damit nicht implementiert oder getestet.
+**Status:** Verbindliche Produktspezifikation; P00–P22 sind umgesetzt und die tatsächlichen
+Nachweise stehen in der [Gesamtabnahme](../acceptance/final-acceptance.md). Historische
+Planungsformulierungen beschreiben weiterhin den jeweiligen Sollzustand.
 **Verbindlichkeit:** Nutzeranforderungen werden als Muss-Anforderungen behandelt. Ergänzende Entscheidungen sind hier als Planungsfestlegungen dokumentiert und können durch einen begründeten Architekturentscheid geändert werden.
 
 > **Implementierungskorrektur:** Der tatsächliche Checkout ist Template Tooling 0.4.0 und

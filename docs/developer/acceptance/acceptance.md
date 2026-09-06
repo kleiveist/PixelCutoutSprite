@@ -8,6 +8,7 @@
 - 🖥️ [P19 — Desktop-Usability und Leistung](desktop-usability-and-performance.md)
 - 📦 [P20 — Native Builds, Tooling und Codespaces](native-builds-and-tooling.md)
 - 🌲 [P21 — Beispiel-Vault und Nutzeranleitung](example-vault-and-user-guide.md)
+- ✅ [P22 — Gesamtabnahme](final-acceptance.md)
 - 📋 [Requirement ledger](requirements.md)
 
 <!-- AUTO-GENERATED:docs-index END -->

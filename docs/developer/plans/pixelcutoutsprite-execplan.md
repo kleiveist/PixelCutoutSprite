@@ -5,7 +5,7 @@
 
 **Planungsstand:** 6. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P21 abgeschlossen; P22 ist der nächste Schritt
+**Implementierung:** P00–P22 abgeschlossen; keine weitere Implementierungsphase offen
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -207,6 +207,19 @@ manuellen Weg, Hierarchie, Spiegelgrenzen, Recovery, Quell-/Exporttrennung und d
 Fehlerreporting. Der [P21-Bericht](../acceptance/example-vault-and-user-guide.md) hält die
 ausgeführten Nachweise und Grenzen fest.
 
+P22 schließt die produktionsweite Abnahme ohne einen zweiten Render- oder Fixturepfad. Der
+Lichterhain-E2E vergleicht alle 256 Mira-Frames an jedem Aktions-, Richtungs- und Sampleindex
+pixelgenau zwischen Outfit-Preview und dekodiertem Atlas, prüft exakte Loopmengen, getrennte
+Mira-/Borin-Appearances bei denselben drei Motion-Freigaben sowie ein persistiertes deaktiviertes
+Equipment gegen Preview, Atlas und Manifestquellen. Immutable Profil-/Motion-/Assetrevisionen und
+der global-only-Adminbaum bleiben unverändert. Der explizit ausgeführte Sondertest importiert das
+vollständige Produktionspaket mit der SHA-256-geprüften offiziellen Godot-4.7.2-Binärdatei in ein
+frisches Projekt, nachdem die Quell-Vault gelöscht wurde, und wiederholt den Import cachefrei nach
+Unicode-/Leerzeichen-Relocation. Eine strukturierte Negativarchitektur-Policy schließt Datenbank-,
+Python-/Sidecar-, Web-/Mobile- und Rigpfade aus. Die
+[P22-Gesamtabnahme](../acceptance/final-acceptance.md) bewertet RQ-01–RQ-40 und E2E A–J. Reale
+Windows-/macOS-Laufzeitresultate bleiben mangels autorisiertem CI-Lauf ausdrücklich offen.
+
 ## Scope and Non-Goals
 
 Pflichtumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders wichtig sind Desktop-only, JSON/PNG statt SQL, lokale Vault, globale Daten ausschließlich unter .pixelforge-studio, 16 vordefinierte Grundslots einschließlich optionaler Haare, acht Richtungen, getrennte Vorlagen/Appearance/Bindings und ein portabler Spieleexport.
@@ -241,7 +254,7 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 | [P19](../prompts/pixelcutoutsprite/19.md) | Desktop-Usability und Leistung prüfen | Abgeschlossen |
 | [P20](../prompts/pixelcutoutsprite/20.md) | Native Builds, Tooling und Codespaces | Abgeschlossen |
 | [P21](../prompts/pixelcutoutsprite/21.md) | Anleitung und nachvollziehbare Beispiel-Vault | Abgeschlossen |
-| [P22](../prompts/pixelcutoutsprite/22.md) | Gesamtabnahme und überprüfbarer Abschluss | Nicht begonnen |
+| [P22](../prompts/pixelcutoutsprite/22.md) | Gesamtabnahme und überprüfbarer Abschluss | Abgeschlossen |
 
 ## Progress
 
@@ -281,11 +294,15 @@ Die folgenden Phasen werden der Reihe nach anhand ihres vollständigen Prompts u
 - [x] P21: produktionsservicebasierten Lichterhain-Generator in Desktop-App und CLI, vollständige
   Beispiel-Vault, Reopen-/Unicode-Kopie-/Reexport-Test sowie deutsche Nutzer- und
   Godot-Integrationsanleitung erstellt und gegatet.
+- [x] P22: Produktions-E2E von leerer Vault bis Reopen/Export, vollständige pixelgenaue
+  Preview-/Atlasprüfung, Loop-/Disabled-Equipment-/Shared-Motion-Regressionsbelege, finale
+  Negativarchitektur, echten Godot-4.7.2-Import und RQ-/E2E-Abschlussmatrix ausgeführt und gegatet.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
 - [x] Meilenstein C: Figuren, P12–P15.
 - [x] Meilenstein D: Spieleinbindung, P16–P17.
-- [ ] Meilenstein E: belastbare Desktop-Version, P18–P22.
+- [x] Meilenstein E: belastbare Desktop-Version, P18–P22; Windows/macOS-Laufzeitevidenz bleibt
+  als ausdrücklich offener betrieblicher Plattformnachweis dokumentiert.
 
 Bei jeder Phasenänderung ergänzen: Datum, tatsächlicher Umfang, betroffene Dateien, Prüfungen und nächster Schritt. Noch nicht geprüfte Plattformen werden nicht als fertig markiert.
 
@@ -557,6 +574,19 @@ Inspect-/Confirm-/Importläufe. Damit bleibt der Beispielweg innerhalb derselben
 Bytegrenzen wie eine manuelle Desktopoperation, statt eine privilegierte Fixture-Abkürzung zu
 verwenden.
 
+**2026-09-06 / P22:** Ein Manifest-Hash allein wäre kein unabhängiger Nachweis, dass die
+Desktopvorschau dieselben Pixel wie der Export zeigt. Der Abschluss-E2E dekodiert deshalb die
+tatsächlich publizierten Atlas-PNGs, schneidet jedes deklarierte Rechteck aus und vergleicht alle
+256 RGBA-Payloads mit dem öffentlichen Outfit-Previewservice. Der gleiche Lauf verwendet ein
+fremdes, sichtbar wirksames Equipment als aktivierte Kontrolle und persistiert es anschließend
+deaktiviert; so ist seine Abwesenheit in Pixeln und Manifestquellen positiv überprüfbar.
+
+**2026-09-06 / P22:** Transitive Tauri-Locks enthalten plattformübergreifende Android-/WASM-
+Pakete, und Systembibliotheken können harmlose SQLite-Texte enthalten. Eine rohe Repository- oder
+Binärwortsuche würde daher falsche Architekturverstöße melden. Die finale Policy parst direkte
+Cargo-/npm-Abhängigkeiten und Tauri-Konfiguration strukturiert und sucht in Produktquellen nur nach
+ausführbaren Prozess-/Sidecar- und konkret emittierten Godot-Konstrukten.
+
 ## Decision Log
 
 | ID | Entscheidung | Begründung |
@@ -585,18 +615,23 @@ verwenden.
 | ADR-023 | Große Inventare liefern cursorbasierte Metadatenseiten und getrennte sichtbarkeitsgeladene Thumbnails; Vorschau und Quellbitmaps teilen einen exakt gezählten 256-MiB-LRU, Importjobs besitzen harte Mengen-/Bytebudgets und einen nativen Abbruchzustand. | Verhindert unbegrenzte IPC-/React-Payloads und gleichzeitig dekodierte Bilder, ohne einen zweiten Rasterer oder eine neue Beschleunigungsabhängigkeit einzuführen. |
 | ADR-024 | Native Pakete sind zunächst unsignierte, kurzlebige Testkandidaten; jeder Host baut frisch, prüft reguläre repositorygebundene Artefakte, schreibt SHA-256-Evidenz und startet den Paketpayload mit isoliertem Nutzerzustand. | Trennt reproduzierbare technische Abnahme von Schlüsseln, Notarisierung und Veröffentlichung und verhindert, dass alte, fremde oder nutzerbehaftete Dateien als neuer Build gelten. |
 | ADR-025 | Die Beispiel-Vault wird lokal in einem ausdrücklich leeren Ordner durch Komposition der Produktionsservices erzeugt und über dieselbe Tauri-Aktion auch der paketierten App angeboten; es wird keine mutable Binär-/Fixture-Vault eingecheckt. | Hält Pfad-, Import-, Revisions-, Lock-, Export- und Lizenzregeln im Lernweg wirksam, verhindert stille Überschreibung und macht den vollständigen Einstieg ohne Entwicklerwerkzeuge reproduzierbar. |
+| ADR-026 | Die Endabnahme vergleicht öffentliche Previewframes mit dekodierten publizierten Atlasrechtecken und prüft Negativarchitektur über strukturierte direkte Verträge; Plattformbelege werden separat bewertet. | Verhindert zirkuläre Hashbelege und Fehlalarme aus transitiven Locks, während fehlende Windows-/macOS-Laufzeiten sichtbar offen bleiben. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
 ## Validation
 
-### Bereits in diesem Planungsauftrag geprüft
+### Historischer Ausgangsstand vor P00
 
-Die Planungsdateien wurden lokal auf Vollständigkeit der 23 Phasen, gültige JSON-Syntax der erklärenden Ausschnitte, geschlossene Codeblöcke, auflösbare interne Dateilinks und vollständige RQ-01–RQ-40-Abdeckung geprüft. Das genaue Dateiprüfprotokoll liegt dem Paket bei.
+Die Planungsdateien wurden vor der Implementierung lokal auf Vollständigkeit der 23 Phasen,
+gültige JSON-Syntax der erklärenden Ausschnitte, geschlossene Codeblöcke, auflösbare interne
+Dateilinks und vollständige RQ-01–RQ-40-Abdeckung geprüft.
 
-### Nicht in diesem Auftrag ausgeführt
+### Zu Beginn nicht ausgeführt
 
-Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App, kein PNG-Renderer, kein nativer Desktop-Build und kein Godot-Import des künftigen Exporters wurden ausgeführt. Die Webrecherche bestätigt API-/Versionsgrundlagen, nicht die spätere Implementierung.
+Zu diesem historischen Ausgangszeitpunkt waren weder Repository-Installation noch Produkttests,
+Studio-App, PNG-Renderer, nativer Desktop-Build oder Godot-Import vorhanden. Das nachfolgende
+Prüflog ersetzt diesen Anfangsbefund mit den tatsächlich ausgeführten Ergebnissen P00–P22.
 
 ### Prüflog für die Implementierung
 
@@ -697,8 +732,18 @@ Keine Repository-Installation, keine vorhandenen Projekt-Tests, keine Studio-App
 | 2026-09-06 / P21 | `cargo test --locked --all-targets`, rustfmt, Check, Clippy `-D warnings` sowie Frontendtests, Typecheck, ESLint, Prettier und Vite-Build | Abschluss-Container, Rust 1.97.1, Node 24.19.0, npm 11.17.0 | PASS: 243 Rusttests, 4 begründete Sonderläufe ignoriert; 179 Frontendtests in 40 Dateien; Build mit 118 Modulen | Generator, Tauri-IPC und paketierte Startseitenaktion nutzen denselben Vertrag; eine zeitabhängige bestehende Polling-Assertion wartet nun auf den zuständigen React-Effekt. |
 | 2026-09-06 / P21 | `quality lint`, `quality architecture --format json`, `docs check --docs-dir docs`, `integrate --check --json` und `git diff --check` | Abschluss-Container | PASS | Python-/TypeScript-/Rust-Gates ohne Befund, 142 TypeScript-Quelldateien, 149 konsistente Dokumentseiten, sauberes Patchformat und Desktopprofil `INTEGRATED` ohne ausstehende Operation. GitHub-CI wurde auf ausdrücklichen Nutzerwunsch nicht gestartet. |
 | 2026-09-06 / P21 | aktuelles Linux-DEB bauen, SHA-256 und Payloadinhalt prüfen | flüchtiger Debian-12-Container, Linux x86_64 | PASS: 5.492.410 Bytes; SHA-256 `16a36b6199154625ebb9cab53c7eb9bc68035178591add7ef4b2083a1297e727` | Das Paket enthält den registrierten Generator und keine Entwicklerlaufzeit. Ein neuer Fensterstart ist wegen fehlendem Display und unvollständigem XKB im Container nicht belegt; der reale P20-Paketstart bleibt der native Laufnachweis. |
+| 2026-09-06 / P22 | erweiterter `example_vault`-Produktions-E2E über den öffentlichen Tauri-Command | Abschluss-Container, Rust 1.97.1 | PASS: 1 Test im finalen Lauf in 116,20 s | Leere Vault bis Reopen/Unicodekopie/Reexport; alle 256 Mira-Previewframes stimmen bytegleich mit dekodierten Atlasrechtecken überein, Loopmengen besitzen kein doppeltes Ende, Mira/Borin teilen dieselben Releases bei getrennten Appearances/Pixeln, deaktiviertes Equipment fehlt in Pixeln und Manifestquellen, immutable Revisionen und global-only-Ablage bleiben intakt. |
+| 2026-09-06 / P22 | `godot_4_7_2_imports_and_loads_the_package_before_and_after_relocation` ausdrücklich mit `--ignored --exact` | flüchtiger Abschluss-Container; offizielle Godot-Binärdatei `4.7.2.stable.official.ed1daf0bf`, Archiv-SHA-256 `cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4` | PASS: 1 Test in 59,33 s | Vollständiges Lichterhain/Mira-Paket mit 3 Aktionen/8 Richtungen/256 Frames lädt in frischem Projekt nach Löschen der Vault und erneut cachefrei nach Unicode-/Leerzeichen-Relocation; Szene bleibt frei von Script, Collision, Bone, Skeleton, Mesh und Polygon. |
+| 2026-09-06 / P22 | `test_studio_final_architecture.py` | Abschluss-Container, Python 3.11.2 | PASS: 4 Tests | Strukturierte direkte Cargo-/npm-/Tauri-Verträge schließen Datenbank-/SQLite-, Python-/Sidecar-, Web-/Mobile- und Rigarchitektur ohne transitive Fehlalarme aus. |
+| 2026-09-06 / P22 | `cargo test --locked --all-targets` | Abschluss-Container, Rust 1.97.1 | PASS: 243 Tests, 4 begründete Sonderläufe im normalen Lauf ignoriert | Alle früheren Produkt-, Storage-, Recovery-, Import-, Render- und Exportverträge bleiben gemeinsam grün; der Godot-Sonderlauf wurde separat bestanden. |
+| 2026-09-06 / P22 | erster vollständiger `pytest tools/tests tests/source`-Aufruf | Abschluss-Container, Python 3.11.2; flüchtiger Cargo-Pfad versehentlich nicht exportiert | INFRA-FAIL: 1.271 bestanden, 5 erwartete Skips, 4 fehlgeschlagen | Ausschließlich die vier portablen Profil-Integrationsfälle meldeten im isolierten Staging „cargo is unavailable“; der vollständige Lauf wird mit dem gepinnten Rust-/Node-PATH wiederholt und nicht als Produkt-PASS gezählt. |
+| 2026-09-06 / P22 | vollständiger `pytest tools/tests tests/source`-Wiederholungslauf mit gepinntem Rust-/Node-PATH | Abschluss-Container, Python 3.11.2 | PASS: 1.276 Tests, 4 begründete profilabhängige Skips in 818,18 s | Alle portablen Tooling-, Profil-, Transaktions-, Quality-, Source- und neuen P22-Architekturverträge bestehen gemeinsam. |
+| 2026-09-06 / P22 | Frontendtests, Typecheck, ESLint, Prettier und Vite-Build | Abschluss-Container, Node 24.19.0, npm 11.17.0 | PASS: 179 Tests in 40 Dateien; Build mit 118 Modulen | Die unveränderte Desktopoberfläche und alle bisherigen Bedien-/IPC-Verträge bleiben grün. |
+| 2026-09-06 / P22 | `quality lint`, `quality architecture --format json`, `docs check --docs-dir docs`, `integrate --check --json` und `git diff --check` | Abschluss-Container | PASS | Python-/TypeScript-/Rust-Lint und Compiler ohne Befund; 142 TypeScript-Quelldateien, 150 konsistente Dokumentseiten, Desktopprofil `INTEGRATED` und sauberes Patchformat. GitHub-CI wurde auf Nutzerwunsch nicht gestartet. |
 
-Die vorhandenen Repository-Gates, insbesondere python tools/control.py style und python tools/control.py check, werden in der Implementierung entsprechend ihrer tatsächlichen Verfügbarkeit verwendet. Änderungen an ihren Verträgen werden begründet dokumentiert.
+Die vorhandenen Repository-Gates wurden während der Implementierung entsprechend ihrer
+tatsächlichen Verfügbarkeit verwendet; Änderungen an ihren Verträgen sind im Prüflog und in den
+jeweiligen Abnahmeberichten begründet.
 
 ## Recovery / Idempotence
 
@@ -706,8 +751,10 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster ausführbarer Schritt:** P22 als durchgehende Gesamtabnahme von leerer Vault bis Reopen,
-Preview-/Exportvergleich, Godot-4.7.2-Import und abschließender RQ-/E2E-Bewertung ausführen.
+**Nächster betrieblicher Schritt:** Es gibt keine weitere Implementierungsphase. Ohne
+Schreibberechtigung kann die eingecheckte Studio-CI-Matrix auf Windows/macOS ausgeführt und ihr
+Ergebnis bewertet werden. Signierung, Notarisierung, Tag, Release und Push bleiben davon getrennt
+und benötigen eine ausdrückliche Freigabe.
 
 ## Outcomes & Retrospective
 
@@ -795,5 +842,10 @@ und demonstrieren lokale Korrekturen ohne Vorlagenkopie. Vollständige PNG-/JSON
 Godot-Pakete, Reopen, Kopie an einen Unicodepfad und erneuter Export werden durch einen
 Produktionsservice-E2E-Test abgesichert; die deutsche Anleitung führt denselben Ablauf manuell
 und erklärt die betrieblichen Grenzen ohne unbelegte Plattform- oder Signierungszusagen.
-Nach jeder Phase werden reale Ergebnisse, erkannte Grenzen und notwendige Planänderungen ergänzt.
-Ein Abschlussstatus wird erst nach der belegten Gesamtabnahme P22 vergeben.
+P22 schließt den Plan mit einer überprüfbaren, nicht zirkulären Abnahme. Der reale Previewpfad und
+dekodierte publizierte Atlanten stimmen für alle 256 Frames überein; Loopmengen, deaktiviertes
+Equipment, gemeinsame Motion-Freigaben bei verschiedenen Appearances, immutable Quellen und die
+global-only-Ablage sind im selben Produktionslauf belegt. Das vollständige Lichterhain-Paket lädt
+mit der offiziellen Godot-4.7.2-Binärdatei frisch ohne seine Vault sowie erneut nach cachefreier
+Unicode-Relocation. RQ-01–RQ-40 und E2E A–J sind in der Abschlussmatrix bewertet; nur die reale
+Windows-/macOS-Laufzeitevidenz bleibt ausdrücklich offen und wird nicht als PASS ausgegeben.

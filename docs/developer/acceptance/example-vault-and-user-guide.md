@@ -106,8 +106,9 @@ aber nicht real laufzeitabgenommen. Der existierende echte Godot-4.7.2-Importnac
 wurde nicht als neuer P21-Lauf wiederholt; P21 validiert die neu erzeugten Pakete strukturell und
 inhaltlich. P22 verlangt die explizite erneute Engine- und Gesamtabnahme.
 
-## Nächster Schritt
+## Folgeschritt
 
-P22 führt die produktionsweite Gesamtabnahme aus: leerer Vault bis Reopen/Export,
-Preview-/Exportframevergleich, Loop-Enden, deaktiviertes Equipment, zwei NPCs mit gemeinsamer
-Motion sowie abschließende RQ-01–RQ-40- und E2E-A–J-Bewertung.
+Die anschließend ausgeführte [P22-Gesamtabnahme](final-acceptance.md) belegt den Weg von der
+leeren Vault bis Reopen/Export, den vollständigen Preview-/Exportframevergleich, Loop-Enden,
+deaktiviertes Equipment, zwei NPCs mit gemeinsamen Motion-Freigaben und die abschließende
+RQ-01–RQ-40-/E2E-A–J-Bewertung.

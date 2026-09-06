@@ -1,6 +1,7 @@
 # PixelCutoutSprite Studio — Einstieg
 
-**Stand:** 5. September 2026 · **Inhalt:** Tauri-Desktop-App auf dem vorhandenen Tooling-Template.
+**Stand:** 6. September 2026 · **Inhalt:** funktional abgeschlossene Tauri-Desktop-App auf dem
+vorhandenen Tooling-Template.
 
 ## Anwendung starten
 
@@ -24,6 +25,8 @@ WebView gebündelt und nicht als eigenständiges Webprodukt ausgeliefert.
 | [Lebender ExecPlan](docs/developer/plans/pixelcutoutsprite-execplan.md) | Tatsächlicher Fortschritt, Entscheidungen und Tests während der Umsetzung. |
 | [P19-Desktop-Abnahme](docs/developer/acceptance/desktop-usability-and-performance.md) | Ehrlich abgegrenzte Linux-Usability-, Offline-, DPI- und Leistungsevidenz. |
 | [P20-Build-Abnahme](docs/developer/acceptance/native-builds-and-tooling.md) | Native Build-, Paket-, CI-, Devcontainer- und Plattformnachweise samt Blockern. |
+| [P21-Beispiel-Abnahme](docs/developer/acceptance/example-vault-and-user-guide.md) | Produktionsnah erzeugte Beispiel-Vault „Lichterhain“ und deutsche Nutzeranleitung. |
+| [P22-Gesamtabnahme](docs/developer/acceptance/final-acceptance.md) | Abschlussmatrix für RQ-01–RQ-40 und E2E A–J mit ausgeführten Tests und ehrlichen Plattformgrenzen. |
 | [Phasenindex](docs/developer/prompts/pixelcutoutsprite/README.md) | 23 Phasen P00–P22 in der erforderlichen Reihenfolge. |
 | [Masterauftrag](docs/developer/prompts/pixelcutoutsprite/MASTERPROMPT.md) | Übergeordneter Arbeitsauftrag einschließlich Serienmodus. |
 | [Fortsetzungsauftrag](docs/developer/prompts/pixelcutoutsprite/FORTSETZEN.md) | Wiederaufnahme in einer neuen Arbeitssitzung. |
@@ -32,9 +35,9 @@ WebView gebündelt und nicht als eigenständiges Webprodukt ausgeliefert.
 
 Die Verzeichnisstruktur unter docs/developer ist für das bestehende Repository vorbereitet. Vorhandene gleichnamige Dateien gegebenenfalls vergleichen und zusammenführen. Bestehende AGENTS.md, .agent/PLANS.md, Lizenz und Tooling-Regeln nicht durch neue Standarddateien ersetzen. Den Dokumentationsindex in P00 über den vorhandenen Mechanismus ergänzen.
 
-## Aktueller Arbeitsauftrag
+## Abgeschlossener Funktionsstand
 
-P00 bis P19 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
+P00 bis P22 sind abgeschlossen. Nach dem Öffnen einer Vault führt die App vom persistenten
 Projekt-Dashboard über ein exakt skaliertes humanoides Gebiet in die Animationsbibliothek.
 Vorlagen, mutable `draft.json`-Arbeitsstände und unveränderliche Freigaben liegen als gewöhnliche
 Dateien in ihrem Bereich. Karten besitzen Dropdown-Filter und explizite Wege zum Dummy sowie zum
@@ -104,10 +107,18 @@ echten GTK-Vault-Dialog sowie dem Produktions-Speichern-/Exportpfad belegt. Wind
 sind im Workflow vorbereitet, aber mangels passendem Host und autorisiertem Runnerlauf
 ausdrücklich nicht abgenommen. Der Devcontainer dient Quellarbeit und Headless-/Linux-Tests;
 Portweiterleitung ist keine native GUI-Vorschau. Die genaue Matrix steht in der
-P20-Build-Abnahme. Der nächste Schritt ist P21 für Nutzeranleitung und Beispiel-Vault.
+P20-Build-Abnahme. P21 ergänzt die ohne Entwicklerwerkzeuge erzeugbare Beispiel-Vault
+„Lichterhain“ samt deutscher Nutzeranleitung. P22 belegt den vollständigen Produktionsweg von der
+leeren Vault bis Reopen und Export, vergleicht alle 256 Mira-Previewframes pixelgenau mit dem
+Atlas, schließt duplizierte Loop-Enden und deaktiviertes Equipment aus und importiert das
+vollständige Paket frisch sowie nach Relocation in Godot 4.7.2. Die RQ- und E2E-Matrix steht in
+der P22-Gesamtabnahme. Es verbleibt keine weitere Implementierungsphase; reale Windows- und
+macOS-Laufzeitabnahmen, Signierung und Veröffentlichung bleiben ausdrücklich operative Schritte
+mit eigener Freigabe.
 
 ## Leitentscheidungen
 
 Auf dem vorhandenen Template-Tooling und dessen Profil `desktop-local` aufbauen: Vite/React/TypeScript im Frontend und Tauri 2/Rust als native Desktop-Laufzeit. Godot ist nur zusätzliches Exportziel. Desktop-only. Normale JSON-/PNG-Dateien in einer lokalen Vault; kein SQL. Bewegungsvorlagen, NPC-Aussehen und Zuordnungen getrennt halten. Vordefinierte Cutout-Teile statt erforderlicher manueller Bone-Einrichtung. PNG-Sheets plus JSON als Standardexport, Godot-Ressourcen als zusätzliche Ausgabe.
 
-Dieses Paket wurde als Download erstellt. Es wurde nicht automatisch in das GitHub-Repository geschrieben und enthält keine nativen Studio-Builds.
+Diese Dokumentation beschreibt den lokalen Repository-Stand. P22 führte weder Push noch Release,
+Signierung oder Notarisierung aus.

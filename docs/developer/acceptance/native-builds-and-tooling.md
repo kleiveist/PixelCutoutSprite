@@ -157,5 +157,6 @@ zentrale Quality-Lauf wurde dabei mit einem frischen Cargo-Zielverzeichnis wiede
 rootlosen Sitzung lieferte ein flüchtiger Debian-Sysroot die gleiche explizit in CI und
 Devcontainer installierte D-Bus-Entwicklungsabhängigkeit.
 
-Der nächste ausführbare Schritt ist P21: Nutzeranleitung und die nachvollziehbare Beispiel-Vault
-„Lichterhain“ über echte Produktionsservices erzeugen.
+P21 hat anschließend die nachvollziehbare Beispiel-Vault „Lichterhain“ über echte
+Produktionsservices und die Nutzeranleitung ergänzt; die abschließende Bewertung steht in der
+[P22-Gesamtabnahme](final-acceptance.md).

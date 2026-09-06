@@ -6,6 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+use pixel_cutout_sprite_studio_lib::application::ExampleVaultService;
 use pixel_cutout_sprite_studio_lib::domain::{
     EffectiveSourceKind, LoopMode, PixelPoint, PixelSize,
 };
@@ -29,6 +30,20 @@ fn godot_4_7_2_imports_and_loads_the_package_before_and_after_relocation() {
     let project = temporary.path().join("fresh Godot project ü");
     fs::create_dir(&project).unwrap();
     write_test_project(&project);
+
+    let example_vault = temporary.path().join("Lichterhain production vault");
+    let example = ExampleVaultService::generate(&example_vault).unwrap();
+    let mira = example.npcs.iter().find(|npc| npc.name == "Mira").unwrap();
+    let example_package = example_vault.join(&mira.godot_package);
+    let example_manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(example_package.join("animation.json")).unwrap()).unwrap();
+    assert_eq!(example_manifest["actions"].as_array().unwrap().len(), 3);
+    assert_eq!(example_manifest["frames"].as_array().unwrap().len(), 256);
+    copy_directory(
+        &example_package,
+        &project.join("vollständiger Produktionspfad/Mira ü"),
+    );
+
     let generic_build = create_generic_build(temporary.path());
     let standalone_root = temporary.path().join("standalone package output ä");
     fs::create_dir(&standalone_root).unwrap();
@@ -59,26 +74,44 @@ fn godot_4_7_2_imports_and_loads_the_package_before_and_after_relocation() {
     );
     fs::remove_dir_all(temporary.path().join(OUTPUT_DIRECTORY)).unwrap();
     fs::remove_dir_all(&standalone_root).unwrap();
+    fs::remove_dir_all(&example_vault).unwrap();
     assert!(
         !generic_build.exists(),
         "the generic vault build must be unavailable"
+    );
+    assert!(
+        !example_package.exists(),
+        "the production vault must be unavailable before import"
     );
     assert!(
         !project.join(".godot").exists(),
         "project must begin without an import cache"
     );
 
+    import_and_verify(
+        &godot,
+        &project,
+        "vollständiger Produktionspfad/Mira ü",
+        true,
+    );
     import_and_verify(&godot, &project, "erste Ablage/NPC Händler", true);
     import_and_verify(&godot, &project, "ohne Szene/Ressourcen Händler", false);
     let relocated = project.join("anderer Ordner/umbenannter Händler");
     fs::create_dir(relocated.parent().unwrap()).unwrap();
     fs::rename(project.join("erste Ablage/NPC Händler"), &relocated).unwrap();
+    let relocated_example = project.join("anderer Ordner/Lichterhain Mira ü");
+    fs::rename(
+        project.join("vollständiger Produktionspfad/Mira ü"),
+        &relocated_example,
+    )
+    .unwrap();
     clear_import_state(&project);
     assert!(
         !project.join(".godot").exists(),
         "relocation must be tested cache-free"
     );
     import_and_verify(&godot, &project, "anderer Ordner/umbenannter Händler", true);
+    import_and_verify(&godot, &project, "anderer Ordner/Lichterhain Mira ü", true);
 }
 
 struct GodotRunner {
@@ -481,6 +514,9 @@ func verify_safe_tree(node: Node) -> void:
     require_value(node.get_script() == null, "generated scene contains a script")
     require_value(not (node is CollisionObject2D), "generated scene contains collision")
     require_value(not (node is CollisionShape2D), "generated scene contains a collision shape")
+    require_value(not (node is Bone2D), "generated scene contains a bone")
+    require_value(not (node is MeshInstance2D), "generated scene contains a mesh")
+    require_value(not (node is Polygon2D), "generated scene contains a polygon rig")
     require_value(not (node is Skeleton2D), "generated scene contains a skeleton")
     for child in node.get_children():
         verify_safe_tree(child)

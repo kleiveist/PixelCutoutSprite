@@ -38,10 +38,11 @@ and temporary transaction material; user trash and immutable released sources re
 
 ## Writer and orphan-lock recovery
 
-Exclusivity comes from the operating-system lock on `writer-lock.json.os-lock`. The adjacent JSON
-contains diagnostic ownership and heartbeat data. A second application process receives a
-read-only session while that lock is held; deleting or corrupting the JSON cannot grant a second
-writer.
+Exclusivity comes from the operating-system lock on
+`.pixelforge-studio/runtime/writer.lock.json.os-lock`. The adjacent
+`.pixelforge-studio/runtime/writer.lock.json` contains diagnostic ownership and heartbeat data. A
+second application process receives a read-only session while that lock is held; deleting or
+corrupting the JSON cannot grant a second writer.
 
 After the owning process exits, stale metadata may be removed only when the OS guard can first be
 locked. Inspection returns a SHA-256 confirmation token derived from the exact metadata bytes and
