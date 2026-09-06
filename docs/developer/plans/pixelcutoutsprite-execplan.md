@@ -7,7 +7,7 @@
 
 **Planungsstand:** 6. September 2026
 **Planung:** erstellt und an tatsächlichen Checkout angepasst
-**Implementierung:** P00–P25 abgeschlossen; P26–P27 offen und nur einzeln nach Nutzerfreigabe
+**Implementierung:** P00–P26 abgeschlossen; P27 freigegeben und als abschließende Abnahme als Nächstes
 **Repository:** `kleiveist/PixelCutoutSprite`
 
 Dieses Dokument wird bei der Umsetzung fortgeschrieben. Ein hier aufgeführter Plan oder Prompt ist kein Nachweis einer implementierten Funktion.
@@ -253,6 +253,16 @@ solange ein Entwurf schmutzig oder ungültig ist, blockiert der Studiowechsel. P
 Resetregeln sind auf `.prompt-generator-root` begrenzt, der innere Arbeitsbereich scrollt ohne das
 Cutout-Grid zu verändern. Native Persistenz und Cutout-Handoff bleiben P26 vorbehalten.
 
+P26 ersetzt die Browserentwicklungsvorgaben im produktiven Bootstrap durch einen nativen
+Tauri-Adapter. Einstellungen, Profilbibliothek, aktiver Draft und Migrationsbackup liegen in vier
+festen, größenbegrenzten JSON-Dateien unter `appDataDir/prompt-studio/`; atomare gestufte Writes,
+Dateitypprüfung und Recovery werden in Rust erzwungen. Der synchrone V2-Adapter der React-Provider
+spiegelt validierte Daten und leert seine geordnete, fehlertolerante native Schreibwarteschlange
+vor einem Studiowechsel. Profilimport sowie Markdown-/JSON-Export verwenden native Dialoge und
+begrenzte Commands. Ein versionierter Handoff schreibt nur nach der ausdrücklichen Aktion aus
+einer schreibbaren Vault-Session mit gewählter Area eine JSON-Referenz unter
+`prompt-references/`; danach wird der erhaltene Cutout-Kontext wieder geöffnet.
+
 ## Scope and Non-Goals
 
 Der abgeschlossene Basisumfang ist in der Spezifikation RQ-01 bis RQ-40 festgelegt. Besonders
@@ -273,8 +283,8 @@ Prompt-Übergabe.
 
 ## Concrete Steps
 
-P00–P22 sind abgeschlossen. P23–P25 wurden separat umgesetzt und geprüft. P26–P27 beginnen jeweils
-erst nach ausdrücklicher Nutzerfreigabe und bestandenem Vorgängergate.
+P00–P22 sind abgeschlossen. P23–P26 wurden separat umgesetzt und geprüft. P27 ist ausdrücklich
+freigegeben und beginnt nach dem separat committed P26-Gate.
 
 | Phase                                     | Auftrag                                                 | Status                     |
 | ----------------------------------------- | ------------------------------------------------------- | -------------------------- |
@@ -304,8 +314,8 @@ erst nach ausdrücklicher Nutzerfreigabe und bestandenem Vorgängergate.
 | [P23](../prompts/pixelcutoutsprite/23.md) | Prompt-Integrationsgrenze und technische Basis          | Abgeschlossen; Gate PASS   |
 | [P24](../prompts/pixelcutoutsprite/24.md) | Gemeinsamer Header und sichere Studio-Umschaltung       | Abgeschlossen; Gate PASS   |
 | [P25](../prompts/pixelcutoutsprite/25.md) | Vollständige PixelPromptStudio-Oberfläche portieren     | Abgeschlossen; Gate PASS   |
-| [P26](../prompts/pixelcutoutsprite/26.md) | Native Prompt-Persistenz, Export und Cutout-Handoff     | Offen                      |
-| [P27](../prompts/pixelcutoutsprite/27.md) | Integrierte Studio-Workflows abnehmen und dokumentieren | Offen                      |
+| [P26](../prompts/pixelcutoutsprite/26.md) | Native Prompt-Persistenz, Export und Cutout-Handoff     | Abgeschlossen; Gate PASS   |
+| [P27](../prompts/pixelcutoutsprite/27.md) | Integrierte Studio-Workflows abnehmen und dokumentieren | Freigegeben; als Nächstes  |
 
 ## Progress
 
@@ -355,7 +365,7 @@ erst nach ausdrücklicher Nutzerfreigabe und bestandenem Vorgängergate.
 - [x] P24: gemeinsamen Studiowechsler, Prompt-Lifecycle-Flush und zustandserhaltenden
       Navigationsschutz umsetzen, prüfen und separat committen.
 - [x] P25: vollständige Prompt-Oberfläche, Provider, Navigation und isolierte Styles portieren.
-- [ ] P26: native Prompt-Persistenz, Import/Export und versionierten Cutout-Handoff umsetzen.
+- [x] P26: native Prompt-Persistenz, Import/Export und versionierten Cutout-Handoff umsetzen.
 - [ ] P27: integrierte Frontend-, Rust- und Browserworkflows abnehmen und dokumentieren.
 - [x] Meilenstein A: Grundlage, P00–P06.
 - [x] Meilenstein B: Bewegungen, P07–P11.
@@ -363,8 +373,8 @@ erst nach ausdrücklicher Nutzerfreigabe und bestandenem Vorgängergate.
 - [x] Meilenstein D: Spieleinbindung, P16–P17.
 - [x] Meilenstein E: belastbare Desktop-Version, P18–P22; Windows/macOS-Laufzeitevidenz bleibt
       als ausdrücklich offener betrieblicher Plattformnachweis dokumentiert.
-- [ ] Meilenstein F: PixelPromptStudio vollständig einbetten und abnehmen; P23–P25 sind
-      abgeschlossen, P26–P27 bleiben offen.
+- [ ] Meilenstein F: PixelPromptStudio vollständig einbetten und abnehmen; P23–P26 sind
+      abgeschlossen, P27 ist freigegeben und als Nächstes auszuführen.
 
 Bei jeder Phasenänderung ergänzen: Datum, tatsächlicher Umfang, betroffene Dateien, Prüfungen und nächster Schritt. Noch nicht geprüfte Plattformen werden nicht als fertig markiert.
 
@@ -416,6 +426,19 @@ lag bei rund 1,17 MB. Die bereits in PixelForgeStudio bewährte Rolldown-Gruppie
 isolierten Zielpfad angepasst; React, Formular-/Schemaabhängigkeiten, sonstige Vendoren und
 Prompt-Funktionen liegen nun in getrennten Chunks, deren größter unkomprimierter JavaScriptanteil
 im P25-Build rund 262 kB misst.
+
+**2026-09-06 / P26:** Die Prompt-Provider verlangen weiterhin einen synchronen V2-Storagevertrag,
+Tauri-Dateizugriffe sind jedoch asynchron. Der Produktionsadapter hydriert deshalb zuerst einen
+vollständig validierten In-Memory-Spiegel und serialisiert anschließend jede gültige Mutation in
+eine native Queue. Ein fehlgeschlagener Write bleibt an der Queue-Spitze und wird beim nächsten
+Flush wirklich erneut versucht; er darf nicht durch einen bereits erfüllten Folge-Flush als
+gespeichert erscheinen.
+
+**2026-09-06 / P26:** Native Prompt-Arbeitsdaten gehören nicht in eine Cutout-Vault. Die Runtime
+bestimmt einmal den vertrauenswürdigen App-Datenpfad und übergibt an Commands ausschließlich eine
+feste Dateien-Enum. Nur der ausdrücklich ausgelöste Handoff verwendet den vorhandenen
+area-serialisierten Vault-Schreibpfad und erzeugt dort eine versionierte Referenz. Dadurch kann der
+Generator ohne Vault starten, während vorhandene Vaults ohne Übergabe byteweise unberührt bleiben.
 
 **2026-09-05:** „Nicht animiertes“ Equipment muss seinem Träger trotzdem folgen können. Sichtbarkeit, Mitführen und Eigenbewegung sind deshalb getrennte Eigenschaften.
 
@@ -724,6 +747,8 @@ ausführbaren Prozess-/Sidecar- und konkret emittierten Godot-Konstrukten.
 | ADR-029 | Prompt-Arbeitsdaten liegen hinter einem Adapter nativ im Tauri-App-Datenverzeichnis; die Cutout-Übergabe verwendet einen versionierten DTO und eine ausdrückliche Nutzeraktion. | Der Generator muss ohne Vault funktionieren, während bestehende Vaults unverändert bleiben und Wizard sowie Cutout-Editoren nicht direkt voneinander abhängen. |
 | ADR-030 | Der Cutout-View-Baum wird erst nach erfolgreichem Studio-Guard ausgehängt; seine stabilen Auswahl-IDs bleiben im App-Zustand. | Entspricht der bestehenden Verwerfen-Semantik der Editor-Guards, ohne Route, Vault, Projekt, Area oder Detailauswahl beim Wechsel zu verlieren. |
 | ADR-031 | Der eingebettete Prompt-Root verwendet nur Settings-, Profil-, Navigations- und Wizard-Provider; Prompt-Theme und Reset leben ausschließlich unter `.prompt-generator-root`, und ein schmutziger Draft blockiert das Aushängen. | Verhindert eine zweite Anwendungshülle, globale CSS-Kollisionen und den Verlust eines noch nicht gültig autospeicherbaren Formularzustands. Native Adapter bleiben bewusst P26. |
+| ADR-032 | Der native Prompt-Adapter hydriert einen synchronen validierten V2-Spiegel und serialisiert Writes in einer retryfähigen Queue; Rust besitzt allein die festen App-Datenziele und den atomaren Dateiaustausch. | Erhält die bewährten Providerverträge, ohne asynchrone IPC-Fehler zu verschlucken oder Browser-Storage zur Produktionsquelle zu machen. |
+| ADR-033 | Der Prompt-Handoff ist ein versionierter DTO und läuft durch den vorhandenen area-serialisierten Vault-Service; der Wizard importiert keine Cutout-Editorlogik. | Hält beide Workflows entkoppelt, erzwingt Read-only-/Recovery-Grenzen und verändert eine Vault nur nach sichtbarer Nutzeraktion. |
 
 Abweichungen während der Implementierung werden hier ergänzt, einschließlich betroffener Anforderungen, Migration, Testfolgen und erwogener Alternative.
 
@@ -861,6 +886,10 @@ Prüflog ersetzt diesen Anfangsbefund mit den tatsächlich ausgeführten Ergebni
 | 2026-09-06 / P25             | `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npm run build`, `python3 tools/control.py test --suite frontend`                                                                                                  | isolierter Phasen-Worktree, Node 22.22.2, npm 10.9.7                                                                                                                             | PASS: 146 Dateien / 761 Tests; Vite-Build mit 398 Modulen; Control-Gate OK                                                                        | Dashboard, Profile, vollständiger Neun-Kategorien-Wizard, Ausgabe und Einstellungen bestehen zusammen mit allen Cutout-Regressionen. Der größte unkomprimierte JavaScriptchunk misst 261,79 kB; der Node-24-Wrapperblocker bleibt wie in P23 dokumentiert für P27 sichtbar.                                                                                                                                           |
 | 2026-09-06 / P25             | Headless-Chrome-Lauf bei 1280×720 durch alle fünf Prompt-Ansichten sowie statische Import- und CSS-Grenzprüfung                                                                                                                              | Chrome for Testing 153.0.8010.12; isolierter Phasen-Worktree                                                                                                                     | PASS: genau ein Header und eine Statusbar; interner Prompt-Scroll ohne Seitenüberlauf                                                             | Prompt-Root und App-Frame messen 1280 px, der Wizard läuft ohne horizontalen Überlauf, das Theme bleibt lokal am Prompt-Root und keine PixelForge-Gesamtshell, Animationsstudio-, History-, Tauri- oder Handoff-Abhängigkeit wird eingezogen.                                                                                                                                                                       |
 | 2026-09-06 / P25             | `python3 tools/control.py docs check --docs-dir docs`, `pytest tests/source/test_repository_documentation.py`, `git diff --check`                                                                                                           | isolierter Phasen-Worktree, Python 3.11.2                                                                                                                                        | PASS: 156 Dokumentseiten; 3 Tests; sauberes Patchformat                                                                                          | P25 ist nachvollziehbar abgeschlossen; native Persistenz, Cutout-Handoff und P27-Abnahme bleiben bis zu ihren ausdrücklichen Nutzerfreigaben offen.                                                                                                                                                                                                                                                               |
+| 2026-09-06 / P26             | `npm test -- src/prompt-studio/services/promptWorkspaceStorage.test.ts src/prompt-studio/features/review-output/ReviewOutputHandoff.test.tsx src/app/App.prompt-handoff.test.tsx`                                                            | aktueller Workspace, Node 22.22.2, npm 10.9.7                                                                                                                                    | PASS: 3 Dateien / 10 Tests                                                                                                                       | Native Spiegelhydration, geordnete Writes, echter Fehlretry, Same-Origin-Migration, Dialog-Commands, Browserfallback, deaktivierte Übergabe und erfolgreicher DTO-/Kontextrückweg sind fokussiert belegt.                                                                                                                                                                                                          |
+| 2026-09-06 / P26             | `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test -- --exclude 'e2e/**'`, `npm run build`                                                                                                                              | aktueller Workspace, Node 22.22.2, npm 10.9.7                                                                                                                                    | PASS: 149 Dateien / 771 Tests; Vite-Build mit 401 Modulen                                                                                       | Der vollständige Cutout-/Prompt-Satz bleibt grün. Die bereits vorbereitete, noch nicht zu P26 gehörende Playwright-Datei benötigt in P27 eine dauerhafte Vitest-Exklusion; der P26-Lauf schloss sie deshalb ausdrücklich aus.                                                                                                                                                |
+| 2026-09-06 / P26             | `cargo fmt --check`, `cargo test --manifest-path src-tauri/Cargo.toml --all-targets`, fokussierter Filter `prompt_`                                                                                                                        | Rust 1.97.1; isolierter Debian-12-Sysroot für fehlende Tauri-Entwicklungspakete                                                                                                  | PASS: vollständiger Rust-Satz; fokussiert 13 Prompt-Tests                                                                                       | Reopen-Persistenz, feste Schemas/Größen, atomarer letzter guter Stand, Pending-/Previous-Recovery, Symlinkschutz, Draft-Entfernung, Import, Export, Handoff und Read-only-Ablehnung bestehen; vier bereits dokumentierte Hardware-/Godot-Sonderläufe bleiben ignoriert.                                                                                 |
+| 2026-09-06 / P26             | `python3 tools/control.py test --suite frontend`, `python3 tools/control.py tauri test --cargo`                                                                                                                                             | Node 22.22.2; Rust 1.97.1; isolierter Debian-12-Sysroot                                                                                                                          | PASS: zentrale Frontend- und Cargo-Check-/Test-Gates                                                                                            | Die Repository-Einstiegspunkte bestätigen denselben vollständigen Frontend- und nativen Rust-Stand. Native GUI-Run-, Paket-, Smoke- und Offline-Evidenz folgen gebündelt in P27.                                                                                                                                                                  |
 
 Die vorhandenen Repository-Gates wurden während der Implementierung entsprechend ihrer
 tatsächlichen Verfügbarkeit verwendet; Änderungen an ihren Verträgen sind im Prüflog und in den
@@ -872,9 +901,10 @@ Vor Arbeitsbeginn aktuellen Git-Status und Nutzeränderungen prüfen. Keine dest
 
 Wiederaufnahme beginnt mit dem aktuellen Code und diesem Plan, nicht allein mit Chat-Kontext. Die erste unvollständige Phase und ihr Gate werden erneut geprüft. Mehrteilige Nutzerdatenänderungen erhalten in der App Journale und Sicherungen; ein fehlgeschlagener Export ersetzt keinen letzten gültigen Build.
 
-**Nächster Implementierungsschritt:** Auf die ausdrückliche Nutzerfreigabe für P26 warten. Danach
-nur native Prompt-Persistenz, nativen Import/Export und den versionierten Cutout-Handoff umsetzen,
-prüfen und separat committen. P27 darf nicht vor einer weiteren Freigabe beginnen. Reale
+**Nächster Implementierungsschritt:** Den separat geprüften P26-Stand committen und anschließend die
+bereits ausdrücklich freigegebene P27-Gesamtabnahme ausführen: Vitest/Playwright dauerhaft
+abgrenzen, vollständige Frontend-/Rust-/native Run-/Build-/Smoke-Gates belegen und Nutzer-,
+Architektur-, Release- sowie Einstiegsdokumentation auf den realen Endstand bringen. Reale
 Windows-/macOS-Abnahmen, Signierung, Notarisierung, Tag, Release und Push bleiben getrennte Schritte
 mit eigener Freigabe.
 
@@ -976,4 +1006,6 @@ Die Dokumentationsfortschreibung vom 6. September 2026 verändert diesen Abschlu
 behandelt P00–P22 als abgeschlossene Basis und eröffnet mit P23–P27 einen neuen
 Erweiterungsmeilenstein. P23 liefert dessen isolierte Prompt-Codebasis, P24 die geprüfte gemeinsame
 Shell und sichere Umschaltung und P25 die vollständige browserentwicklungsfähige Prompt-
-Oberfläche. P26–P27 bleiben bis zur jeweiligen Nutzerfreigabe offen.
+Oberfläche. P26 ergänzt die native App-Daten-Persistenz, Dialogimporte und -exporte sowie den
+versionierten, nur bei schreibbarem Area-Kontext möglichen Cutout-Handoff. P27 ist als
+abschließende integrierte Abnahme ausdrücklich freigegeben.

@@ -5,6 +5,7 @@ mod motions;
 mod npc;
 mod outfit;
 mod projects;
+mod prompt_generator;
 mod vault;
 
 pub use area::*;
@@ -14,4 +15,5 @@ pub use motions::*;
 pub use npc::*;
 pub use outfit::*;
 pub use projects::*;
+pub use prompt_generator::*;
 pub use vault::*;

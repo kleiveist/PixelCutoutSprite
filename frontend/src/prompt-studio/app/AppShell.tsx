@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { ViewLink } from "../components/navigation";
 import { APP_VIEW_IDS, type AppView } from "../domain/navigation";
 import type { AssetCategory } from "../domain/assets";
+import type { PromptHandoff, PromptHandoffAvailability } from "../domain/handoff";
 import { ReviewOutputWorkspace } from "../features/review-output";
 import { SettingsView } from "../features/settings";
 import { WizardView, type WizardStorage } from "../features/wizard";
@@ -20,6 +21,8 @@ interface ActiveViewProps {
   readonly activeBaseProfileId: StableId | null;
   readonly createDraftId?: () => string;
   readonly now?: () => string;
+  readonly handoffAvailability?: PromptHandoffAvailability;
+  readonly onHandoff?: (handoff: PromptHandoff) => Promise<void> | void;
   readonly onOpenProfile: (profileId: StableId) => void;
   readonly onProfileDeleted: (profileId: StableId) => void;
   readonly onResumeDraft: (draftId: StableId) => void;
@@ -36,6 +39,8 @@ function ActiveView({
   activeBaseProfileId,
   createDraftId,
   now,
+  handoffAvailability,
+  onHandoff,
   onOpenProfile,
   onProfileDeleted,
   onResumeDraft,
@@ -86,6 +91,8 @@ function ActiveView({
       <ReviewOutputWorkspace
         outputAdapter={outputAdapter}
         storageAdapter={storageAdapter}
+        {...(handoffAvailability ? { handoffAvailability } : {})}
+        {...(onHandoff ? { onHandoff } : {})}
         {...(now ? { now } : {})}
       />
     );
@@ -105,6 +112,8 @@ export interface PromptStudioShellProps {
   readonly activeBaseProfileId: StableId | null;
   readonly createDraftId?: () => string;
   readonly now?: () => string;
+  readonly handoffAvailability?: PromptHandoffAvailability;
+  readonly onHandoff?: (handoff: PromptHandoff) => Promise<void> | void;
   readonly outputAdapter: OutputWorkspaceAdapter;
   readonly startupMigration: LegacyV1StorageMigrationResult;
   readonly storageAdapter: DashboardStorage & WizardStorage;
@@ -149,6 +158,8 @@ export function PromptStudioShell({
   activeBaseProfileId,
   createDraftId,
   now,
+  handoffAvailability,
+  onHandoff,
   outputAdapter,
   startupMigration,
   storageAdapter,
@@ -194,6 +205,8 @@ export function PromptStudioShell({
       onSelectBaseProfile={setActiveBaseProfile}
       onStartNewAsset={startNewAsset}
       outputAdapter={outputAdapter}
+      {...(handoffAvailability ? { handoffAvailability } : {})}
+      {...(onHandoff ? { onHandoff } : {})}
       sessionRevision={sessionRevision}
       startupMigration={startupMigration}
       storageAdapter={storageAdapter}

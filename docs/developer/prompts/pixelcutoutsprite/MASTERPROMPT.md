@@ -6,8 +6,9 @@
 # Übergeordneter Arbeitsauftrag — PixelCutoutSprite Studio
 
 Diesen Auftrag als historischen Implementierungsrahmen verwenden. P00–P22 bilden die
-abgeschlossene Cutout-Basis. P23–P25 sind abgeschlossen; P26–P27 bleiben bis zur jeweils
-ausdrücklichen Freigabe offen. Der ExecPlan ist für den tatsächlichen Fortschritt maßgeblich.
+abgeschlossene Cutout-Basis. P23–P26 sind abgeschlossen; P27 ist ausdrücklich freigegeben und als
+abschließende Abnahme als Nächstes auszuführen. Der ExecPlan ist für den tatsächlichen Fortschritt
+maßgeblich.
 
 ```text
 Arbeite im vorhandenen Repository kleiveist/PixelCutoutSprite an der Tauri-Desktop-App

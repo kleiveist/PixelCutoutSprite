@@ -1,7 +1,7 @@
 # PixelCutoutSprite Studio — Einstieg
 
 **Stand:** 6. September 2026 · **Inhalt:** funktional abgeschlossene Cutout-Basis P00–P22 und
-abgeschlossene PixelPromptStudio-Phasen P23–P25; P26–P27 sind offen.
+abgeschlossene PixelPromptStudio-Phasen P23–P26; P27 ist als Gesamtabnahme freigegeben.
 
 ## Anwendung starten
 
@@ -128,9 +128,9 @@ Profilbibliothek, vollständigen Wizard, Ausgabeprüfung und Einstellungen. Die 
 bleibt vom Cutout-Router getrennt; Prompt-Tokens und Resetregeln gelten nur innerhalb von
 `.prompt-generator-root`.
 
-P26–P27 bleiben für native App-Daten, nativen Export, kontrollierte Cutout-Übergabe und
-Gesamtabnahme vorgesehen. Jede Phase beginnt erst nach ausdrücklicher Freigabe und erhält einen
-eigenen Commit.
+P26 ergänzt native App-Daten, nativen Import/Export und die kontrollierte Cutout-Übergabe. P27 ist
+für die Gesamtabnahme und Abschlussdokumentation freigegeben. Jede Phase erhält einen eigenen
+Commit.
 
 ## Leitentscheidungen
 

@@ -6,14 +6,14 @@
 # PixelPromptStudio in PixelCutoutSprite integrieren
 
 **Planungsstand:** 6. September 2026
-**Status:** P23–P25 abgeschlossen; P26–P27 offen und nur phasenweise nach Nutzerfreigabe auszuführen
+**Status:** P23–P26 abgeschlossen; P27 freigegeben und als abschließende Abnahme als Nächstes
 **Zielrepository:** `kleiveist/PixelCutoutSprite`
 **Quellrepository:** `kleiveist/PixelForgeStudio`
 
 Dieser Plan erweitert die abgeschlossene PixelCutoutSprite-Basisserie P00–P22 um die fünf
 aufeinander aufbauenden Phasen P23–P27. P23 stellt den isolierten Prompt-Namensraum bereit, P24
-die gemeinsame Shell und P25 die produktive Prompt-Oberfläche. Native Persistenz und
-Gesamtabnahme folgen in P26–P27. Ausgeführte Nachweise werden im
+die gemeinsame Shell und P25 die produktive Prompt-Oberfläche. P26 ergänzt native Persistenz,
+Import/Export und Cutout-Handoff; die Gesamtabnahme folgt in P27. Ausgeführte Nachweise werden im
 [lebenden ExecPlan](pixelcutoutsprite-execplan.md) geführt.
 
 ## Verifizierte Ausgangsbasis
@@ -208,8 +208,8 @@ den vorherigen Cutout-Kontext zurückkehren.
 | [P23](../prompts/pixelcutoutsprite/23.md) | Integrationsgrenze, isolierter Prompt-Namensraum und Abhängigkeiten     | Abgeschlossen; Phase-1-Gate bestanden | `🧭 Define prompt generator integration boundary`     |
 | [P24](../prompts/pixelcutoutsprite/24.md) | gemeinsamer Header, StudioMode und sicherer Wechsel                     | Abgeschlossen; Phase-2-Gate bestanden | `🧩 Add shared studio header switcher`                |
 | [P25](../prompts/pixelcutoutsprite/25.md) | vollständige Prompt-Oberfläche, Provider, Navigation und CSS-Isolierung | Abgeschlossen; Phase-3-Gate bestanden | `🧬 Port PixelPromptStudio generator`                 |
-| [P26](../prompts/pixelcutoutsprite/26.md) | native Persistenz, Import/Export und Cutout-Handoff                     | Offen                                 | `💾 Add native prompt persistence and cutout handoff` |
-| [P27](../prompts/pixelcutoutsprite/27.md) | Regression, E2E, native Abnahme und Dokumentation                       | Offen                                 | `✅ Verify integrated studio workflows`               |
+| [P26](../prompts/pixelcutoutsprite/26.md) | native Persistenz, Import/Export und Cutout-Handoff                     | Abgeschlossen; Phase-4-Gate bestanden | `💾 Add native prompt persistence and cutout handoff` |
+| [P27](../prompts/pixelcutoutsprite/27.md) | Regression, E2E, native Abnahme und Dokumentation                       | Freigegeben; als Nächstes              | `✅ Verify integrated studio workflows`               |
 
 Die Commitzeilen sind Vorschläge, keine Erlaubnis für automatische Commits oder Pushes. Eine Phase
 beginnt erst, wenn das Gate ihrer Vorgängerphase belegt ist.
@@ -262,9 +262,14 @@ gültiger Autosave abgeschlossen ist; danach wird der bestehende Lifecycle-Flush
 Design-Tokens, Resetregeln, Fokus- und Auswahlregeln sind unter `.prompt-generator-root` gekapselt,
 und nur der innere Prompt-Arbeitsbereich scrollt.
 
-Native Persistenz und Cutout-Handoff bleiben P26 vorbehalten. P27 bleibt die abschließende
-Gesamtprüfung und Dokumentation. Ein Commit oder Gate einer späteren Phase wird erst nach
-ausdrücklicher Freigabe erstellt.
+P26 initialisiert im Produktions-Bootstrap den nativen Tauri-Adapter und speichert Einstellungen,
+Profile, Draft und Migrationsbackup unter dem App-Datenpfad `prompt-studio/`. Feste Dateitypen,
+Größenlimits, gestufte atomare Writes und Recovery werden zusätzlich in Rust erzwungen. Import und
+Markdown-/JSON-Export laufen über native Dialoge. Der versionierte Handoff schreibt nur nach einer
+ausdrücklichen Aktion und nur mit schreibbarer Vault plus gewählter Area eine JSON-Referenz unter
+`prompt-references/`; ohne gültigen Kontext bleibt er begründet deaktiviert, während Kopieren und
+Export verfügbar bleiben. P27 bleibt die freigegebene abschließende Gesamtprüfung und
+Dokumentation.
 
 Zusätzlich gelten:
 

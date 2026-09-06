@@ -45,3 +45,9 @@ export {
   type OutputTextFile,
   type OutputWorkspaceAdapter,
 } from "./outputWorkspaceAdapter";
+export {
+  initializePromptStudioRuntime,
+  type NativeBackedV2StorageAdapter,
+  type PromptStudioRuntimeAdapters,
+  type PromptWorkspaceStorage,
+} from "./promptWorkspaceStorage";

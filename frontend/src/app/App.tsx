@@ -7,6 +7,7 @@ import { motionClient, type MotionClient } from "../api/motion-client";
 import { npcClient, type NpcClient } from "../api/npc-client";
 import { outfitClient, type OutfitClient } from "../api/outfit-client";
 import { projectClient, type ProjectClient } from "../api/project-client";
+import { promptStudioClient, type PromptStudioClient } from "../api/prompt-studio-client";
 import {
   vaultClient,
   type OpenVault,
@@ -26,6 +27,7 @@ import type { MotionOpenTarget } from "../domain/animations";
 import type { RevisionRef } from "../domain/common";
 import type { AssetImportJobView } from "../domain/inventory";
 import { PromptGeneratorRoot } from "../prompt-studio/app";
+import type { PromptHandoff, PromptHandoffAvailability } from "../prompt-studio/domain/handoff";
 import {
   createBrowserOutputWorkspaceAdapter,
   initializeBrowserWorkspaceStorage,
@@ -68,6 +70,7 @@ export interface AppProps {
   npcsApi?: NpcClient;
   outfitsApi?: OutfitClient;
   projectsApi?: ProjectClient;
+  promptApi?: PromptStudioClient;
   promptOutputAdapter?: OutputWorkspaceAdapter;
   promptStartupMigration?: LegacyV1StorageMigrationResult;
   promptStorageAdapter?: V2StorageAdapter;
@@ -88,6 +91,7 @@ export function App({
   npcsApi = npcClient,
   outfitsApi = outfitClient,
   projectsApi = projectClient,
+  promptApi = promptStudioClient,
   promptOutputAdapter = browserPromptOutput,
   promptStartupMigration = browserPromptWorkspace.migration,
   promptStorageAdapter = browserPromptWorkspace.storageAdapter,
@@ -688,6 +692,51 @@ export function App({
       ]
     : routeBreadcrumbs(route);
 
+  const promptHandoffAvailability: PromptHandoffAvailability =
+    !vault || !selectedArea
+      ? {
+          available: false,
+          reason: "Öffne zuerst einen Vault und wähle eine Area aus.",
+        }
+      : vault.mode !== "read_write"
+        ? {
+            available: false,
+            reason: "Der geöffnete Vault ist schreibgeschützt.",
+          }
+        : (vault.recovery?.length ?? 0) > 0
+          ? {
+              available: false,
+              reason: "Schließe zuerst die Vault-Wiederherstellung ab.",
+            }
+          : { available: true };
+
+  async function handoffPrompt(handoff: PromptHandoff): Promise<void> {
+    if (!vault || !selectedArea || !promptHandoffAvailability.available) {
+      throw new Error(
+        promptHandoffAvailability.available
+          ? "Kein Cutout-Arbeitsbereich ausgewählt."
+          : promptHandoffAvailability.reason,
+      );
+    }
+    const receipt = await promptApi.handoff(vault.session_id, selectedArea.id, handoff);
+    if (promptDraftDirty) {
+      setStatus(
+        `Prompt reference saved · ${receipt.relative_path} · finish prompt autosave before returning`,
+      );
+      return;
+    }
+    try {
+      await flushPromptStorage();
+    } catch (reason) {
+      setStatus(
+        `Prompt reference saved · ${receipt.relative_path} · prompt data flush failed · ${message(reason)}`,
+      );
+      return;
+    }
+    setActiveStudio("cutout");
+    setStatus(`Prompt reference saved · ${receipt.relative_path}`);
+  }
+
   return (
     <div className="app-frame" data-studio={activeStudio}>
       <AppHeader
@@ -870,6 +919,8 @@ export function App({
               outputAdapter={promptOutputAdapter}
               startupMigration={promptStartupMigration}
               storageAdapter={promptStorageAdapter}
+              handoffAvailability={promptHandoffAvailability}
+              onHandoff={handoffPrompt}
             />
           </main>
         </div>

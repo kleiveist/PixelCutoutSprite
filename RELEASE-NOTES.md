@@ -21,10 +21,15 @@ Date: 6 September 2026
 - Added host-state Prompt navigation, browser-development persistence and output adapters, dirty
   draft switch protection, and Prompt-root-scoped design tokens and reset rules.
 - Ported the Prompt component, provider, category-editor, Wizard and recovery test coverage.
+- Added native, restart-safe app-data persistence for Prompt settings, profiles, the active draft
+  and migration backup with fixed file namespaces, byte limits, atomic publication and recovery.
+- Added native JSON package import and Markdown/JSON save dialogs while retaining LocalStorage and
+  in-memory adapters only for browser development and tests.
+- Added a versioned Prompt handoff that is enabled only for a selected writable Cutout Area,
+  preserves the source as a JSON reference and returns to the retained Cutout context.
 
-Native persistence, Cutout handoff and final E2E acceptance remain the separately approved
-P26–P27 phases. This local unreleased work does not imply a push, package, publication or platform
-acceptance.
+Final E2E/native cross-workflow acceptance remains P27. This local unreleased work does not imply
+a push, package, publication or platform acceptance.
 
 # Template Tooling 0.4.0
 

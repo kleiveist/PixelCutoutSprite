@@ -16,10 +16,9 @@ Portierungsphase zusätzlich den benachbarten PixelForgeStudio-Checkout und dess
 AGENTS.md; behandle ihn ohne anderslautenden Auftrag als Read-only-Quelle.
 
 P00–P22 sind die abgeschlossene Cutout-Basis und werden nicht allein wegen der
-Erweiterung wieder geöffnet. P23 bis P25 sind abgeschlossen. Beginne erst nach
-ausdrücklicher Nutzerfreigabe mit P26 und arbeite auch danach immer nur die
-jeweils freigegebene Phase ab. Bewahre bestehende Nutzerarbeit und den gesamten
-Cutout-Kontext.
+Erweiterung wieder geöffnet. P23 bis P26 sind abgeschlossen. P27 ist ausdrücklich
+freigegeben und als abschließende Abnahme als Nächstes auszuführen. Bewahre bestehende
+Nutzerarbeit und den gesamten Cutout-Kontext.
 
 Wiederhole relevante Tests nach Änderungen. Aktualisiere Fortschritt,
 Entscheidungen, Validierung und offene Punkte. Überspringe keine fehlenden

@@ -9,6 +9,7 @@ mod humanoid;
 mod identity;
 mod motion;
 mod profile;
+mod prompt;
 mod workflow;
 mod workspace;
 
@@ -23,5 +24,6 @@ pub use humanoid::*;
 pub use identity::*;
 pub use motion::*;
 pub use profile::*;
+pub use prompt::*;
 pub use workflow::*;
 pub use workspace::*;

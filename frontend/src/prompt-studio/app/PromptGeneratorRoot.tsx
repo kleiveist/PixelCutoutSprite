@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
+import type { PromptHandoff, PromptHandoffAvailability } from "../domain/handoff";
 import type { PromptView } from "../domain/navigation";
 import type {
   IntegratedPromptNavigationAdapter,
@@ -23,6 +24,8 @@ export interface PromptGeneratorRootProps {
   readonly storageAdapter: V2StorageAdapter;
   readonly outputAdapter: OutputWorkspaceAdapter;
   readonly startupMigration?: LegacyV1StorageMigrationResult;
+  readonly handoffAvailability?: PromptHandoffAvailability;
+  readonly onHandoff?: (handoff: PromptHandoff) => Promise<void> | void;
   readonly now?: () => string;
   readonly createDraftId?: () => string;
   readonly createProfileId?: () => string;
@@ -33,6 +36,8 @@ interface PromptWorkspaceProps {
   readonly storageAdapter: V2StorageAdapter;
   readonly outputAdapter: OutputWorkspaceAdapter;
   readonly startupMigration: LegacyV1StorageMigrationResult;
+  readonly handoffAvailability: PromptHandoffAvailability;
+  readonly onHandoff?: (handoff: PromptHandoff) => Promise<void> | void;
   readonly onDirtyChange?: (dirty: boolean) => void;
   readonly now?: () => string;
   readonly createDraftId?: () => string;
@@ -42,6 +47,8 @@ function PromptWorkspace({
   storageAdapter,
   outputAdapter,
   startupMigration,
+  handoffAvailability,
+  onHandoff,
   onDirtyChange,
   now,
   createDraftId,
@@ -85,6 +92,8 @@ function PromptWorkspace({
             startupMigration={startupMigration}
             storageAdapter={storageAdapter}
             view={activeView}
+            handoffAvailability={handoffAvailability}
+            {...(onHandoff ? { onHandoff } : {})}
             {...(now ? { now } : {})}
             {...(createDraftId ? { createDraftId } : {})}
           />
@@ -101,6 +110,11 @@ export function PromptGeneratorRoot({
   storageAdapter,
   outputAdapter,
   startupMigration = { status: "notNeeded" },
+  handoffAvailability = {
+    available: false,
+    reason: "Öffne einen schreibbaren Cutout-Arbeitsbereich für die Übergabe.",
+  },
+  onHandoff,
   now,
   createDraftId,
   createProfileId,
@@ -134,6 +148,8 @@ export function PromptGeneratorRoot({
               storageAdapter={storageAdapter}
               outputAdapter={outputAdapter}
               startupMigration={startupMigration}
+              handoffAvailability={handoffAvailability}
+              {...(onHandoff ? { onHandoff } : {})}
               {...(onDirtyChange ? { onDirtyChange } : {})}
               {...(now ? { now } : {})}
               {...(createDraftId ? { createDraftId } : {})}

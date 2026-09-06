@@ -49,8 +49,8 @@ sie sind keine offene Aufgabenliste.
 | [P23](23.md) | Prompt-Integrationsgrenze und technische Basis          | P00–P22        | Abgeschlossen; Gate bestanden |
 | [P24](24.md) | Gemeinsamer Header und sichere Studio-Umschaltung       | P23            | Abgeschlossen; Gate bestanden |
 | [P25](25.md) | Vollständige PixelPromptStudio-Oberfläche portieren     | P24            | Abgeschlossen; Gate bestanden |
-| [P26](26.md) | Native Prompt-Persistenz, Export und Cutout-Handoff     | P25            | Offen                         |
-| [P27](27.md) | Integrierte Studio-Workflows abnehmen und dokumentieren | P23–P26        | Offen                         |
+| [P26](26.md) | Native Prompt-Persistenz, Export und Cutout-Handoff     | P25            | Abgeschlossen; Gate bestanden |
+| [P27](27.md) | Integrierte Studio-Workflows abnehmen und dokumentieren | P23–P26        | Freigegeben; als Nächstes     |
 
 Maßgeblich für den tatsächlichen Fortschritt ist der lebende ExecPlan, nicht die Existenz einer
 Prompt-Datei. Die tatsächlich ausgeführten Nachweise und der nächste freizugebende Schritt stehen

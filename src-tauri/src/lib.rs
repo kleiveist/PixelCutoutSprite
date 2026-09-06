@@ -1,6 +1,5 @@
 use serde::Serialize;
 use std::sync::Mutex;
-#[cfg(debug_assertions)]
 use tauri::Manager;
 use tauri::{Builder, Runtime};
 
@@ -39,6 +38,14 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         .manage(application::AssetImportJobRegistry::default())
         .manage(application::AssetInspectionRegistry::default())
         .setup(|_app| {
+            let prompt_root = _app
+                .path()
+                .app_data_dir()
+                .map_err(std::io::Error::other)?
+                .join("prompt-studio");
+            let prompt_storage = storage::PromptWorkspaceStorage::open(prompt_root)
+                .map_err(std::io::Error::other)?;
+            _app.manage(Mutex::new(prompt_storage));
             #[cfg(debug_assertions)]
             if let Some((width, height)) =
                 native_acceptance_window_size().map_err(std::io::Error::other)?
@@ -130,6 +137,12 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::start_npc_export,
             commands::get_npc_export_job,
             commands::cancel_npc_export,
+            commands::read_prompt_workspace,
+            commands::write_prompt_workspace,
+            commands::remove_prompt_draft,
+            commands::read_prompt_package,
+            commands::save_prompt_output,
+            commands::handoff_prompt_to_area,
         ])
 }
 
