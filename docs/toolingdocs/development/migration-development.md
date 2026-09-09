@@ -1,8 +1,8 @@
-# Migration development
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](development.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Migration development
 
 A migration is an exact, registered reconciliation of tooling/state versions; it is
 not a generic upgrade script. Define source and target tooling/state schemas,

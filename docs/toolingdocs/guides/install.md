@@ -1,6 +1,6 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](guides.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
 # Install dependencies
 

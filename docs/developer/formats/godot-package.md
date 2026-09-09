@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](formats.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # Godot package integration
 
 PixelCutoutSprite Studio can derive a portable Godot package from a validated generic

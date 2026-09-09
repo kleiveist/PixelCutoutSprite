@@ -1,8 +1,8 @@
-# Integration
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](../toolingdocs.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Integration
 
 Portable integration compares the target project with one persisted or detected
 profile. It produces a deterministic plan, applies that plan only through a staging and
@@ -26,17 +26,3 @@ are also explicit live operations. Both remain separate from the fixed checks th
 inside integration staging.
 
 ## Integration pages
-
-<!-- AUTO-GENERATED:docs-index START -->
-
-## 📄 Pages
-- 📝 [Check](check.md)
-- 📝 [Full-Fix and actions](full-fix-and-actions.md)
-- 📝 [Full-Fix](full-fix.md)
-- 📝 [Migration, verification and drift](migration-verification-and-drift.md)
-- 📝 [Migrations](migrations.md)
-- 📝 [Rollback and recovery](rollback-and-recovery.md)
-- 📝 [Tooling replacement](tooling-replacement.md)
-- 📝 [Verification](verification.md)
-
-<!-- AUTO-GENERATED:docs-index END -->

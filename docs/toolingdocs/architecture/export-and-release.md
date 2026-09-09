@@ -1,8 +1,8 @@
-# Export and release boundary
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](architecture.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Export and release boundary
 
 `tooling export` produces a portable directory containing only the reviewed `tools/`
 and `docs/toolingdocs/` trees. It rejects unsafe paths, symbolic links, unapproved

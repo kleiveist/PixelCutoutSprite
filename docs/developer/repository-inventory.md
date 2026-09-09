@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](developer.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # Repository inventory for PixelCutoutSprite Studio
 
 **Captured:** 2026-09-05

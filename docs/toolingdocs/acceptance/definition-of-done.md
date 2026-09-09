@@ -1,6 +1,6 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](acceptance.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
 # Definition of done
 

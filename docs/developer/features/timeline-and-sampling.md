@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](features.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # Timeline and deterministic sampling
 
 P09 turns the single-pose editor into a complete data-backed animation workspace. The timeline

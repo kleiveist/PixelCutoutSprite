@@ -1,8 +1,8 @@
-# Feature schema
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](reference.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Feature schema
 
 `tools/resources/profiles/features.toml` starts with schema version 1 and a non-empty
 `[core].adapters` list. Each `[features.<id>]` table requires `name`, `description` and

@@ -1,8 +1,8 @@
-# Project-tooling schema
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](reference.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Project-tooling schema
 
 `project-tooling.toml` is the project-owned, versioned decision record. Schema version
 1 requires the top-level `schema_version` and `[tooling]`, `[project]`, `[paths]` and

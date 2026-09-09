@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](storage.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # Recovery and data integrity
 
 P18 turns the P03 journal format into the recovery boundary used by the desktop application. It

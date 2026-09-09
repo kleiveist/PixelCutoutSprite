@@ -1,8 +1,8 @@
-# Ownership, state and transactions
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](architecture.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Ownership, state and transactions
 
 Every integration operation is classified as `tooling`, `structured`, or `project`.
 Tooling-owned paths are limited to the copied tooling/docs payload and state; a

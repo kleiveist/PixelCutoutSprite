@@ -1,8 +1,8 @@
-# Release process
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](development.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Release process
 
 Prepare a release from a reviewed revision with a clean, understood worktree. Run the
 portable documentation check, focused integration/acceptance suites and the relevant

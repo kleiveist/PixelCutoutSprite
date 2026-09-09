@@ -1,8 +1,8 @@
-# CI and acceptance
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](architecture.md)
-<!-- AUTO-GENERATED:backlink END -->
+# CI and acceptance
 
 Acceptance is evidence from independent copies, not a claim that every application
 stack is supported. The copy fixtures exercise detection, read-only Check, Full-Fix,

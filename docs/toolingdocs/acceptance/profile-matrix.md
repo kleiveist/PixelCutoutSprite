@@ -1,8 +1,8 @@
-# Profile matrix
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](acceptance.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Profile matrix
 
 Every built-in profile needs an independent fixture with the expected persisted or
 detected choice and its corresponding feature/adapter set.

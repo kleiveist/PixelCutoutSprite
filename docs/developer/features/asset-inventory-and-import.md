@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](features.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # Area PNG inventory and reviewed imports
 
 P12 turns the Outfit workspace into an area-owned PNG inventory. An area card opens the inventory,

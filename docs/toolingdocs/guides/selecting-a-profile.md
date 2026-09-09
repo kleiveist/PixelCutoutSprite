@@ -1,8 +1,8 @@
-# Selecting a profile
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](guides.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Selecting a profile
 
 The built-in profiles are `web-only`, `web-cloud`, `desktop-local`, `desktop-cloud`
 and `full-platform`. Detection can suggest a conservative profile from existing Vite,

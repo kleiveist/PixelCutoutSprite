@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](features.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # PixelCutoutSprite Studio — Produktspezifikation und technische Planung
 
 **Version:** 1.0 · **Stand:** 6. September 2026 · **Sprache:** Deutsch

@@ -1,8 +1,8 @@
-# First integration
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](guides.md)
-<!-- AUTO-GENERATED:backlink END -->
+# First integration
 
 From the root of a project that already contains the copied portable payload, start
 with a read-only assessment:

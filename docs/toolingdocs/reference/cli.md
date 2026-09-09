@@ -1,8 +1,8 @@
-# CLI reference
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](reference.md)
-<!-- AUTO-GENERATED:backlink END -->
+# CLI reference
 
 The portable entry point is `python tools/control.py`. Integration commands take the
 safe early-dispatch path so malformed project configuration can be reported without

@@ -1,8 +1,8 @@
-# Custom project paths
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](guides.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Custom project paths
 
 `project-tooling.toml` can describe non-default project layout through `paths.frontend`,
 `paths.backend`, `paths.tauri` and `paths.docs`. Each non-empty value is canonical and

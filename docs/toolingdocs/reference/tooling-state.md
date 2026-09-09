@@ -1,8 +1,8 @@
-# Tooling state reference
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](reference.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Tooling state reference
 
 The generated state file is `.tooling-state/state.toml`. Its current schema is 1 and its
 field set is exact: unknown or missing fields are rejected.

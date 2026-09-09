@@ -1,8 +1,8 @@
-# Report schema
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](reference.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Report schema
 
 Mutating Full-Fix and migration runs can publish a timestamped directory below
 `.tooling-state/reports/`. Schema-version-1 `integration.json` contains `outcome`, a

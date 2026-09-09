@@ -1,8 +1,8 @@
-# Ownership and state
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](architecture.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Ownership and state
 
 Every planned operation has one ownership class. The transaction validates that class
 again before staging and before publishing any bytes.

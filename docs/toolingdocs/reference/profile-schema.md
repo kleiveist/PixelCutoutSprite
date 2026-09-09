@@ -1,8 +1,8 @@
-# Profile schema
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](reference.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Profile schema
 
 Each profile resource is a TOML file below `tools/resources/profiles/` whose filename
 matches its kebab-case `id`. Schema version 1 uses:

@@ -1,20 +1,18 @@
-<!-- AUTO-GENERATED:backlink START -->
-
-[← Back](../README.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Zur Projektübersicht](../README.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
 # Docs
 
-<!-- AUTO-GENERATED:docs-index START -->
+<!-- PYGINDEX:INDEX START -->
+## Inhalt
 
-- 📘 [PixelCutoutSprite complete plan](PixelCutoutSprite_Gesamtplan.md)
-- 🧩 [PixelCutoutSprite phase prompts](PixelCutoutSprite_Phasenprompts.md)
-- 🛠️ [Developer documentation](developer/developer.md)
-- 🧾 [Repository inventory](developer/repository-inventory.md)
-- 🧬 [PixelPromptStudio integration architecture](developer/prompt-generator-architecture.md)
-- 📖 [Guides](guides/guides.md)
-- 🌲 [Erste Schritte und Beispiel-Vault „Lichterhain“](guides/erste-schritte-und-lichterhain.md)
-- 🧬 [PixelPromptStudio Generator verwenden](guides/prompt-generator.md)
-- 🗂️ [Portable tooling documentation](toolingdocs/toolingdocs.md)
+### Seiten
+- [PixelCutoutSprite Studio — vollständiger Gesamtplan](PixelCutoutSprite_Gesamtplan.md)
+- [PixelCutoutSprite Studio — vollständiger Prompt-Phasen-Verlauf](PixelCutoutSprite_Phasenprompts.md)
 
-<!-- AUTO-GENERATED:docs-index END -->
+### Bereiche
+- [Developer](developer/index.md)
+- [Guides](guides/index.md)
+- [Portable tooling documentation](toolingdocs/index.md)
+<!-- PYGINDEX:INDEX END -->

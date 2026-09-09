@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](features.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # Eight-direction resolution
 
 P10 makes `n`, `ne`, `e`, `se`, `s`, `sw`, `w` and `nw` explicit data rather than presentation

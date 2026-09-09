@@ -1,8 +1,8 @@
-# Tooling replacement
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](integration.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Tooling replacement
 
 Replace portable tooling as a pair: `tools/` and the configured
 `docs/toolingdocs/` tree. Do not copy a partial payload, mix documentation from another

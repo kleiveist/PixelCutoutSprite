@@ -1,8 +1,8 @@
-# Documentation development
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](development.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Documentation development
 
 Portable documentation lives only below `docs/toolingdocs/`. Describe implemented
 behavior precisely, distinguish integration transactions from live product actions, and

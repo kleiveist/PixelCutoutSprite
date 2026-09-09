@@ -1,8 +1,8 @@
-# Migrations
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](integration.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Migrations
 
 Use the tooling migration registry after replacing a reviewed portable payload with a
 different version:

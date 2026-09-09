@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](guides.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Zur Übersicht](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # 🌲 Erste Schritte und Beispiel-Vault „Lichterhain“
 
 **Stand:** 6. September 2026

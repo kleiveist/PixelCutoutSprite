@@ -1,8 +1,8 @@
-# Full-Fix
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](integration.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Full-Fix
 
 Run the complete supported integration plan only after reviewing Check:
 

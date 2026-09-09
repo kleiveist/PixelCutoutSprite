@@ -107,6 +107,3 @@ Extrusion, Budgets, gemeinsame Geometrie, vollständige Multi-Action-/Acht-Richt
 Fingerprint-Aktualität, aktuelle Pointer, korrupte Quellen und Abbruch. Die Frontendtests prüfen
 Profilpersistenz, Vorprüfung, stabile IDs, Event-/Polling-Rennen, genau einen nativen Abbruch,
 Navigation und Read-only-Verhalten.
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](features.md)
-<!-- AUTO-GENERATED:backlink END -->

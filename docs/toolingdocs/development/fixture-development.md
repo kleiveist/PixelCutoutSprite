@@ -1,8 +1,8 @@
-# Fixture development
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](development.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Fixture development
 
 Fixtures represent independent target projects, not hidden copies of this repository's
 application tree. Keep each fixture minimal and state its expected profile, relevant

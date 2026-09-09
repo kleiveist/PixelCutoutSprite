@@ -1,6 +1,6 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](../toolingdocs.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](README.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
 # Portable tooling case study / Fallstudie zum portablen Tooling
 
@@ -78,26 +78,3 @@ Ablauf und dokumentiert die tatsächlich installierten Versionen als CI-Evidenz.
 No PDF, auxiliary file, Biber output, SyncTeX file, rendered diagram, or other TeX build
 state belongs in this source tree. / PDFs, Hilfsdateien, Biber-Ausgaben, SyncTeX-Dateien,
 gerenderte Diagramme und sonstiger TeX-Build-Zustand gehören nicht in diesen Quellbaum.
-
-<!-- AUTO-GENERATED:docs-index START -->
-
-## 📄 Pages
-- 📝 [Case-study guidelines](CASE-STUDY-GUIDELINES.md)
-- 📝 [Template compatibility audit](TEMPLATE-COMPATIBILITY.md)
-
-## 📁 Assets
-- 🗂️ [Overview](assets/assets.md)
-
-## 📁 Evidence
-- 🗂️ [Overview](evidence/evidence.md)
-
-## 📁 Scripts
-- 🗂️ [Overview](scripts/scripts.md)
-
-## 📁 Source
-- 🗂️ [Overview](source/source.md)
-
-## 📁 Tests
-- 🗂️ [Overview](tests/tests.md)
-
-<!-- AUTO-GENERATED:docs-index END -->

@@ -1,7 +1,21 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](case-study.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Parent overview](../index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # Case-study working area
+
+<!-- PYGINDEX:INDEX START -->
+## Contents
+
+### Pages
+- [Case-study guidelines](CASE-STUDY-GUIDELINES.md)
+- [Portable tooling case study / Fallstudie zum portablen Tooling](case-study.md)
+- [Template compatibility audit](TEMPLATE-COMPATIBILITY.md)
+
+### Sections
+- [Assets](assets/index.md)
+- [Evidence](evidence/index.md)
+<!-- PYGINDEX:INDEX END -->
 
 This directory is the sole source location for the portable-tooling case study.
 The German and English editions are authored independently, share an evidence model,

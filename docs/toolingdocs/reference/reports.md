@@ -1,8 +1,8 @@
-# Reports reference
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](reference.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Reports reference
 
 Read-only Check and Verify do not create reports. A mutating Full-Fix or migration can
 publish evidence after the transaction has entered its staged/final verification

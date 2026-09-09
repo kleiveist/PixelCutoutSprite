@@ -1,8 +1,8 @@
-# Check
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](integration.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Check
 
 Run a read-only assessment with:
 

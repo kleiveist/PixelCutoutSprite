@@ -1,8 +1,8 @@
-# Building and testing
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](guides.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Building and testing
 
 Integration validation and product work have different boundaries. First establish a
 verified, no-op integration state:

@@ -1,8 +1,8 @@
-# Profiles, features and adapters
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](architecture.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Profiles, features and adapters
 
 Profiles are versioned TOML resources under `tools/resources/profiles/`. A profile
 chooses a stable feature set; the catalog maps each feature to exactly one adapter and

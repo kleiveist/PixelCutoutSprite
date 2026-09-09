@@ -1,8 +1,8 @@
-# State schema
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](reference.md)
-<!-- AUTO-GENERATED:backlink END -->
+# State schema
 
 `.tooling-state/state.toml` is tooling-owned persistent integration state. Its schema
 version 1 has an exact field set:

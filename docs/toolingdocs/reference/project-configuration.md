@@ -1,8 +1,8 @@
-# Project configuration reference
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](reference.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Project configuration reference
 
 `project-tooling.toml` is the persistent, project-owned decision record that survives
 replacement of `tools/` and `docs/toolingdocs/`. Its current schema is 1.

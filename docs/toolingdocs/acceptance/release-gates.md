@@ -1,8 +1,8 @@
-# Release gates
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](acceptance.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Release gates
 
 A release candidate needs evidence from the exact candidate revision, not an inference
 from a prior run. At minimum, the portable payload boundary, profile/fixture matrix,

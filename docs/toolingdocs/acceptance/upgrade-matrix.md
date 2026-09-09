@@ -1,8 +1,8 @@
-# Upgrade matrix
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](acceptance.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Upgrade matrix
 
 Upgrade coverage uses real, individually pinned historical payloads rather than newly
 manufactured legacy fixtures. For each supported source/target pair, acceptance must

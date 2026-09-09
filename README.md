@@ -1,20 +1,21 @@
-<!-- AUTO-GENERATED:docs-index START -->
-
-## 📄 Files
-
-- 🚀 [Start PixelCutoutSprite Studio implementation](START_HERE.md)
-
-# DOCS
-
-- 📚 [Docs Home](docs/index.md)
-
-## 📁 Toolingdocs
-
-- 🗂️ [Overview](docs/toolingdocs/toolingdocs.md)
-
-<!-- AUTO-GENERATED:docs-index END -->
 
 # PixelCutoutSprite Studio
+
+<!-- PYGINDEX:README START -->
+## Documentation
+- [Documentation home](docs/index.md)
+- [Developer](docs/developer/index.md)
+- [Guides](docs/guides/index.md)
+- [Portable tooling documentation](docs/toolingdocs/index.md)
+
+## Project files
+- [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md)
+- [Contributing to Template Tooling](CONTRIBUTING.md)
+- [Dateiprüfung des Planungsdokuments](DATEIPRUEFUNG.md)
+- [Unreleased — PixelPromptStudio integration](RELEASE-NOTES.md)
+- [Security Policy](SECURITY.md)
+- [PixelCutoutSprite Studio — Einstieg](START_HERE.md)
+<!-- PYGINDEX:README END -->
 
 PixelCutoutSprite Studio is an offline-first Tauri desktop application for building reusable,
 deterministic pixel-art cutout animations. It combines a React workspace with a Rust core and

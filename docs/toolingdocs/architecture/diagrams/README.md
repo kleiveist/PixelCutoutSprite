@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](diagrams.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Parent overview](../index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # Architecture diagram sources
 
 Architecture diagrams that are part of the portable tooling documentation are maintained as

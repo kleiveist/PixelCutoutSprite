@@ -1,8 +1,8 @@
-# Project context and paths
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](architecture.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Project context and paths
 
 `ProjectContext` is the single source of truth for paths. By default, the copied
 `tools/` directory is the tooling root and its parent is the project root. Loading the

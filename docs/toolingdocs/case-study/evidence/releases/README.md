@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](releases.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Parent overview](../index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # Release evidence boundary
 
 Release and CI evidence is generated into the CI artifact store, not committed to this

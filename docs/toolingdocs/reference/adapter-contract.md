@@ -1,8 +1,8 @@
-# Adapter contract
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](reference.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Adapter contract
 
 An adapter is selected by core policy or a profile feature. It may observe project
 evidence, plan typed operations/conflicts, contribute verification findings, and expose

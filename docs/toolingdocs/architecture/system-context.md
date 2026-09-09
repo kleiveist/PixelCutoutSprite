@@ -1,8 +1,8 @@
-# System context
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](architecture.md)
-<!-- AUTO-GENERATED:backlink END -->
+# System context
 
 Portable Tooling operates inside a project that the operator already owns. The copied
 payload is limited to `tools/` and `docs/toolingdocs/`; project code, data and unknown

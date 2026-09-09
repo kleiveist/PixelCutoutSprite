@@ -1,8 +1,8 @@
-# Troubleshooting
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](guides.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Troubleshooting
 
 Start with the read-only commands and keep their output:
 

@@ -1,8 +1,8 @@
-# Migration, verification and drift
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](integration.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Migration, verification and drift
 
 Tooling migrations are registry entries with an exact source/target version and state
 schema, deterministic order, explicit preconditions and postconditions, and typed

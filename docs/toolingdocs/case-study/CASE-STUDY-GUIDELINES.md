@@ -1,6 +1,6 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](case-study.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](README.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
 # Case-study guidelines
 

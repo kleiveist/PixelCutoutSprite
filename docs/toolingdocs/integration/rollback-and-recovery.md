@@ -1,8 +1,8 @@
-# Rollback and recovery
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](integration.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Rollback and recovery
 
 Rollback is available only for the bounded transaction used by a non-empty Full-Fix or
 registered migration. The transaction records a journal and takes a temporary backup

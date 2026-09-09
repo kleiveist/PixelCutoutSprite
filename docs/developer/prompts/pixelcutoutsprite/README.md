@@ -1,9 +1,45 @@
-<!-- AUTO-GENERATED:backlink START -->
-
-[← Back](pixelcutoutsprite.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Übergeordnete Übersicht](../index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
 # Phasenübersicht — PixelCutoutSprite Studio
+
+<!-- PYGINDEX:INDEX START -->
+## Inhalt
+
+### Seiten
+- [P00 — Bestand prüfen und Umsetzung verankern](00.md)
+- [P01 — Desktop-Shell und Produktidentität](01.md)
+- [P02 — Fachmodelle und JSON-Verträge](02.md)
+- [P03 — Vault und sichere Dateispeicherung](03.md)
+- [P04 — Projekt-Dashboard, Labels und Dropdown-Filter](04.md)
+- [P05 — Bereiche und humanoide Körperprofile](05.md)
+- [P06 — Animationsbibliothek und zustandsabhängige Navigation](06.md)
+- [P07 — Gemeinsamer Pixel-Rasterer](07.md)
+- [P08 — Direkt bedienbarer Dummy-Editor](08.md)
+- [P09 — Timeline, Keyframes und deterministisches Sampling](09.md)
+- [P10 — Acht Richtungen, Spiegelregeln und Schichten](10.md)
+- [P11 — Bewegungspresets und tatsächliche Kartenvorschauen](11.md)
+- [P12 — PNG-Inventar und Paketimport](12.md)
+- [P13 — Ausstattungseditor, Feinschliff und NPC-Entwürfe](13.md)
+- [P14 — Ausrüstung und optionale Eigenbewegung](14.md)
+- [P15 — NPC-Dashboard, Mehrfachanimationen und Revisionen](15.md)
+- [P16 — Generischer PNG-/JSON-Export](16.md)
+- [P17 — Portables Godot-Paket und echter Importtest](17.md)
+- [P18 — Recovery, Autosave und Datenintegrität härten](18.md)
+- [P19 — Desktop-Usability und Leistung prüfen](19.md)
+- [P20 — Native Builds, Tooling und Codespaces](20.md)
+- [P21 — Anleitung und nachvollziehbare Beispiel-Vault](21.md)
+- [P22 — Gesamtabnahme und überprüfbarer Abschluss](22.md)
+- [P23 — Prompt-Integrationsgrenze und technische Basis](23.md)
+- [P24 — Gemeinsamer Header und sichere Studio-Umschaltung](24.md)
+- [P25 — Vollständige PixelPromptStudio-Oberfläche portieren](25.md)
+- [P26 — Native Prompt-Persistenz, Export und Cutout-Handoff](26.md)
+- [P27 — Integrierte Studio-Workflows abnehmen und dokumentieren](27.md)
+- [Fortsetzungsauftrag — PixelCutoutSprite Studio](FORTSETZEN.md)
+- [Übergeordneter Arbeitsauftrag — PixelCutoutSprite Studio](MASTERPROMPT.md)
+- [PixelCutoutSprite phase prompts](pixelcutoutsprite.md)
+<!-- PYGINDEX:INDEX END -->
 
 Zuerst den [übergeordneten Arbeitsauftrag](MASTERPROMPT.md), den
 [lebenden ExecPlan](../../plans/pixelcutoutsprite-execplan.md) und für P23–P27 den

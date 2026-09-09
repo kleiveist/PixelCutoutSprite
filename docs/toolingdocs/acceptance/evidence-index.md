@@ -1,8 +1,8 @@
-# Evidence index
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](acceptance.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Evidence index
 
 Acceptance evidence should be traceable to an exact revision, command and environment.
 Use this index as a map rather than inventing measurements or treating planned work as

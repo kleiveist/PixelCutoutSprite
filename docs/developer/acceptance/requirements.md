@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](acceptance.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Zur Übersicht](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # PixelCutoutSprite Studio requirement ledger
 
 This is the implementation ledger for the forty mandatory requirements in the product

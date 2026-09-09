@@ -1,8 +1,8 @@
-# Test matrix
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](acceptance.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Test matrix
 
 The acceptance matrix tests the copied payload in fresh temporary target projects.
 Each required row exercises this sequence: read-only `integrate --check`, bounded

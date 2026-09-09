@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](acceptance.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Zur Übersicht](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # P19 — Desktop-Usability und Leistung
 
 **Stand:** 5. September 2026

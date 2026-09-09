@@ -1,8 +1,8 @@
-# Profiles and features reference
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](reference.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Profiles and features reference
 
 The built-in catalog uses schema version 1.
 

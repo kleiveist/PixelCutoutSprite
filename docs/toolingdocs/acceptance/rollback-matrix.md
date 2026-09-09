@@ -1,8 +1,8 @@
-# Rollback matrix
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](acceptance.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Rollback matrix
 
 Fault-injection cases prove the limits of the integration transaction rather than
 claiming a general project backup service.

@@ -1,6 +1,7 @@
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](index.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Zur Übersicht](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
+
 # PixelCutoutSprite Studio — vollständiger Prompt-Phasen-Verlauf
 
 > **Architekturkorrektur für diesen Checkout:** Alle funktionalen Phasen und Gates bleiben

@@ -1,7 +1,6 @@
-<!-- AUTO-GENERATED:backlink START -->
-
-[← Back](plans.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Zur Übersicht](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
 # PixelCutoutSprite Studio — lebender ExecPlan
 

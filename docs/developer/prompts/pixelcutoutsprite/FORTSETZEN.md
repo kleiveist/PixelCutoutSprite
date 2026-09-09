@@ -1,7 +1,6 @@
-<!-- AUTO-GENERATED:backlink START -->
-
-[← Back](pixelcutoutsprite.md)
-<!-- AUTO-GENERATED:backlink END -->
+<!-- PYGINDEX:NAVIGATION START -->
+[Zur Übersicht](README.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
 # Fortsetzungsauftrag — PixelCutoutSprite Studio
 

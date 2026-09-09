@@ -1,8 +1,8 @@
-# Adapter development
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](development.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Adapter development
 
 Add a technology-specific adapter only behind the profile/feature catalog and the
 deterministic registry. Start with read-only detection and typed planning; do not

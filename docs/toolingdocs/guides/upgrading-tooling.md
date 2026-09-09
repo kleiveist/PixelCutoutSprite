@@ -1,8 +1,8 @@
-# Upgrading tooling
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](guides.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Upgrading tooling
 
 An upgrade has two boundaries: replace the reviewed portable payload pair, then migrate
 the target's persisted configuration/state if an exact registered path applies. Keep

@@ -1,8 +1,8 @@
-# Migration and upgrades
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](architecture.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Migration and upgrades
 
 Replacing a portable tooling payload and migrating an integrated project are distinct
 steps. Replacement installs a reviewed matching `tools/` and `docs/toolingdocs/` pair;

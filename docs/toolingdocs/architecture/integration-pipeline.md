@@ -1,8 +1,8 @@
-# Integration pipeline
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](architecture.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Integration pipeline
 
 Integration follows one deterministic pipeline:
 

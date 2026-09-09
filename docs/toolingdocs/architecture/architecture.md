@@ -1,8 +1,8 @@
-# Architecture
+<!-- PYGINDEX:NAVIGATION START -->
+[Back to overview](index.md)
+<!-- PYGINDEX:NAVIGATION END -->
 
-<!-- AUTO-GENERATED:backlink START -->
-[← Back](../toolingdocs.md)
-<!-- AUTO-GENERATED:backlink END -->
+# Architecture
 
 Template-Tooling is copied into a target project and then resolves that project from
 local evidence and persisted decisions. It does not depend on a source-repository
@@ -28,23 +28,5 @@ the direct commands described in the [guides](../guides/guides.md) are also expl
 live operations outside Full-Fix.
 
 ## Architecture pages
-
-<!-- AUTO-GENERATED:docs-index START -->
-
-## 📄 Pages
-- 📝 [CI and acceptance](ci-and-acceptance.md)
-- 📝 [Export and release boundary](export-and-release.md)
-- 📝 [Integration pipeline](integration-pipeline.md)
-- 📝 [Migration and upgrades](migration-and-upgrades.md)
-- 📝 [Ownership and state](ownership-and-state.md)
-- 📝 [Ownership, state and transactions](ownership-state-and-transactions.md)
-- 📝 [Profiles, features and adapters](profiles-features-and-adapters.md)
-- 📝 [Project context and paths](project-context-and-paths.md)
-- 📝 [System context](system-context.md)
-
-## 📁 Diagrams
-- 🗂️ [Overview](diagrams/diagrams.md)
-
-<!-- AUTO-GENERATED:docs-index END -->
 
 For operational behavior, continue with the [integration overview](../integration/integration.md).
