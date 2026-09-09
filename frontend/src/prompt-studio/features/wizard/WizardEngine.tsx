@@ -3,15 +3,24 @@ import type { AssetCategory } from "../../domain/assets";
 import type { ProfileLibrary, WizardDraft } from "../../schemas";
 import type { V2StorageAdapter } from "../../services";
 import { GuidedWizardEngine } from "./GuidedWizardEngine";
-import { WIZARD_CORE_FLOW, type WizardCoreFlowContext } from "./WizardCoreStepContent";
+import {
+  WIZARD_CATALOG_FLOW,
+  WIZARD_CORE_FLOW,
+  type WizardCoreFlowContext,
+} from "./WizardCoreStepContent";
 import { resolveWizardCoreStep } from "./wizardLifecycle";
-import { createWizardCoreFormValues } from "./wizardCategoryRouting";
+import {
+  applyWizardBaseProfileToFormValues,
+  createWizardCoreFormValues,
+} from "./wizardCategoryRouting";
 import type { WizardCoreFormValues } from "./wizardSteps";
+import { migrateWizardCatalogStepId } from "./wizardCatalog";
 
 export type WizardDraftStorage = Pick<V2StorageAdapter, "writeDraft">;
 
 export interface WizardEngineProps {
   readonly baselineDraft: WizardDraft;
+  readonly baselineFormValues?: WizardCoreFormValues;
   readonly categoryHint: AssetCategory | null;
   readonly draft: WizardDraft;
   readonly draftPersisted: boolean;
@@ -32,6 +41,7 @@ export interface WizardEngineProps {
  */
 export function WizardEngine({
   baselineDraft,
+  baselineFormValues,
   categoryHint,
   draft,
   draftPersisted,
@@ -49,9 +59,45 @@ export function WizardEngine({
     () => ({ categoryHint, library, ...(onOpenBaseProfile ? { onOpenBaseProfile } : {}) }),
     [categoryHint, library, onOpenBaseProfile],
   );
-  const baselineValues = createWizardCoreFormValues(baselineDraft, categoryHint, library);
-  const initialValues =
-    initialFormValues ?? createWizardCoreFormValues(draft, categoryHint, library);
+  const useCatalogFlow = onOpenBaseProfile !== undefined;
+  const applySoleCatalogBase = (values: WizardCoreFormValues): WizardCoreFormValues => {
+    if (
+      !useCatalogFlow ||
+      values.baseProfileId !== undefined ||
+      library?.baseProfiles.length !== 1
+    ) {
+      return values;
+    }
+    const baseProfile = library.baseProfiles[0];
+    return baseProfile ? applyWizardBaseProfileToFormValues(values, baseProfile) : values;
+  };
+  const baselineValues = applySoleCatalogBase(
+    baselineFormValues ?? createWizardCoreFormValues(baselineDraft, categoryHint, library),
+  );
+  const initialValues = applySoleCatalogBase(
+    initialFormValues ?? createWizardCoreFormValues(draft, categoryHint, library),
+  );
+
+  if (useCatalogFlow) {
+    return (
+      <GuidedWizardEngine
+        baselineDraft={baselineDraft}
+        baselineValues={baselineValues}
+        context={context}
+        draft={draft}
+        draftPersisted={draftPersisted}
+        flow={WIZARD_CATALOG_FLOW}
+        initialStepId={migrateWizardCatalogStepId(draft.currentStep, initialValues)}
+        initialValues={initialValues}
+        now={now}
+        onDraftEdited={onDraftEdited}
+        onDraftSaved={onDraftSaved}
+        storageAdapter={storageAdapter}
+        {...(initialDirty === undefined ? {} : { initialDirty })}
+        {...(onRawCoreFormValuesChanged ? { onValuesChanged: onRawCoreFormValuesChanged } : {})}
+      />
+    );
+  }
 
   return (
     <GuidedWizardEngine

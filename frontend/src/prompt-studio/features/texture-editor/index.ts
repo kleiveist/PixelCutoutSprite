@@ -1,1 +1,5 @@
-export { TextureMaterialEditor, type TextureMaterialEditorProps } from "./TextureMaterialEditor";
+export {
+  TextureMaterialEditor,
+  type TextureDetailsSection,
+  type TextureMaterialEditorProps,
+} from "./TextureMaterialEditor";

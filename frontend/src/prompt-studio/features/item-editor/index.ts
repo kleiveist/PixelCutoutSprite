@@ -1,1 +1,5 @@
-export { ItemEquipmentEditor, type ItemEquipmentEditorProps } from "./ItemEquipmentEditor";
+export {
+  ItemEquipmentEditor,
+  type ItemDetailsSection,
+  type ItemEquipmentEditorProps,
+} from "./ItemEquipmentEditor";

@@ -476,12 +476,17 @@ function TileSizeField({ tileSize }: Readonly<{ tileSize?: number }>) {
 export interface NatureTreeEditorProps {
   readonly form: NatureForm;
   readonly notifyProgrammaticChange: () => void;
+  readonly section?: NatureDetailsSection;
   readonly subtype: NatureSubtype;
 }
+
+export type NatureDetailsSection =
+  "identity" | "trunk" | "crown" | "roots" | "weather" | "footprint" | "details";
 
 export function NatureTreeEditor({
   form,
   notifyProgrammaticChange,
+  section,
   subtype,
 }: NatureTreeEditorProps) {
   const plantType = getDefaultNaturePlantType(subtype);
@@ -530,64 +535,66 @@ export function NatureTreeEditor({
         </p>
       </section>
 
-      <fieldset className={styles.group}>
-        <legend>Pflanze und Umgebung</legend>
-        <p className={styles.groupIntro}>
-          Lege Art, Standort und große Silhouette fest, bevor anatomische Details und Bewuchs
-          folgen.
-        </p>
-        <div className={styles.fieldGrid}>
-          <PlantTypeField form={form} plantType={plantType} subtype={subtype} />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="natureSpecies"
-            label="Art / Spezies"
-            help="Konkrete botanische oder frei erfundene Art, ohne bestehende Marken- oder Werkbezüge."
-            maxLength={200}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="natureDescription"
-            label="Kurze Naturbeschreibung"
-            help="Fasse Motiv, Alterswirkung und wichtigste Erkennungsmerkmale zusammen."
-            maxLength={4000}
-            multiline
-            wide
-          />
-          <SelectField
-            form={form}
-            name="natureClimate"
-            label="Klimazone"
-            help="Standortklima für Form, Farbe und Bewuchs."
-            options={CLIMATE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="natureSeason"
-            label="Jahreszeit"
-            help="Saisonale Farb- und Wachstumswirkung."
-            options={SEASON_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="natureAge"
-            label="Alter / Entwicklungsstand"
-            help="Jung, ausgewachsen, uralt oder abgestorben."
-            options={AGE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="natureSilhouette"
-            label="Gesamtsilhouette"
-            help="Die Form muss in nativer Spielgröße eindeutig lesbar bleiben."
-            options={SILHOUETTE_OPTIONS}
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "identity" ? (
+        <fieldset className={styles.group}>
+          <legend>Pflanze und Umgebung</legend>
+          <p className={styles.groupIntro}>
+            Lege Art, Standort und große Silhouette fest, bevor anatomische Details und Bewuchs
+            folgen.
+          </p>
+          <div className={styles.fieldGrid}>
+            <PlantTypeField form={form} plantType={plantType} subtype={subtype} />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="natureSpecies"
+              label="Art / Spezies"
+              help="Konkrete botanische oder frei erfundene Art, ohne bestehende Marken- oder Werkbezüge."
+              maxLength={200}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="natureDescription"
+              label="Kurze Naturbeschreibung"
+              help="Fasse Motiv, Alterswirkung und wichtigste Erkennungsmerkmale zusammen."
+              maxLength={4000}
+              multiline
+              wide
+            />
+            <SelectField
+              form={form}
+              name="natureClimate"
+              label="Klimazone"
+              help="Standortklima für Form, Farbe und Bewuchs."
+              options={CLIMATE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="natureSeason"
+              label="Jahreszeit"
+              help="Saisonale Farb- und Wachstumswirkung."
+              options={SEASON_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="natureAge"
+              label="Alter / Entwicklungsstand"
+              help="Jung, ausgewachsen, uralt oder abgestorben."
+              options={AGE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="natureSilhouette"
+              label="Gesamtsilhouette"
+              help="Die Form muss in nativer Spielgröße eindeutig lesbar bleiben."
+              options={SILHOUETTE_OPTIONS}
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      {natureSubtypeHasTrunk(subtype) ? (
+      {(section === undefined || section === "trunk") && natureSubtypeHasTrunk(subtype) ? (
         <fieldset className={styles.group}>
           <legend>Stamm und Rinde</legend>
           <p className={styles.groupIntro}>
@@ -622,7 +629,7 @@ export function NatureTreeEditor({
         </fieldset>
       ) : null}
 
-      {natureSubtypeHasCrown(subtype) ? (
+      {(section === undefined || section === "crown") && natureSubtypeHasCrown(subtype) ? (
         <fieldset className={styles.group}>
           <legend>Krone und Blattmasse</legend>
           <p className={styles.groupIntro}>
@@ -658,7 +665,7 @@ export function NatureTreeEditor({
         </fieldset>
       ) : null}
 
-      {natureSubtypeHasRoots(subtype) ? (
+      {(section === undefined || section === "roots") && natureSubtypeHasRoots(subtype) ? (
         <fieldset className={styles.group}>
           <legend>Wurzeln und Fußpunkt</legend>
           <p className={styles.groupIntro}>
@@ -685,106 +692,112 @@ export function NatureTreeEditor({
         </fieldset>
       ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Bewuchs und Wetterauflage</legend>
-        <p className={styles.groupIntro}>
-          Zusatzbewuchs und Schnee werden als kontrollierte, silhouette-treue Auflagen behandelt.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="natureMossCoverage"
-            label="Moosbewuchs"
-            help="Stärke des Moosbewuchses auf den sichtbaren Flächen."
-            options={MOSS_COVERAGE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="natureMushroomGrowth"
-            label="Pilzbewuchs"
-            help="Anzahl und Gruppierung zusätzlicher Pilze."
-            options={MUSHROOM_GROWTH_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="natureSnowCover"
-            label="Schneebedeckung"
-            help="Menge und Verteilung der sichtbaren Schneeauflage."
-            options={SNOW_COVER_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="natureVineGrowth"
-            label="Rankenbewuchs"
-            help="Leichte, herabhängende oder dicht verflochtene Ranken."
-            options={VINE_GROWTH_OPTIONS}
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className={styles.group}>
-        <legend>Standfläche und Varianten</legend>
-        <p className={styles.groupIntro}>
-          Breite und Tiefe bilden gemeinsam den optionalen Footprint. Ein einzelner Wert ist
-          unvollständig und muss vor dem Weitergehen ergänzt oder geleert werden.
-        </p>
-        <div className={styles.fieldGrid}>
-          <NumberField
-            form={form}
-            name="natureFootprintWidthTiles"
-            label="Standfläche · Breite in Tiles"
-            help="Ganzzahlig von 1 bis 64; nur gemeinsam mit der Tiefe gültig."
-            min={1}
-            max={64}
-          />
-          <NumberField
-            form={form}
-            name="natureFootprintDepthTiles"
-            label="Standfläche · Tiefe in Tiles"
-            help="Ganzzahlig von 1 bis 64; nur gemeinsam mit der Breite gültig."
-            min={1}
-            max={64}
-          />
-          <SelectField
-            form={form}
-            name="natureGrounding"
-            label="Bodenanschluss"
-            help="Beschreibt den sichtbaren Anschluss an Boden, Fels, Schnee oder Sumpf."
-            options={GROUNDING_OPTIONS}
-          />
-          <NumberField
-            form={form}
-            name="natureVariantCount"
-            label="Verwandte Varianten"
-            help="Ein bis zwölf zusammengehörige Silhouetten."
-            min={1}
-            max={12}
-          />
-          <TileSizeField {...(tileSize === undefined ? {} : { tileSize })} />
-        </div>
-        {footprintIsPartial ? (
-          <p className={styles.footprintWarning} role="status" aria-label="Footprint-Hinweis">
-            Der Footprint ist unvollständig. Ergänze Breite und Tiefe gemeinsam oder leere beide
-            Werte.
+      {section === undefined || section === "weather" ? (
+        <fieldset className={styles.group}>
+          <legend>Bewuchs und Wetterauflage</legend>
+          <p className={styles.groupIntro}>
+            Zusatzbewuchs und Schnee werden als kontrollierte, silhouette-treue Auflagen behandelt.
           </p>
-        ) : null}
-      </fieldset>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="natureMossCoverage"
+              label="Moosbewuchs"
+              help="Stärke des Moosbewuchses auf den sichtbaren Flächen."
+              options={MOSS_COVERAGE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="natureMushroomGrowth"
+              label="Pilzbewuchs"
+              help="Anzahl und Gruppierung zusätzlicher Pilze."
+              options={MUSHROOM_GROWTH_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="natureSnowCover"
+              label="Schneebedeckung"
+              help="Menge und Verteilung der sichtbaren Schneeauflage."
+              options={SNOW_COVER_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="natureVineGrowth"
+              label="Rankenbewuchs"
+              help="Leichte, herabhängende oder dicht verflochtene Ranken."
+              options={VINE_GROWTH_OPTIONS}
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Weitere Naturdetails</legend>
-        <div className={styles.fieldGrid}>
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="natureExtraDetails"
-            label="Weitere Naturdetails"
-            help="Optionale Ergänzungen zu Farbe, Flechten, Frost, Nässe, Staub oder magischen Merkmalen."
-            maxLength={4000}
-            multiline
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "footprint" ? (
+        <fieldset className={styles.group}>
+          <legend>Standfläche und Varianten</legend>
+          <p className={styles.groupIntro}>
+            Breite und Tiefe bilden gemeinsam den optionalen Footprint. Ein einzelner Wert ist
+            unvollständig und muss vor dem Weitergehen ergänzt oder geleert werden.
+          </p>
+          <div className={styles.fieldGrid}>
+            <NumberField
+              form={form}
+              name="natureFootprintWidthTiles"
+              label="Standfläche · Breite in Tiles"
+              help="Ganzzahlig von 1 bis 64; nur gemeinsam mit der Tiefe gültig."
+              min={1}
+              max={64}
+            />
+            <NumberField
+              form={form}
+              name="natureFootprintDepthTiles"
+              label="Standfläche · Tiefe in Tiles"
+              help="Ganzzahlig von 1 bis 64; nur gemeinsam mit der Breite gültig."
+              min={1}
+              max={64}
+            />
+            <SelectField
+              form={form}
+              name="natureGrounding"
+              label="Bodenanschluss"
+              help="Beschreibt den sichtbaren Anschluss an Boden, Fels, Schnee oder Sumpf."
+              options={GROUNDING_OPTIONS}
+            />
+            <NumberField
+              form={form}
+              name="natureVariantCount"
+              label="Verwandte Varianten"
+              help="Ein bis zwölf zusammengehörige Silhouetten."
+              min={1}
+              max={12}
+            />
+            <TileSizeField {...(tileSize === undefined ? {} : { tileSize })} />
+          </div>
+          {footprintIsPartial ? (
+            <p className={styles.footprintWarning} role="status" aria-label="Footprint-Hinweis">
+              Der Footprint ist unvollständig. Ergänze Breite und Tiefe gemeinsam oder leere beide
+              Werte.
+            </p>
+          ) : null}
+        </fieldset>
+      ) : null}
+
+      {section === undefined || section === "details" ? (
+        <fieldset className={styles.group}>
+          <legend>Weitere Naturdetails</legend>
+          <div className={styles.fieldGrid}>
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="natureExtraDetails"
+              label="Weitere Naturdetails"
+              help="Optionale Ergänzungen zu Farbe, Flechten, Frost, Nässe, Staub oder magischen Merkmalen."
+              maxLength={4000}
+              multiline
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
     </div>
   );
 }

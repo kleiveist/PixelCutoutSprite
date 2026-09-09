@@ -48,11 +48,34 @@ export {
   type GuidedWizardDraftUpdate,
   type GuidedWizardEngineProps,
   type GuidedWizardFlowDefinition,
+  type GuidedWizardProgrammaticChangeOptions,
   type GuidedWizardStepComponentProps,
   type GuidedWizardStepDefinition,
   type GuidedWizardSummaryComponentProps,
 } from "./GuidedWizardEngine";
-export { WIZARD_CORE_FLOW, type WizardCoreFlowContext } from "./WizardCoreStepContent";
+export {
+  WIZARD_CATALOG_FLOW,
+  WIZARD_CORE_FLOW,
+  type WizardCoreFlowContext,
+} from "./WizardCoreStepContent";
+export {
+  WIZARD_BASE_CONTEXT_FIELD_PATHS,
+  WIZARD_CATALOG_PAGES,
+  WIZARD_CATALOG_VERSION,
+  WizardCatalogIdentitySchema,
+  WizardCatalogReviewSchema,
+  catalogPageForStep,
+  getWizardCatalogStepIds,
+  isCatalogPageApplicable,
+  migrateWizardCatalogStepId,
+  schemaForCatalogPage,
+  schemaForCatalogReview,
+  updateWizardDraftFromCatalogForm,
+  type UpdateWizardDraftFromCatalogFormInput,
+  type WizardCatalogPage,
+  type WizardCatalogSectionId,
+  type WizardCatalogStepId,
+} from "./wizardCatalog";
 export { WizardEngine, type WizardDraftStorage, type WizardEngineProps } from "./WizardEngine";
 export { WizardTechnicalSummary, type WizardTechnicalSummaryProps } from "./WizardTechnicalSummary";
 export { WizardView, type WizardStorage, type WizardViewProps } from "./WizardView";

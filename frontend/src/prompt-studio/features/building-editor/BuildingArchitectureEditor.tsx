@@ -595,12 +595,17 @@ function TechnicalGeometryFields({
 export interface BuildingArchitectureEditorProps {
   readonly form: BuildingForm;
   readonly notifyProgrammaticChange: () => void;
+  readonly section?: BuildingDetailsSection;
   readonly subtype: BuildingSubtype;
 }
+
+export type BuildingDetailsSection =
+  "core" | "footprint" | "material" | "openings" | "environment" | "details";
 
 export function BuildingArchitectureEditor({
   form,
   notifyProgrammaticChange,
+  section,
   subtype,
 }: BuildingArchitectureEditorProps) {
   const buildingType = getDefaultBuildingType(subtype);
@@ -670,359 +675,371 @@ export function BuildingArchitectureEditor({
         </p>
       </section>
 
-      <fieldset className={styles.group}>
-        <legend>Nutzung und Baukörper</legend>
-        <p className={styles.groupIntro}>
-          Lege Funktion, große Grundform und vertikale Staffelung fest, bevor kleinteilige
-          Fassadendetails hinzukommen.
-        </p>
-        <div className={styles.fieldGrid}>
-          <BuildingTypeField buildingType={buildingType} subtype={subtype} />
-          <SelectField
-            form={form}
-            name="buildingPlanShape"
-            label="Bauform / Grundriss"
-            help="Große Grundrissform, die im orthografischen Tile-Raster lesbar bleibt."
-            options={planShapeOptions}
-          />
-          <SelectField
-            form={form}
-            name="buildingSize"
-            label="Größenklasse"
-            help="Visuelle Gesamtgröße relativ zu den übrigen Weltassets."
-            options={SIZE_OPTIONS}
-          />
-          <NumberField
-            form={form}
-            name="buildingFloors"
-            label="Stockwerke"
-            help="Ganzzahlig von 1 bis 20."
-            min={1}
-            max={20}
-          />
-          <NumberField
-            form={form}
-            name="buildingHeightPixels"
-            label="Gesamthöhe in Pixeln"
-            help="Optionaler Produktionswert von 16 bis 8192 px."
-            min={16}
-            max={8192}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="buildingPurpose"
-            label="Nutzung und Bewohnerrolle"
-            help="Zum Beispiel Wohnhaus einer Handwerkerfamilie, Laden oder Wachposten."
-            maxLength={200}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="buildingDescription"
-            label="Kurze Gebäudebeschreibung"
-            help="Fasse Funktion, Silhouette und wichtigste Erkennungsmerkmale zusammen."
-            maxLength={4000}
-            wide
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className={styles.group}>
-        <legend>Footprint und Mapping-Kompatibilität</legend>
-        <p className={styles.groupIntro}>
-          Breite und Tiefe bilden gemeinsam den Footprint. Eingang und blockierende Flächen müssen
-          auf der Karte eindeutig bleiben.
-        </p>
-        <div className={styles.fieldGrid}>
-          <NumberField
-            form={form}
-            name="buildingFootprintWidthTiles"
-            label="Footprint · Breite in Tiles"
-            help="Ganzzahlig von 1 bis 64; nur gemeinsam mit der Tiefe gültig."
-            min={1}
-            max={64}
-          />
-          <NumberField
-            form={form}
-            name="buildingFootprintDepthTiles"
-            label="Footprint · Tiefe in Tiles"
-            help="Ganzzahlig von 1 bis 64; nur gemeinsam mit der Breite gültig."
-            min={1}
-            max={64}
-          />
-          <SelectField
-            form={form}
-            name="buildingMappingMode"
-            label="Mapping-Modus"
-            help="Legt fest, wie das Gebäude in Tile-Karten und Bauteilsätze integriert wird."
-            options={mappingOptions}
-          />
-          <SelectField
-            form={form}
-            name="buildingCollisionMode"
-            label="Kollisionslesbarkeit"
-            help="Kennzeichnet blockierende Flächen, Eingänge und gegebenenfalls Innenräume."
-            options={COLLISION_OPTIONS}
-          />
-          {capabilities.modular ? (
-            <FieldShell
-              error={modularError}
-              help="Speichert die bewusste Entscheidung für oder gegen kombinierbare Bauteile."
-              id="building-buildingModular"
-              label="Modularer Ausgabesatz"
-            >
-              <select
-                id="building-buildingModular"
-                aria-describedby={`building-buildingModular-help${
-                  modularError ? " building-buildingModular-error" : ""
-                }`}
-                aria-invalid={modularError ? "true" : "false"}
-                {...form.register("buildingModular", {
-                  setValueAs: optionalBooleanValue,
-                })}
-              >
-                <option value="">Nicht festgelegt</option>
-                <option value="true">Ja, kombinierbare Bauteile</option>
-                <option value="false">Nein, komplettes Gebäude</option>
-              </select>
-            </FieldShell>
-          ) : null}
-          <TechnicalGeometryFields
-            {...(tileSize === undefined ? {} : { tileSize })}
-            {...(perspectiveType === undefined ? {} : { perspectiveType })}
-            {...(cameraAngle === undefined ? {} : { cameraAngle })}
-            {...(projectionType === undefined ? {} : { projectionType })}
-          />
-        </div>
-        {footprintIsPartial ? (
-          <p
-            className={styles.footprintWarning}
-            role="status"
-            aria-label="Gebäude-Footprint-Hinweis"
-          >
-            Der Gebäude-Footprint ist unvollständig. Ergänze Breite und Tiefe gemeinsam oder leere
-            beide Werte.
+      {section === undefined || section === "core" ? (
+        <fieldset className={styles.group}>
+          <legend>Nutzung und Baukörper</legend>
+          <p className={styles.groupIntro}>
+            Lege Funktion, große Grundform und vertikale Staffelung fest, bevor kleinteilige
+            Fassadendetails hinzukommen.
           </p>
-        ) : null}
-      </fieldset>
+          <div className={styles.fieldGrid}>
+            <BuildingTypeField buildingType={buildingType} subtype={subtype} />
+            <SelectField
+              form={form}
+              name="buildingPlanShape"
+              label="Bauform / Grundriss"
+              help="Große Grundrissform, die im orthografischen Tile-Raster lesbar bleibt."
+              options={planShapeOptions}
+            />
+            <SelectField
+              form={form}
+              name="buildingSize"
+              label="Größenklasse"
+              help="Visuelle Gesamtgröße relativ zu den übrigen Weltassets."
+              options={SIZE_OPTIONS}
+            />
+            <NumberField
+              form={form}
+              name="buildingFloors"
+              label="Stockwerke"
+              help="Ganzzahlig von 1 bis 20."
+              min={1}
+              max={20}
+            />
+            <NumberField
+              form={form}
+              name="buildingHeightPixels"
+              label="Gesamthöhe in Pixeln"
+              help="Optionaler Produktionswert von 16 bis 8192 px."
+              min={16}
+              max={8192}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="buildingPurpose"
+              label="Nutzung und Bewohnerrolle"
+              help="Zum Beispiel Wohnhaus einer Handwerkerfamilie, Laden oder Wachposten."
+              maxLength={200}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="buildingDescription"
+              label="Kurze Gebäudebeschreibung"
+              help="Fasse Funktion, Silhouette und wichtigste Erkennungsmerkmale zusammen."
+              maxLength={4000}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Material, Dach und Fassade</legend>
-        <p className={styles.groupIntro}>
-          Materialwechsel und Konstruktion sollen als große, pixelklare Flächen lesbar sein und zum
-          Zustand des Gebäudes passen.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="buildingPrimaryMaterial"
-            label="Hauptmaterial"
-            help="Dominantes Material von Tragwerk und großen Fassadenflächen."
-            options={MATERIAL_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="buildingSecondaryMaterial"
-            label="Sekundärmaterial"
-            help="Optionales Material für Sockel, Rahmen, Stützen oder Beschläge."
-            options={MATERIAL_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="buildingMaterialDetails"
-            label="Material- und Konstruktionsdetails"
-            help="Beschreibe Balken, Mauerfugen, Putz, Stützen und Materialwechsel."
-            maxLength={500}
-            wide
-          />
-          <SelectField
-            form={form}
-            name="buildingRoofShape"
-            label="Dachform"
-            help="Große Dachsilhouette einschließlich fehlendem oder eingestürztem Dach."
-            options={ROOF_SHAPE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="buildingRoofPitch"
-            label="Dachneigung"
-            help="Steilheit der sichtbaren Dachflächen in der geerbten Kamera."
-            options={ROOF_PITCH_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="buildingRoofMaterial"
-            label="Dachmaterial"
-            help="Material der größten sichtbaren Dachfläche."
-            options={ROOF_MATERIAL_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="buildingRoofCondition"
-            label="Dachzustand"
-            help="Intakt, verwittert, beschädigt, eingestürzt oder überwuchert."
-            options={ROOF_CONDITION_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="buildingRoofDetails"
-            label="Dachdetails"
-            help="Zum Beispiel Gauben, Schornsteine, First, Lücken oder Bewuchs."
-            maxLength={500}
-          />
-          <SelectField
-            form={form}
-            name="buildingFacadeStyle"
-            label="Fassadenaufbau"
-            help="Tragwerk und sichtbare Gliederung der Außenwände."
-            options={FACADE_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="buildingFacadeDetails"
-            label="Fassadendetails"
-            help="Balken, Steine, Schilder, Stützen, Ornamente oder Bruchstellen."
-            maxLength={500}
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "footprint" ? (
+        <fieldset className={styles.group}>
+          <legend>Footprint und Mapping-Kompatibilität</legend>
+          <p className={styles.groupIntro}>
+            Breite und Tiefe bilden gemeinsam den Footprint. Eingang und blockierende Flächen müssen
+            auf der Karte eindeutig bleiben.
+          </p>
+          <div className={styles.fieldGrid}>
+            <NumberField
+              form={form}
+              name="buildingFootprintWidthTiles"
+              label="Footprint · Breite in Tiles"
+              help="Ganzzahlig von 1 bis 64; nur gemeinsam mit der Tiefe gültig."
+              min={1}
+              max={64}
+            />
+            <NumberField
+              form={form}
+              name="buildingFootprintDepthTiles"
+              label="Footprint · Tiefe in Tiles"
+              help="Ganzzahlig von 1 bis 64; nur gemeinsam mit der Breite gültig."
+              min={1}
+              max={64}
+            />
+            <SelectField
+              form={form}
+              name="buildingMappingMode"
+              label="Mapping-Modus"
+              help="Legt fest, wie das Gebäude in Tile-Karten und Bauteilsätze integriert wird."
+              options={mappingOptions}
+            />
+            <SelectField
+              form={form}
+              name="buildingCollisionMode"
+              label="Kollisionslesbarkeit"
+              help="Kennzeichnet blockierende Flächen, Eingänge und gegebenenfalls Innenräume."
+              options={COLLISION_OPTIONS}
+            />
+            {capabilities.modular ? (
+              <FieldShell
+                error={modularError}
+                help="Speichert die bewusste Entscheidung für oder gegen kombinierbare Bauteile."
+                id="building-buildingModular"
+                label="Modularer Ausgabesatz"
+              >
+                <select
+                  id="building-buildingModular"
+                  aria-describedby={`building-buildingModular-help${
+                    modularError ? " building-buildingModular-error" : ""
+                  }`}
+                  aria-invalid={modularError ? "true" : "false"}
+                  {...form.register("buildingModular", {
+                    setValueAs: optionalBooleanValue,
+                  })}
+                >
+                  <option value="">Nicht festgelegt</option>
+                  <option value="true">Ja, kombinierbare Bauteile</option>
+                  <option value="false">Nein, komplettes Gebäude</option>
+                </select>
+              </FieldShell>
+            ) : null}
+            <TechnicalGeometryFields
+              {...(tileSize === undefined ? {} : { tileSize })}
+              {...(perspectiveType === undefined ? {} : { perspectiveType })}
+              {...(cameraAngle === undefined ? {} : { cameraAngle })}
+              {...(projectionType === undefined ? {} : { projectionType })}
+            />
+          </div>
+          {footprintIsPartial ? (
+            <p
+              className={styles.footprintWarning}
+              role="status"
+              aria-label="Gebäude-Footprint-Hinweis"
+            >
+              Der Gebäude-Footprint ist unvollständig. Ergänze Breite und Tiefe gemeinsam oder leere
+              beide Werte.
+            </p>
+          ) : null}
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Türen und Fenster</legend>
-        <p className={styles.groupIntro}>
-          Öffnungen strukturieren die Fassade und müssen trotz nativer Pixelgröße, Beleuchtung und
-          Zustand eindeutig erkennbar bleiben.
-        </p>
-        <div className={styles.fieldGrid}>
-          <NumberField
-            form={form}
-            name="buildingDoorCount"
-            label="Anzahl Türen / Tore"
-            help="Ganzzahlig von 0 bis 64."
-            min={0}
-            max={64}
-          />
-          <SelectField
-            form={form}
-            name="buildingDoorType"
-            label="Tür- oder Tortyp"
-            help="Dominante Öffnung der sichtbaren Fassade."
-            options={DOOR_TYPE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="buildingDoorState"
-            label="Türzustand"
-            help="Offen, geschlossen, angelehnt, blockiert oder beschädigt."
-            options={DOOR_STATE_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="buildingDoorPosition"
-            label="Türposition und Eingangsausrichtung"
-            help="Position relativ zum Footprint und zu begehbaren Tile-Kanten."
-            maxLength={500}
-          />
-          <NumberField
-            form={form}
-            name="buildingWindowCount"
-            label="Anzahl Fenster"
-            help="Ganzzahlig von 0 bis 256."
-            min={0}
-            max={256}
-          />
-          <SelectField
-            form={form}
-            name="buildingWindowShape"
-            label="Fensterform"
-            help="Dominante Form oder bewusster Verzicht auf Fenster."
-            options={WINDOW_SHAPE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="buildingWindowLighting"
-            label="Fensterlicht"
-            help="Sichtbarer Lichtzustand, der zur lokalen Innenbeleuchtung passt."
-            options={WINDOW_LIGHTING_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="buildingWindowDetails"
-            label="Fensterdetails"
-            help="Rahmen, Läden, Verglasung, Gitter oder beschädigte Öffnungen."
-            maxLength={500}
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "material" ? (
+        <fieldset className={styles.group}>
+          <legend>Material, Dach und Fassade</legend>
+          <p className={styles.groupIntro}>
+            Materialwechsel und Konstruktion sollen als große, pixelklare Flächen lesbar sein und
+            zum Zustand des Gebäudes passen.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="buildingPrimaryMaterial"
+              label="Hauptmaterial"
+              help="Dominantes Material von Tragwerk und großen Fassadenflächen."
+              options={MATERIAL_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="buildingSecondaryMaterial"
+              label="Sekundärmaterial"
+              help="Optionales Material für Sockel, Rahmen, Stützen oder Beschläge."
+              options={MATERIAL_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="buildingMaterialDetails"
+              label="Material- und Konstruktionsdetails"
+              help="Beschreibe Balken, Mauerfugen, Putz, Stützen und Materialwechsel."
+              maxLength={500}
+              wide
+            />
+            <SelectField
+              form={form}
+              name="buildingRoofShape"
+              label="Dachform"
+              help="Große Dachsilhouette einschließlich fehlendem oder eingestürztem Dach."
+              options={ROOF_SHAPE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="buildingRoofPitch"
+              label="Dachneigung"
+              help="Steilheit der sichtbaren Dachflächen in der geerbten Kamera."
+              options={ROOF_PITCH_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="buildingRoofMaterial"
+              label="Dachmaterial"
+              help="Material der größten sichtbaren Dachfläche."
+              options={ROOF_MATERIAL_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="buildingRoofCondition"
+              label="Dachzustand"
+              help="Intakt, verwittert, beschädigt, eingestürzt oder überwuchert."
+              options={ROOF_CONDITION_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="buildingRoofDetails"
+              label="Dachdetails"
+              help="Zum Beispiel Gauben, Schornsteine, First, Lücken oder Bewuchs."
+              maxLength={500}
+            />
+            <SelectField
+              form={form}
+              name="buildingFacadeStyle"
+              label="Fassadenaufbau"
+              help="Tragwerk und sichtbare Gliederung der Außenwände."
+              options={FACADE_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="buildingFacadeDetails"
+              label="Fassadendetails"
+              help="Balken, Steine, Schilder, Stützen, Ornamente oder Bruchstellen."
+              maxLength={500}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Zustand, Belegung und Licht</legend>
-        <p className={styles.groupIntro}>
-          Gebäudenutzung und lokales Licht ergänzen die geerbte Weltbeleuchtung, ohne deren Richtung
-          still zu verändern.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="buildingCondition"
-            label="Gebäudezustand"
-            help="Pflege, Abnutzung, Beschädigung, Verlassenheit oder Bewuchs."
-            options={CONDITION_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="buildingOccupancy"
-            label="Bewohnt / verlassen"
-            help="Bewohnt, aktiv genutzt, leerstehend oder verlassen."
-            options={OCCUPANCY_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="buildingEnvironment"
-            label="Umgebungskontext"
-            help="Kartenkontext für Anschlussflächen, Wetterung und Dekoration."
-            options={ENVIRONMENT_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="buildingLighting"
-            label="Lokale Gebäudebeleuchtung"
-            help="Ergänzt das geerbte Weltlicht durch kontrolliertes Innen- oder Quellenlicht."
-            options={LIGHTING_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="buildingLightSourceDetails"
-            label="Sichtbare Lichtquellen"
-            help="Zum Beispiel Fensterlicht, Laternen oder ein schwacher magischer Akzent."
-            maxLength={500}
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "openings" ? (
+        <fieldset className={styles.group}>
+          <legend>Türen und Fenster</legend>
+          <p className={styles.groupIntro}>
+            Öffnungen strukturieren die Fassade und müssen trotz nativer Pixelgröße, Beleuchtung und
+            Zustand eindeutig erkennbar bleiben.
+          </p>
+          <div className={styles.fieldGrid}>
+            <NumberField
+              form={form}
+              name="buildingDoorCount"
+              label="Anzahl Türen / Tore"
+              help="Ganzzahlig von 0 bis 64."
+              min={0}
+              max={64}
+            />
+            <SelectField
+              form={form}
+              name="buildingDoorType"
+              label="Tür- oder Tortyp"
+              help="Dominante Öffnung der sichtbaren Fassade."
+              options={DOOR_TYPE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="buildingDoorState"
+              label="Türzustand"
+              help="Offen, geschlossen, angelehnt, blockiert oder beschädigt."
+              options={DOOR_STATE_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="buildingDoorPosition"
+              label="Türposition und Eingangsausrichtung"
+              help="Position relativ zum Footprint und zu begehbaren Tile-Kanten."
+              maxLength={500}
+            />
+            <NumberField
+              form={form}
+              name="buildingWindowCount"
+              label="Anzahl Fenster"
+              help="Ganzzahlig von 0 bis 256."
+              min={0}
+              max={256}
+            />
+            <SelectField
+              form={form}
+              name="buildingWindowShape"
+              label="Fensterform"
+              help="Dominante Form oder bewusster Verzicht auf Fenster."
+              options={WINDOW_SHAPE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="buildingWindowLighting"
+              label="Fensterlicht"
+              help="Sichtbarer Lichtzustand, der zur lokalen Innenbeleuchtung passt."
+              options={WINDOW_LIGHTING_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="buildingWindowDetails"
+              label="Fensterdetails"
+              help="Rahmen, Läden, Verglasung, Gitter oder beschädigte Öffnungen."
+              maxLength={500}
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Weitere Architekturdetails</legend>
-        <div className={styles.fieldGrid}>
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="buildingExtraDetails"
-            label="Weitere Architekturdetails"
-            help="Optionale Ergänzungen zu Umgebung, Schildern, Lesbarkeit oder modularen Anschlüssen."
-            maxLength={4000}
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "environment" ? (
+        <fieldset className={styles.group}>
+          <legend>Zustand, Belegung und Licht</legend>
+          <p className={styles.groupIntro}>
+            Gebäudenutzung und lokales Licht ergänzen die geerbte Weltbeleuchtung, ohne deren
+            Richtung still zu verändern.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="buildingCondition"
+              label="Gebäudezustand"
+              help="Pflege, Abnutzung, Beschädigung, Verlassenheit oder Bewuchs."
+              options={CONDITION_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="buildingOccupancy"
+              label="Bewohnt / verlassen"
+              help="Bewohnt, aktiv genutzt, leerstehend oder verlassen."
+              options={OCCUPANCY_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="buildingEnvironment"
+              label="Umgebungskontext"
+              help="Kartenkontext für Anschlussflächen, Wetterung und Dekoration."
+              options={ENVIRONMENT_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="buildingLighting"
+              label="Lokale Gebäudebeleuchtung"
+              help="Ergänzt das geerbte Weltlicht durch kontrolliertes Innen- oder Quellenlicht."
+              options={LIGHTING_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="buildingLightSourceDetails"
+              label="Sichtbare Lichtquellen"
+              help="Zum Beispiel Fensterlicht, Laternen oder ein schwacher magischer Akzent."
+              maxLength={500}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
+
+      {section === undefined || section === "details" ? (
+        <fieldset className={styles.group}>
+          <legend>Weitere Architekturdetails</legend>
+          <div className={styles.fieldGrid}>
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="buildingExtraDetails"
+              label="Weitere Architekturdetails"
+              help="Optionale Ergänzungen zu Umgebung, Schildern, Lesbarkeit oder modularen Anschlüssen."
+              maxLength={4000}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
     </div>
   );
 }

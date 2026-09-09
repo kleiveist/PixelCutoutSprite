@@ -625,8 +625,12 @@ export interface CharacterDetailsEditorProps {
   readonly heightSource: CharacterHeightSource;
   readonly heightLocked: boolean;
   readonly notifyProgrammaticChange: () => void;
+  readonly section?: CharacterDetailsSection;
   readonly subtype: CharacterSubtype;
 }
+
+export type CharacterDetailsSection =
+  "identity" | "body" | "wardrobe" | "equipment" | "palette" | "npc-context";
 
 export function CharacterDetailsEditor({
   characterHeight,
@@ -635,6 +639,7 @@ export function CharacterDetailsEditor({
   heightSource,
   heightSourceName,
   notifyProgrammaticChange,
+  section,
   subtype,
 }: CharacterDetailsEditorProps) {
   const showHumanoidWardrobe = isHumanoidCharacterSubtype(subtype);
@@ -667,190 +672,200 @@ export function CharacterDetailsEditor({
         wenn du stattdessen einen individuellen Text eintragen möchtest.
       </p>
 
-      <fieldset className={styles.group}>
-        <legend>Identität und Varianten</legend>
-        <p className={styles.groupIntro}>
-          Verankere Rolle und Motiv, ohne technische Profilwerte im Asset zu wiederholen.
-        </p>
-        <div className={styles.fieldGrid}>
-          <TextFields
-            fields={IDENTITY_FIELDS}
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-          />
-          <VariantCountField form={form} />
-          <SelectField
-            form={form}
-            name="genderPresentation"
-            label="Geschlechtswirkung"
-            help="Die sichtbare Wirkung der Figur; eine Festlegung ist optional."
-            options={GENDER_PRESENTATION_OPTIONS}
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className={styles.group}>
-        <legend>Körper, Gesicht und Ausdruck</legend>
-        <p className={styles.groupIntro}>
-          Halte Formen auf Gameplay-Größe eindeutig und vermeide porträthafte Übertreibung.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="age"
-            label="Alterswirkung"
-            help="Wie jung oder alt die Figur visuell gelesen werden soll."
-            options={AGE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="relativeHeight"
-            label="Relative Größe"
-            help="Proportion relativ zu anderen Figuren; die Pixelhöhe bleibt geerbt."
-            options={RELATIVE_HEIGHT_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="bodyBuild"
-            label="Körperbau"
-            help="Grundform des Körpers und ihre Wirkung in der Silhouette."
-            options={BODY_BUILD_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="posture"
-            label="Haltung"
-            help="Grundhaltung unabhängig von einer späteren Animationsaktion."
-            options={POSTURE_OPTIONS}
-          />
-          <TextFields
-            fields={FACE_FIELDS}
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-          />
-          <SelectField
-            form={form}
-            name="eyeVisibility"
-            label="Augenlesbarkeit"
-            help="Wie deutlich die Augen in der nativen Zielgröße sichtbar sind."
-            options={EYE_VISIBILITY_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="expression"
-            label="Ausdruck"
-            help="Zurückhaltender Ausdruck, der auch in kleiner Darstellung lesbar bleibt."
-            options={EXPRESSION_OPTIONS}
-          />
-          <TextFields
-            fields={READABILITY_FIELDS}
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-          />
-        </div>
-      </fieldset>
-
-      {showHumanoidWardrobe ? (
+      {section === undefined || section === "identity" ? (
         <fieldset className={styles.group}>
-          <legend>Kopfbedeckung und Kleidung</legend>
+          <legend>Identität und Varianten</legend>
           <p className={styles.groupIntro}>
-            Trenne Kleidungsschichten und asymmetrische Details eindeutig für Vorder-, Seiten- und
-            Rückansichten.
+            Verankere Rolle und Motiv, ohne technische Profilwerte im Asset zu wiederholen.
           </p>
           <div className={styles.fieldGrid}>
             <TextFields
-              fields={WARDROBE_FIELDS.slice(0, 1)}
+              fields={IDENTITY_FIELDS}
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+            />
+            <VariantCountField form={form} />
+            <SelectField
+              form={form}
+              name="genderPresentation"
+              label="Geschlechtswirkung"
+              help="Die sichtbare Wirkung der Figur; eine Festlegung ist optional."
+              options={GENDER_PRESENTATION_OPTIONS}
+            />
+          </div>
+        </fieldset>
+      ) : null}
+
+      {section === undefined || section === "body" ? (
+        <fieldset className={styles.group}>
+          <legend>Körper, Gesicht und Ausdruck</legend>
+          <p className={styles.groupIntro}>
+            Halte Formen auf Gameplay-Größe eindeutig und vermeide porträthafte Übertreibung.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="age"
+              label="Alterswirkung"
+              help="Wie jung oder alt die Figur visuell gelesen werden soll."
+              options={AGE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="relativeHeight"
+              label="Relative Größe"
+              help="Proportion relativ zu anderen Figuren; die Pixelhöhe bleibt geerbt."
+              options={RELATIVE_HEIGHT_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="bodyBuild"
+              label="Körperbau"
+              help="Grundform des Körpers und ihre Wirkung in der Silhouette."
+              options={BODY_BUILD_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="posture"
+              label="Haltung"
+              help="Grundhaltung unabhängig von einer späteren Animationsaktion."
+              options={POSTURE_OPTIONS}
+            />
+            <TextFields
+              fields={FACE_FIELDS}
               form={form}
               notifyProgrammaticChange={notifyProgrammaticChange}
             />
             <SelectField
               form={form}
-              name="headwearCondition"
-              label="Zustand der Kopfbedeckung"
-              help="Abnutzung und Materialwirkung der gewählten Kopfbedeckung."
-              options={HEADWEAR_CONDITION_OPTIONS}
+              name="eyeVisibility"
+              label="Augenlesbarkeit"
+              help="Wie deutlich die Augen in der nativen Zielgröße sichtbar sind."
+              options={EYE_VISIBILITY_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="expression"
+              label="Ausdruck"
+              help="Zurückhaltender Ausdruck, der auch in kleiner Darstellung lesbar bleibt."
+              options={EXPRESSION_OPTIONS}
             />
             <TextFields
-              fields={WARDROBE_FIELDS.slice(1)}
+              fields={READABILITY_FIELDS}
               form={form}
               notifyProgrammaticChange={notifyProgrammaticChange}
             />
           </div>
         </fieldset>
-      ) : (
-        <p className={styles.logicNote} role="note">
-          Humanoide Kleidungsfragen sind für Tier und Kreatur ausgeblendet. Körper-, Material-,
-          Accessoire- und Ausrüstungsdetails bleiben verfügbar.
-        </p>
-      )}
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Accessoires, Ausrüstung und Material</legend>
-        <p className={styles.groupIntro}>
-          Beschreibe nur Elemente, die konsistent in allen benötigten Ansichten erhalten bleiben
-          sollen.
-        </p>
-        <div className={styles.fieldGrid}>
-          <TextFields
-            fields={GEAR_FIELDS}
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-          />
-          <SelectField
-            form={form}
-            name="condition"
-            label="Gesamtzustand"
-            help="Abnutzung der Kleidung, Ausrüstung und sichtbaren Materialien."
-            options={CONDITION_OPTIONS}
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "wardrobe" ? (
+        showHumanoidWardrobe ? (
+          <fieldset className={styles.group}>
+            <legend>Kopfbedeckung und Kleidung</legend>
+            <p className={styles.groupIntro}>
+              Trenne Kleidungsschichten und asymmetrische Details eindeutig für Vorder-, Seiten- und
+              Rückansichten.
+            </p>
+            <div className={styles.fieldGrid}>
+              <TextFields
+                fields={WARDROBE_FIELDS.slice(0, 1)}
+                form={form}
+                notifyProgrammaticChange={notifyProgrammaticChange}
+              />
+              <SelectField
+                form={form}
+                name="headwearCondition"
+                label="Zustand der Kopfbedeckung"
+                help="Abnutzung und Materialwirkung der gewählten Kopfbedeckung."
+                options={HEADWEAR_CONDITION_OPTIONS}
+              />
+              <TextFields
+                fields={WARDROBE_FIELDS.slice(1)}
+                form={form}
+                notifyProgrammaticChange={notifyProgrammaticChange}
+              />
+            </div>
+          </fieldset>
+        ) : (
+          <p className={styles.logicNote} role="note">
+            Humanoide Kleidungsfragen sind für Tier und Kreatur ausgeblendet. Körper-, Material-,
+            Accessoire- und Ausrüstungsdetails bleiben verfügbar.
+          </p>
+        )
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Figurenpalette</legend>
-        <p className={styles.groupIntro}>
-          Lokale Farben ergänzen das geerbte Farbprofil; sie ersetzen keine gesperrte globale
-          Palettenregel.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="characterPaletteSource"
-            label="Palettenquelle"
-            help="Vom Basisprofil ableiten oder konkrete lokale Farben angeben."
-            options={PALETTE_SOURCE_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            definition={{
-              name: "primaryColor",
-              label: "Hauptfarbe",
-              help: "Dominierende lokale Farbfamilie.",
-            }}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            definition={{
-              name: "secondaryColor",
-              label: "Nebenfarbe",
-              help: "Unterstützende zweite Farbfamilie.",
-            }}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            definition={{
-              name: "accentColor",
-              label: "Akzentfarbe",
-              help: "Sparsam eingesetzte Farbe für Fokus und Lesbarkeit.",
-            }}
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "equipment" ? (
+        <fieldset className={styles.group}>
+          <legend>Accessoires, Ausrüstung und Material</legend>
+          <p className={styles.groupIntro}>
+            Beschreibe nur Elemente, die konsistent in allen benötigten Ansichten erhalten bleiben
+            sollen.
+          </p>
+          <div className={styles.fieldGrid}>
+            <TextFields
+              fields={GEAR_FIELDS}
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+            />
+            <SelectField
+              form={form}
+              name="condition"
+              label="Gesamtzustand"
+              help="Abnutzung der Kleidung, Ausrüstung und sichtbaren Materialien."
+              options={CONDITION_OPTIONS}
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      {showNpcContext ? (
+      {section === undefined || section === "palette" ? (
+        <fieldset className={styles.group}>
+          <legend>Figurenpalette</legend>
+          <p className={styles.groupIntro}>
+            Lokale Farben ergänzen das geerbte Farbprofil; sie ersetzen keine gesperrte globale
+            Palettenregel.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="characterPaletteSource"
+              label="Palettenquelle"
+              help="Vom Basisprofil ableiten oder konkrete lokale Farben angeben."
+              options={PALETTE_SOURCE_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              definition={{
+                name: "primaryColor",
+                label: "Hauptfarbe",
+                help: "Dominierende lokale Farbfamilie.",
+              }}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              definition={{
+                name: "secondaryColor",
+                label: "Nebenfarbe",
+                help: "Unterstützende zweite Farbfamilie.",
+              }}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              definition={{
+                name: "accentColor",
+                label: "Akzentfarbe",
+                help: "Sparsam eingesetzte Farbe für Fokus und Lesbarkeit.",
+              }}
+            />
+          </div>
+        </fieldset>
+      ) : null}
+
+      {(section === undefined || section === "npc-context") && showNpcContext ? (
         <fieldset className={styles.group}>
           <legend>NPC-Kontext</legend>
           <p className={styles.groupIntro}>

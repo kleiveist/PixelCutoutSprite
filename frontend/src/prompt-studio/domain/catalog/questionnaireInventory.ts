@@ -1,77 +1,38 @@
 import { WizardCoreFormSchema } from "../../features/wizard/wizardSteps";
-import { CharacterAnswersSchema } from "../../schemas/categoryData.schema";
+import {
+  WIZARD_BASE_CONTEXT_FIELD_PATHS,
+  WIZARD_CATALOG_PAGES,
+  type WizardCatalogStepId,
+} from "../../features/wizard/wizardCatalog";
 
-export type CatalogPageId =
-  | "identity"
-  | "base"
-  | "capabilities:conditional"
-  | "character:details"
-  | "character:animation"
-  | "movingObject:details"
-  | "movingObject:animation"
-  | "texture:details"
-  | "nature:details"
-  | "staticObject:details"
-  | "building:details"
-  | "tileset:details"
-  | "item:details"
-  | "artwork:details";
+export type CatalogPageId = WizardCatalogStepId | "context/base-profile";
 
-const BASE_FIELDS = new Set([
-  "baseProfileId",
-  "pixelDensity",
-  "styleProfile",
-  "tileSize",
-  "characterHeight",
-  "perspectiveType",
-  "cameraAngle",
-  "cameraDirection",
-  "projectionType",
-  "outlineStyle",
-  "paletteMode",
-  "backgroundMode",
-  "alphaPadding",
-  "nearestNeighbor",
-  "lightingPolicy",
-  "lightingNotes",
-]);
-const CHARACTER_FIELDS = new Set(Object.keys(CharacterAnswersSchema.unwrap().shape));
-const CONDITIONAL_CAPABILITY_FIELDS = new Set([
-  "directionCount",
-  "animationAction",
-  "animationType",
-  "movementType",
-  "seamless",
-  "tileableAxes",
+const assignments = new Map<string, CatalogPageId>([
+  ["projectName", "identity"],
+  ["category", "identity"],
+  ["subtype", "identity"],
+  ...WIZARD_BASE_CONTEXT_FIELD_PATHS.map((field) => [field, "context/base-profile"] as const),
 ]);
 
-function pageForField(field: string): CatalogPageId {
-  if (field === "projectName" || field === "category" || field === "subtype") return "identity";
-  if (BASE_FIELDS.has(field)) return "base";
-  if (CONDITIONAL_CAPABILITY_FIELDS.has(field)) return "capabilities:conditional";
-  if (field.startsWith("characterAnimation")) return "character:animation";
-  if (field.startsWith("character")) return "character:details";
-  if (CHARACTER_FIELDS.has(field)) return "character:details";
-  if (field.startsWith("movingObjectAnimation")) return "movingObject:animation";
-  if (field.startsWith("movingObject")) return "movingObject:details";
-  for (const prefix of [
-    "texture",
-    "nature",
-    "staticObject",
-    "building",
-    "tileset",
-    "item",
-    "artwork",
-  ] as const) {
-    if (field.startsWith(prefix)) return `${prefix}:details`;
+for (const page of WIZARD_CATALOG_PAGES) {
+  for (const field of page.fieldPaths) {
+    if (assignments.has(field)) {
+      throw new Error(`Wizard field ${field} is assigned to more than one V3 page.`);
+    }
+    assignments.set(field, page.id);
   }
-  throw new Error(`Wizard field ${field} has no stable V3 catalog page.`);
+}
+
+for (const field of Object.keys(WizardCoreFormSchema.shape)) {
+  if (!assignments.has(field)) {
+    throw new Error(`Wizard field ${field} has no stable V3 catalog page.`);
+  }
 }
 
 /** Executable inventory: adding a form field without a stable page fails module evaluation/tests. */
 export const WIZARD_FIELD_PAGE_MAP = Object.freeze(
   Object.fromEntries(
-    Object.keys(WizardCoreFormSchema.shape).map((field) => [field, pageForField(field)]),
+    Object.keys(WizardCoreFormSchema.shape).map((field) => [field, assignments.get(field)!]),
   ) as Readonly<Record<keyof typeof WizardCoreFormSchema.shape, CatalogPageId>>,
 );
 

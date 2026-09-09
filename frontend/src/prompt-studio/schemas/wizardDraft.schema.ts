@@ -26,6 +26,23 @@ const WizardDraftMetadataSchema = z.strictObject({
   draftId: StableIdSchema,
   projectName: z.string().trim().max(120),
   currentStep: z.string().min(1).max(100),
+  catalogVersion: z.string().min(1).max(80).optional(),
+  completedStepIds: z
+    .array(z.string().min(1).max(100))
+    .max(256)
+    .refine((values) => new Set(values).size === values.length, "Step IDs must be unique.")
+    .optional(),
+  selectionHistory: z
+    .array(
+      z.strictObject({
+        category: z.string().nullable(),
+        subtype: z.string().nullable(),
+        rawValues: z.record(z.string(), z.json()),
+        capturedAt: IsoDateTimeSchema,
+      }),
+    )
+    .max(8)
+    .optional(),
   validation: ValidationMessagesSchema,
   savedAt: IsoDateTimeSchema,
 });

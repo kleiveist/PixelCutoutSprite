@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { VaultBaseProfileSchema, parseWizardDraft, type VaultBaseProfile } from "../schemas";
+import {
+  VaultBaseProfileSchema,
+  VaultPromptDraftSchema,
+  parseWizardDraft,
+  type VaultBaseProfile,
+} from "../schemas";
 import type { PromptVaultIndex } from "./vaultPromptRepository";
-import { createVaultCompatibilityStorage, projectWizardToVault } from "./vaultWizardBridge";
+import {
+  createVaultCompatibilityStorage,
+  hydrateWizardVaultDocument,
+  projectWizardToVault,
+} from "./vaultWizardBridge";
 
 const timestamp = "2026-09-09T12:00:00.000Z";
 const base = VaultBaseProfileSchema.parse({
@@ -213,5 +222,57 @@ describe("vault wizard bridge", () => {
     expect(invalid.value.profileId).toBe(first.value.id);
     expect(invalid.value.rawValues.projectName).toBe("CON");
     expect(current.profiles[0]?.value.folderName).toBe("Eichenboden");
+  });
+
+  it("hydrates a native V3 draft without a legacy payload at the exact catalog page", () => {
+    const vaultDraft = VaultPromptDraftSchema.parse({
+      schemaVersion: 3,
+      kind: "vaultPromptDraft",
+      draftId: "draft_native_v3",
+      profileId: null,
+      revision: 4,
+      identity: { name: "Unfertige Waldfigur", category: "character", subtype: "npc" },
+      rawValues: {
+        projectName: "Unfertige Waldfigur",
+        category: "character",
+        subtype: "npc",
+        role: "halb beschriebene Hüterin",
+        hair: "noch offen",
+      },
+      wizard: {
+        currentStepId: "catalog/character/body",
+        completedStepIds: ["identity", "catalog/character/identity"],
+      },
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    const vaultIndex: PromptVaultIndex = {
+      ...index(),
+      drafts: [
+        {
+          relativePath: ".PixelPrompt/.drafts/draft_native_v3.json",
+          value: vaultDraft,
+          revision: vaultDraft.revision,
+          sha256: "c".repeat(64),
+        },
+      ],
+    };
+
+    const hydrated = hydrateWizardVaultDocument(vaultDraft, vaultIndex);
+
+    expect(hydrated.migratedStep).toBe(false);
+    expect(hydrated.draft).toMatchObject({
+      currentStep: "catalog/character/body",
+      catalogVersion: "v3.0",
+      completedStepIds: ["identity", "catalog/character/identity"],
+      category: "character",
+      subtype: "npc",
+      baseProfileId: base.id,
+    });
+    expect(hydrated.rawValues).toMatchObject({
+      role: "halb beschriebene Hüterin",
+      hair: "noch offen",
+      baseProfileId: base.id,
+    });
   });
 });

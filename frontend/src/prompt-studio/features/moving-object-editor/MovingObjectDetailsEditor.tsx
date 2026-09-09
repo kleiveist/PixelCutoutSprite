@@ -381,12 +381,17 @@ function DerivedObjectClass({
 export interface MovingObjectDetailsEditorProps {
   readonly form: MovingObjectForm;
   readonly notifyProgrammaticChange: () => void;
+  readonly section?: MovingObjectDetailsSection;
   readonly subtype: MovingObjectSubtype;
 }
+
+export type MovingObjectDetailsSection =
+  "core" | "scale" | "motion" | "material" | "lighting" | "details";
 
 export function MovingObjectDetailsEditor({
   form,
   notifyProgrammaticChange,
+  section,
   subtype,
 }: MovingObjectDetailsEditorProps) {
   const capabilities = resolveCapabilities("movingObject", subtype);
@@ -411,164 +416,177 @@ export function MovingObjectDetailsEditor({
         </ul>
       </section>
 
-      <fieldset className={styles.group}>
-        <legend>Objektkern</legend>
-        <p className={styles.groupIntro}>
-          Definiere Funktion und große Formmassen, bevor Mechanik und Material ergänzt werden.
-        </p>
-        <div className={styles.fieldGrid}>
-          <DerivedObjectClass defaultClass={defaultClass} form={form} subtype={subtype} />
-          {OBJECT_CORE_FIELDS.map((definition) => (
+      {section === undefined || section === "core" ? (
+        <fieldset className={styles.group}>
+          <legend>Objektkern</legend>
+          <p className={styles.groupIntro}>
+            Definiere Funktion und große Formmassen, bevor Mechanik und Material ergänzt werden.
+          </p>
+          <div className={styles.fieldGrid}>
+            <DerivedObjectClass defaultClass={defaultClass} form={form} subtype={subtype} />
+            {OBJECT_CORE_FIELDS.map((definition) => (
+              <TextField
+                key={definition.name}
+                definition={definition}
+                form={form}
+                notifyProgrammaticChange={notifyProgrammaticChange}
+              />
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+
+      {section === undefined || section === "scale" ? (
+        <fieldset className={styles.group}>
+          <legend>Maßstab und Anker</legend>
+          <p className={styles.groupIntro}>
+            Die Standfläche verwendet das geerbte Tile-Raster. Breite und Tiefe bilden gemeinsam
+            einen optionalen Footprint.
+          </p>
+          <div className={styles.fieldGrid}>
+            <NumberField
+              form={form}
+              name="movingObjectFootprintWidthTiles"
+              label="Standfläche · Breite in Tiles"
+              help="Ganzzahlig von 1 bis 64; zusammen mit der Tiefe angeben."
+              min={1}
+              max={64}
+            />
+            <NumberField
+              form={form}
+              name="movingObjectFootprintDepthTiles"
+              label="Standfläche · Tiefe in Tiles"
+              help="Ganzzahlig von 1 bis 64; zusammen mit der Breite angeben."
+              min={1}
+              max={64}
+            />
+            <NumberField
+              form={form}
+              name="movingObjectHeightPixels"
+              label="Objekthöhe in Pixel"
+              help="Asset-spezifische Höhe von 16 bis 2048 px; kein Figurenmaßstab."
+              min={16}
+              max={2048}
+            />
+            <SelectField
+              form={form}
+              name="movingObjectAnchorMode"
+              label="Ausrichtungsanker"
+              help="Die Mitte der Standfläche ist der empfohlene Ausgangspunkt für bewegliche Objekte."
+              options={ANCHOR_OPTIONS}
+            />
+          </div>
+        </fieldset>
+      ) : null}
+
+      {section === undefined || section === "motion" ? (
+        <fieldset className={styles.group}>
+          <legend>Bewegung und Mechanik</legend>
+          <p className={styles.groupIntro}>
+            Bewegungsart und sichtbarer Antrieb müssen in jeder Ansicht konstruktiv zusammenpassen.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="movementType"
+              label="Bewegungsart"
+              help="Die Fortbewegungslogik ist unabhängig von einer zeitlichen Animation."
+              options={MOVEMENT_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="movingObjectMechanism"
+              label="Mechanik / Antrieb"
+              help="Wähle das sichtbar tragende Bewegungsprinzip."
+              options={MECHANISM_OPTIONS}
+            />
+          </div>
+        </fieldset>
+      ) : null}
+
+      {section === undefined || section === "material" ? (
+        <fieldset className={styles.group}>
+          <legend>Material und Zustand</legend>
+          <p className={styles.groupIntro}>
+            Lege Materialgruppen und Abnutzung so fest, dass sie über alle Frames konsistent
+            bleiben.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="movingObjectMaterial"
+              label="Hauptmaterial"
+              help="Dominantes Material oder klar getrennte Mischung."
+              options={MATERIAL_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="movingObjectCondition"
+              label="Zustand"
+              help="Gesamtwirkung von Konstruktion, Material und Reparaturen."
+              options={CONDITION_OPTIONS}
+            />
             <TextField
-              key={definition.name}
-              definition={definition}
               form={form}
               notifyProgrammaticChange={notifyProgrammaticChange}
+              definition={{
+                name: "movingObjectMaterialDetails",
+                label: "Materialdetails",
+                help: "Beschreibe Materialaufteilung, Oberflächen und wichtige Übergänge.",
+                maxLength: 500,
+                multiline: true,
+                wide: true,
+              }}
             />
-          ))}
-        </div>
-      </fieldset>
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Maßstab und Anker</legend>
-        <p className={styles.groupIntro}>
-          Die Standfläche verwendet das geerbte Tile-Raster. Breite und Tiefe bilden gemeinsam einen
-          optionalen Footprint.
-        </p>
-        <div className={styles.fieldGrid}>
-          <NumberField
-            form={form}
-            name="movingObjectFootprintWidthTiles"
-            label="Standfläche · Breite in Tiles"
-            help="Ganzzahlig von 1 bis 64; zusammen mit der Tiefe angeben."
-            min={1}
-            max={64}
-          />
-          <NumberField
-            form={form}
-            name="movingObjectFootprintDepthTiles"
-            label="Standfläche · Tiefe in Tiles"
-            help="Ganzzahlig von 1 bis 64; zusammen mit der Breite angeben."
-            min={1}
-            max={64}
-          />
-          <NumberField
-            form={form}
-            name="movingObjectHeightPixels"
-            label="Objekthöhe in Pixel"
-            help="Asset-spezifische Höhe von 16 bis 2048 px; kein Figurenmaßstab."
-            min={16}
-            max={2048}
-          />
-          <SelectField
-            form={form}
-            name="movingObjectAnchorMode"
-            label="Ausrichtungsanker"
-            help="Die Mitte der Standfläche ist der empfohlene Ausgangspunkt für bewegliche Objekte."
-            options={ANCHOR_OPTIONS}
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "lighting" ? (
+        <fieldset className={styles.group}>
+          <legend>Licht und Bodenkontakt</legend>
+          <p className={styles.groupIntro}>
+            Lokales Leuchtverhalten ergänzt die geerbte Weltbeleuchtung, ohne die feste Lichtseite
+            zu ersetzen.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="movingObjectLightingBehavior"
+              label="Lichtverhalten"
+              help="Emissive Akzente bleiben begrenzt und ändern nicht die Weltlichtseite."
+              options={LIGHTING_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="movingObjectShadowMode"
+              label="Bodenschatten"
+              help="Eine bewegungsabhängige Anpassung bleibt klein und am Anker gebunden."
+              options={SHADOW_OPTIONS}
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Bewegung und Mechanik</legend>
-        <p className={styles.groupIntro}>
-          Bewegungsart und sichtbarer Antrieb müssen in jeder Ansicht konstruktiv zusammenpassen.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="movementType"
-            label="Bewegungsart"
-            help="Die Fortbewegungslogik ist unabhängig von einer zeitlichen Animation."
-            options={MOVEMENT_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="movingObjectMechanism"
-            label="Mechanik / Antrieb"
-            help="Wähle das sichtbar tragende Bewegungsprinzip."
-            options={MECHANISM_OPTIONS}
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className={styles.group}>
-        <legend>Material und Zustand</legend>
-        <p className={styles.groupIntro}>
-          Lege Materialgruppen und Abnutzung so fest, dass sie über alle Frames konsistent bleiben.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="movingObjectMaterial"
-            label="Hauptmaterial"
-            help="Dominantes Material oder klar getrennte Mischung."
-            options={MATERIAL_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="movingObjectCondition"
-            label="Zustand"
-            help="Gesamtwirkung von Konstruktion, Material und Reparaturen."
-            options={CONDITION_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            definition={{
-              name: "movingObjectMaterialDetails",
-              label: "Materialdetails",
-              help: "Beschreibe Materialaufteilung, Oberflächen und wichtige Übergänge.",
-              maxLength: 500,
-              multiline: true,
-              wide: true,
-            }}
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className={styles.group}>
-        <legend>Licht und Bodenkontakt</legend>
-        <p className={styles.groupIntro}>
-          Lokales Leuchtverhalten ergänzt die geerbte Weltbeleuchtung, ohne die feste Lichtseite zu
-          ersetzen.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="movingObjectLightingBehavior"
-            label="Lichtverhalten"
-            help="Emissive Akzente bleiben begrenzt und ändern nicht die Weltlichtseite."
-            options={LIGHTING_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="movingObjectShadowMode"
-            label="Bodenschatten"
-            help="Eine bewegungsabhängige Anpassung bleibt klein und am Anker gebunden."
-            options={SHADOW_OPTIONS}
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className={styles.group}>
-        <legend>Weitere Produktionsdetails</legend>
-        <div className={styles.fieldGrid}>
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            definition={{
-              name: "movingObjectExtraDetails",
-              label: "Weitere Objektdetails",
-              help: "Optionale Ergänzungen, die keiner anderen Gruppe eindeutig zugeordnet sind.",
-              maxLength: 4000,
-              multiline: true,
-              wide: true,
-            }}
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "details" ? (
+        <fieldset className={styles.group}>
+          <legend>Weitere Produktionsdetails</legend>
+          <div className={styles.fieldGrid}>
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              definition={{
+                name: "movingObjectExtraDetails",
+                label: "Weitere Objektdetails",
+                help: "Optionale Ergänzungen, die keiner anderen Gruppe eindeutig zugeordnet sind.",
+                maxLength: 4000,
+                multiline: true,
+                wide: true,
+              }}
+            />
+          </div>
+        </fieldset>
+      ) : null}
     </div>
   );
 }

@@ -8,10 +8,15 @@ import {
   WizardDraftSchema,
   type ProfileLibrary,
   type StableId,
+  type VaultPromptDraft,
+  type VaultPromptProfile,
   type WizardDraft,
 } from "../../schemas";
 import type { V2StorageAdapter } from "../../services";
+import { hydrateWizardVaultDocument } from "../../services/vaultWizardBridge";
+import type { PromptVaultIndex } from "../../services/vaultPromptRepository";
 import { useProfileLibrary } from "../../store/profiles";
+import { useOptionalVaultPrompt } from "../../store/vault";
 import {
   useWizardSession,
   type WizardDraftActivationMode,
@@ -25,6 +30,7 @@ import {
   type WizardResumeRecoveryIssue,
 } from "./wizardLifecycle";
 import { WizardEngine } from "./WizardEngine";
+import type { WizardCoreFormValues } from "./wizardSteps";
 import styles from "./WizardView.module.css";
 
 export type WizardStorage = Pick<V2StorageAdapter, "readDraft" | "writeDraft">;
@@ -51,9 +57,11 @@ interface WizardReadyState {
   readonly status: "ready";
   readonly draft: WizardDraft;
   readonly baselineDraft: WizardDraft;
+  readonly baselineFormValues?: WizardCoreFormValues;
   readonly draftPersisted: boolean;
   readonly activationMode: WizardDraftActivationMode | null;
   readonly categoryHint: AssetCategory | null;
+  readonly initialFormValues?: WizardCoreFormValues;
   readonly notices: readonly string[];
   readonly sessionLabel: string;
 }
@@ -144,6 +152,46 @@ interface InitializeWizardInput {
   readonly now: () => string;
   readonly startIntent: WizardStartIntent | null;
   readonly storageAdapter: WizardStorage;
+  readonly vaultIndex: PromptVaultIndex | null;
+}
+
+function hydrateVaultReady(
+  input: InitializeWizardInput,
+  document: VaultPromptDraft | VaultPromptProfile,
+  sessionLabel: string,
+  identity?: Readonly<{ draftId: StableId; savedAt: string }>,
+): WizardInitializationState {
+  if (!input.vaultIndex) {
+    return recovery(
+      "draftMissing",
+      "Vault-Dokument wurde nicht gefunden",
+      "Die angeforderte V3-Datei ist in diesem Vault nicht verfügbar.",
+    );
+  }
+  try {
+    const hydration = hydrateWizardVaultDocument(document, input.vaultIndex, identity);
+    return {
+      status: "ready",
+      draft: hydration.draft,
+      baselineDraft: hydration.draft,
+      draftPersisted: true,
+      activationMode: "hydrate-persisted",
+      categoryHint:
+        document.kind === "vaultPromptProfile" ? document.category : document.identity.category,
+      baselineFormValues: hydration.rawValues,
+      initialFormValues: hydration.rawValues,
+      notices: hydration.migratedStep
+        ? ["Die gespeicherte Schritt-ID wurde verlustfrei auf die aktuelle Katalogseite migriert."]
+        : [],
+      sessionLabel,
+    };
+  } catch {
+    return recovery(
+      "draftInvalid",
+      "Vault-Entwurf kann nicht sicher fortgesetzt werden",
+      "Die V3-Datei und ihre Rohwerte wurden nicht verändert.",
+    );
+  }
 }
 
 function resumeDraft(
@@ -240,6 +288,25 @@ function initializeWizard(input: InitializeWizardInput): WizardInitializationSta
 
   if (input.startIntent?.kind === "profile") {
     const profileIntent = input.startIntent;
+    const storedVaultProfile = input.vaultIndex?.profiles.find(
+      ({ value }) => value.id === profileIntent.assetProfileId,
+    );
+    if (storedVaultProfile) {
+      const identity = createDraftIdentity(input.createDraftId, input.now);
+      if (!identity) {
+        return recovery(
+          "invalidFactory",
+          "Profilstart konnte nicht vorbereitet werden",
+          "Draft-ID oder Zeitstempel sind ungültig. Es wurde nichts lokal gespeichert.",
+        );
+      }
+      return hydrateVaultReady(
+        input,
+        storedVaultProfile.value,
+        `Profil · ${storedVaultProfile.value.name}`,
+        identity,
+      );
+    }
     if (input.libraryResult.status !== "valid") {
       return recovery(
         "profileLibraryUnavailable",
@@ -308,6 +375,16 @@ function initializeWizard(input: InitializeWizardInput): WizardInitializationSta
     };
   }
 
+  if (input.startIntent?.kind === "resume" && input.vaultIndex) {
+    const requestedDraftId = input.startIntent.draftId;
+    const storedVaultDraft = input.vaultIndex.drafts.find(
+      ({ value }) => value.draftId === requestedDraftId,
+    );
+    if (storedVaultDraft) {
+      return hydrateVaultReady(input, storedVaultDraft.value, "Fortgesetzter Vault-Entwurf");
+    }
+  }
+
   const storedDraft = input.storageAdapter.readDraft();
   if (storedDraft.status === "unavailable") {
     return recovery(
@@ -330,6 +407,15 @@ function initializeWizard(input: InitializeWizardInput): WizardInitializationSta
         "Entwurf wurde nicht gefunden",
         "Für die angeforderte Draft-ID ist kein lokaler Entwurf vorhanden.",
       );
+    }
+    if (input.vaultIndex) {
+      const latestVaultDocument = [
+        ...input.vaultIndex.drafts.map((stored) => stored.value),
+        ...input.vaultIndex.profiles.map((stored) => stored.value),
+      ].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+      if (latestVaultDocument) {
+        return hydrateVaultReady(input, latestVaultDocument, "Zuletzt bearbeitetes Vault-Asset");
+      }
     }
     const identity = createDraftIdentity(input.createDraftId, input.now);
     if (!identity) {
@@ -389,6 +475,7 @@ export function WizardView({
     startIntent,
   } = useWizardSession();
   const { libraryResult } = useProfileLibrary();
+  const vaultPrompt = useOptionalVaultPrompt();
   const [initialization] = useState(() =>
     initializeWizard({
       activeDraft,
@@ -399,6 +486,7 @@ export function WizardView({
       now,
       startIntent,
       storageAdapter,
+      vaultIndex: vaultPrompt?.index ?? null,
     }),
   );
 
@@ -487,13 +575,18 @@ export function WizardView({
           ))}
           <WizardEngine
             baselineDraft={initialization.baselineDraft}
+            {...(initialization.baselineFormValues
+              ? { baselineFormValues: initialization.baselineFormValues }
+              : {})}
             categoryHint={initialization.categoryHint}
             draft={initialization.draft}
             draftPersisted={initialization.draftPersisted}
             initialDirty={
               draftDirty || !jsonValuesEqual(initialization.draft, initialization.baselineDraft)
             }
-            {...(rawCoreFormValues ? { initialFormValues: rawCoreFormValues } : {})}
+            {...((rawCoreFormValues ?? initialization.initialFormValues)
+              ? { initialFormValues: rawCoreFormValues ?? initialization.initialFormValues }
+              : {})}
             library={libraryResult.status === "valid" ? libraryResult.value : null}
             now={now}
             storageAdapter={storageAdapter}

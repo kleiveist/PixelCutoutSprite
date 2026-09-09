@@ -385,12 +385,16 @@ function TileSizeField({ tileSize }: Readonly<{ tileSize?: number }>) {
 export interface TextureMaterialEditorProps {
   readonly form: TextureForm;
   readonly notifyProgrammaticChange: () => void;
+  readonly section?: TextureDetailsSection;
   readonly subtype: TextureSubtype;
 }
+
+export type TextureDetailsSection = "material" | "grid" | "surface" | "weather-light" | "details";
 
 export function TextureMaterialEditor({
   form,
   notifyProgrammaticChange,
+  section,
   subtype,
 }: TextureMaterialEditorProps) {
   const materialType = getDefaultTextureMaterialType(subtype);
@@ -430,137 +434,147 @@ export function TextureMaterialEditor({
         </div>
       </aside>
 
-      <fieldset className={styles.group}>
-        <legend>Material und Verwendung</legend>
-        <p className={styles.groupIntro}>
-          Konkretisiere Unterart und Einsatz, ohne den bereits gewählten Material-Untertyp doppelt
-          zu pflegen.
-        </p>
-        <div className={styles.fieldGrid}>
-          <MaterialTypeField form={form} materialType={materialType} />
-          <SelectField
-            form={form}
-            name="textureUsage"
-            label="Einsatzbereich"
-            help="Bestimmt, ob die Materialstruktur als Boden, Wand, Dach, Oberfläche, Kleidung oder Dekor gelesen wird."
-            options={USAGE_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="textureDescription"
-            label={
-              materialType === "customMaterial"
-                ? "Eigenes Material beschreiben"
-                : "Unterart und gewünschte Wirkung"
-            }
-            help="Beschreibe Material-Unterart, typische Merkmale und die gewünschte visuelle Wirkung."
-            maxLength={4000}
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "material" ? (
+        <fieldset className={styles.group}>
+          <legend>Material und Verwendung</legend>
+          <p className={styles.groupIntro}>
+            Konkretisiere Unterart und Einsatz, ohne den bereits gewählten Material-Untertyp doppelt
+            zu pflegen.
+          </p>
+          <div className={styles.fieldGrid}>
+            <MaterialTypeField form={form} materialType={materialType} />
+            <SelectField
+              form={form}
+              name="textureUsage"
+              label="Einsatzbereich"
+              help="Bestimmt, ob die Materialstruktur als Boden, Wand, Dach, Oberfläche, Kleidung oder Dekor gelesen wird."
+              options={USAGE_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="textureDescription"
+              label={
+                materialType === "customMaterial"
+                  ? "Eigenes Material beschreiben"
+                  : "Unterart und gewünschte Wirkung"
+              }
+              help="Beschreibe Material-Unterart, typische Merkmale und die gewünschte visuelle Wirkung."
+              maxLength={4000}
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Kachel und Raster</legend>
-        <p className={styles.groupIntro}>
-          Kachelbarkeit ist eine bewusste Assetentscheidung; die Tilegröße bleibt ein zentral
-          vererbter technischer Wert.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SeamlessField form={form} />
-          <TileSizeField {...(tileSize === undefined ? {} : { tileSize })} />
-        </div>
-        <p className={styles.logicNote}>
-          <strong>Nahtlose Produktion</strong>
-          <span>
-            Bei „Ja“ müssen alle gegenüberliegenden Kanten anschließen; Randvignetten und auffällige
-            Wiederholungsmuster werden vermieden.
-          </span>
-        </p>
-      </fieldset>
+      {section === undefined || section === "grid" ? (
+        <fieldset className={styles.group}>
+          <legend>Kachel und Raster</legend>
+          <p className={styles.groupIntro}>
+            Kachelbarkeit ist eine bewusste Assetentscheidung; die Tilegröße bleibt ein zentral
+            vererbter technischer Wert.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SeamlessField form={form} />
+            <TileSizeField {...(tileSize === undefined ? {} : { tileSize })} />
+          </div>
+          <p className={styles.logicNote}>
+            <strong>Nahtlose Produktion</strong>
+            <span>
+              Bei „Ja“ müssen alle gegenüberliegenden Kanten anschließen; Randvignetten und
+              auffällige Wiederholungsmuster werden vermieden.
+            </span>
+          </p>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Struktur und Oberfläche</legend>
-        <p className={styles.groupIntro}>
-          Formuliere Struktur und Ausrichtung so, dass sie in nativer Tileauflösung klar, aber nicht
-          rauschend lesbar bleiben.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="textureStructure"
-            label="Strukturgrad"
-            help="Steuert die Größe der sichtbaren Materialcluster."
-            options={STRUCTURE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="textureSurface"
-            label="Oberflächenaufbau"
-            help="Dominantes Aufbauprinzip wie Planken, Fugen, Risse, Schichten oder Gewebe."
-            options={SURFACE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="textureOrientation"
-            label="Oberflächenrichtung"
-            help="Legt die Leserichtung der Struktur oder Maserung fest."
-            options={ORIENTATION_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="textureCondition"
-            label="Zustand"
-            help="Beschreibt Alter, Bearbeitung und sichtbare Beanspruchung der Fläche."
-            options={CONDITION_OPTIONS}
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "surface" ? (
+        <fieldset className={styles.group}>
+          <legend>Struktur und Oberfläche</legend>
+          <p className={styles.groupIntro}>
+            Formuliere Struktur und Ausrichtung so, dass sie in nativer Tileauflösung klar, aber
+            nicht rauschend lesbar bleiben.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="textureStructure"
+              label="Strukturgrad"
+              help="Steuert die Größe der sichtbaren Materialcluster."
+              options={STRUCTURE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="textureSurface"
+              label="Oberflächenaufbau"
+              help="Dominantes Aufbauprinzip wie Planken, Fugen, Risse, Schichten oder Gewebe."
+              options={SURFACE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="textureOrientation"
+              label="Oberflächenrichtung"
+              help="Legt die Leserichtung der Struktur oder Maserung fest."
+              options={ORIENTATION_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="textureCondition"
+              label="Zustand"
+              help="Beschreibt Alter, Bearbeitung und sichtbare Beanspruchung der Fläche."
+              options={CONDITION_OPTIONS}
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Feuchtigkeit, Vereisung und Licht</legend>
-        <p className={styles.groupIntro}>
-          Wetterauflage und Beleuchtung bleiben getrennt, damit wiederverwendbare Materialien keine
-          unbeabsichtigten harten Lichtflecken erhalten.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="textureMoisture"
-            label="Feuchtigkeit"
-            help="Trockenheit oder Nässe beeinflusst Farbe, Glanz und Kontrast."
-            options={MOISTURE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="textureIcing"
-            label="Vereisung"
-            help="Frost und Eiskrusten werden als eigene Oberflächenauflage geführt."
-            options={ICING_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="textureLighting"
-            label="Materialbeleuchtung"
-            help="Neutrales, gleichmäßiges Licht ist für wiederverwendbare Texturen die sichere Wahl."
-            options={LIGHTING_OPTIONS}
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "weather-light" ? (
+        <fieldset className={styles.group}>
+          <legend>Feuchtigkeit, Vereisung und Licht</legend>
+          <p className={styles.groupIntro}>
+            Wetterauflage und Beleuchtung bleiben getrennt, damit wiederverwendbare Materialien
+            keine unbeabsichtigten harten Lichtflecken erhalten.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="textureMoisture"
+              label="Feuchtigkeit"
+              help="Trockenheit oder Nässe beeinflusst Farbe, Glanz und Kontrast."
+              options={MOISTURE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="textureIcing"
+              label="Vereisung"
+              help="Frost und Eiskrusten werden als eigene Oberflächenauflage geführt."
+              options={ICING_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="textureLighting"
+              label="Materialbeleuchtung"
+              help="Neutrales, gleichmäßiges Licht ist für wiederverwendbare Texturen die sichere Wahl."
+              options={LIGHTING_OPTIONS}
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Weitere Materialdetails</legend>
-        <div className={styles.fieldGrid}>
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="textureExtraDetails"
-            label="Farben, Elemente und Randregeln"
-            help="Optionale Angaben zu Grundton, Variation, Akzenten, Fugen, Knoten, Rissen, Körnung und weiteren Randregeln."
-            maxLength={4000}
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "details" ? (
+        <fieldset className={styles.group}>
+          <legend>Weitere Materialdetails</legend>
+          <div className={styles.fieldGrid}>
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="textureExtraDetails"
+              label="Farben, Elemente und Randregeln"
+              help="Optionale Angaben zu Grundton, Variation, Akzenten, Fugen, Knoten, Rissen, Körnung und weiteren Randregeln."
+              maxLength={4000}
+            />
+          </div>
+        </fieldset>
+      ) : null}
     </div>
   );
 }

@@ -296,12 +296,16 @@ const DETAIL_OPTIONS = optionsFromIds(ARTWORK_DETAIL_LEVEL_IDS, DETAIL_LABELS);
 export interface ArtworkConceptEditorProps {
   readonly form: ArtworkForm;
   readonly notifyProgrammaticChange: () => void;
+  readonly section?: ArtworkDetailsSection;
   readonly subtype: ArtworkSubtype;
 }
+
+export type ArtworkDetailsSection = "motif" | "composition" | "background" | "lighting";
 
 export function ArtworkConceptEditor({
   form,
   notifyProgrammaticChange,
+  section,
   subtype,
 }: ArtworkConceptEditorProps) {
   const pixelDensity = useWatch({ control: form.control, name: "pixelDensity" });
@@ -331,153 +335,161 @@ export function ArtworkConceptEditor({
         </ul>
       </section>
 
-      <fieldset className={styles.group}>
-        <legend>Artwork-Ziel und Motiv</legend>
-        <p className={styles.groupIntro}>
-          Der Artworktyp folgt dem gewählten Untertyp; Zweck und Motiv bleiben frei beschreibbar.
-        </p>
-        <div className={styles.fieldGrid}>
-          <DerivedField
-            id="artwork-type"
-            label="Artworktyp"
-            value={TYPE_LABELS[getDefaultArtworkType(subtype)]}
-            help="Aus dem Untertyp abgeleitet und nicht separat überschreibbar."
-          />
-          <SelectField
-            form={form}
-            name="artworkPurpose"
-            label="Zweck"
-            help="Konzept, Präsentation oder belastbare Produktionsreferenz."
-            options={PURPOSE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="artworkMotif"
-            label="Motivart"
-            help="Legt die zentrale Bildidee fest, ohne ein Asset-Raster zu erzwingen."
-            options={MOTIF_OPTIONS}
-          />
-          <DerivedField
-            id="artwork-direction"
-            label="Geerbte Art Direction"
-            value={artDirection}
-            help="Stilwerte stammen aus dem Basisprofil; Weltkamera und Tilegröße gelten hier nicht."
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="artworkDescription"
-            label="Motivbeschreibung"
-            help="Konkretes Hauptmotiv, Formensprache und erzählerische Identität."
-            maxLength={4000}
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "motif" ? (
+        <fieldset className={styles.group}>
+          <legend>Artwork-Ziel und Motiv</legend>
+          <p className={styles.groupIntro}>
+            Der Artworktyp folgt dem gewählten Untertyp; Zweck und Motiv bleiben frei beschreibbar.
+          </p>
+          <div className={styles.fieldGrid}>
+            <DerivedField
+              id="artwork-type"
+              label="Artworktyp"
+              value={TYPE_LABELS[getDefaultArtworkType(subtype)]}
+              help="Aus dem Untertyp abgeleitet und nicht separat überschreibbar."
+            />
+            <SelectField
+              form={form}
+              name="artworkPurpose"
+              label="Zweck"
+              help="Konzept, Präsentation oder belastbare Produktionsreferenz."
+              options={PURPOSE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="artworkMotif"
+              label="Motivart"
+              help="Legt die zentrale Bildidee fest, ohne ein Asset-Raster zu erzwingen."
+              options={MOTIF_OPTIONS}
+            />
+            <DerivedField
+              id="artwork-direction"
+              label="Geerbte Art Direction"
+              value={artDirection}
+              help="Stilwerte stammen aus dem Basisprofil; Weltkamera und Tilegröße gelten hier nicht."
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="artworkDescription"
+              label="Motivbeschreibung"
+              help="Konkretes Hauptmotiv, Formensprache und erzählerische Identität."
+              maxLength={4000}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Szene und Komposition</legend>
-        <p className={styles.groupIntro}>
-          Beschreibe Bildraum und Blickführung unabhängig von Sprite- oder Richtungslayouts.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="artworkComposition"
-            label="Komposition"
-            help="Einzelmotiv, Gruppe oder gestaffelte Szene."
-            options={COMPOSITION_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="artworkFocus"
-            label="Fokus"
-            help="Form, Material, Stimmung, Geschichte oder Maßstab als Hauptaussage."
-            options={FOCUS_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="artworkSceneDescription"
-            label="Szene"
-            help="Ort, Handlung, Figurenbezüge und räumlicher Kontext."
-            wide
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="artworkCompositionDetails"
-            label="Kompositionsdetails"
-            help="Blickführung, Gewichtung sowie Vorder-, Mittel- und Hintergrund."
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "composition" ? (
+        <fieldset className={styles.group}>
+          <legend>Szene und Komposition</legend>
+          <p className={styles.groupIntro}>
+            Beschreibe Bildraum und Blickführung unabhängig von Sprite- oder Richtungslayouts.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="artworkComposition"
+              label="Komposition"
+              help="Einzelmotiv, Gruppe oder gestaffelte Szene."
+              options={COMPOSITION_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="artworkFocus"
+              label="Fokus"
+              help="Form, Material, Stimmung, Geschichte oder Maßstab als Hauptaussage."
+              options={FOCUS_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="artworkSceneDescription"
+              label="Szene"
+              help="Ort, Handlung, Figurenbezüge und räumlicher Kontext."
+              wide
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="artworkCompositionDetails"
+              label="Kompositionsdetails"
+              help="Blickführung, Gewichtung sowie Vorder-, Mittel- und Hintergrund."
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Format und Hintergrund</legend>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="artworkFormat"
-            label="Format"
-            help="Quadratisch, Hochformat, Querformat oder bewusst frei."
-            options={FORMAT_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="artworkBackground"
-            label="Artwork-Hintergrund"
-            help="Transparent, einfach gehalten oder vollständig ausgearbeitet."
-            options={BACKGROUND_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="artworkBackgroundDetails"
-            label="Hintergrunddetails"
-            help="Umgebungsebenen, Tiefe und gewünschte Ausarbeitung."
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "background" ? (
+        <fieldset className={styles.group}>
+          <legend>Format und Hintergrund</legend>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="artworkFormat"
+              label="Format"
+              help="Quadratisch, Hochformat, Querformat oder bewusst frei."
+              options={FORMAT_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="artworkBackground"
+              label="Artwork-Hintergrund"
+              help="Transparent, einfach gehalten oder vollständig ausgearbeitet."
+              options={BACKGROUND_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="artworkBackgroundDetails"
+              label="Hintergrunddetails"
+              help="Umgebungsebenen, Tiefe und gewünschte Ausarbeitung."
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Lichtdramaturgie und Detailgrad</legend>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="artworkLightingDrama"
-            label="Lichtdramaturgie"
-            help="Die emotionale Lichtwirkung der gesamten Komposition."
-            options={LIGHTING_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="artworkDetailLevel"
-            label="Detailgrad"
-            help="Von der Übersicht über das Produktionskonzept bis zum Showcase."
-            options={DETAIL_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="artworkLightingDetails"
-            label="Lichtdetails"
-            help="Lichtquellen, Temperatur, Kontrast und dramatische Akzente."
-            wide
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="artworkExtraDetails"
-            label="Zusatzdetails"
-            help="Weitere freie Produktionshinweise; eingebrannte Schrift ist standardmäßig nicht vorgesehen."
-            maxLength={4000}
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "lighting" ? (
+        <fieldset className={styles.group}>
+          <legend>Lichtdramaturgie und Detailgrad</legend>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="artworkLightingDrama"
+              label="Lichtdramaturgie"
+              help="Die emotionale Lichtwirkung der gesamten Komposition."
+              options={LIGHTING_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="artworkDetailLevel"
+              label="Detailgrad"
+              help="Von der Übersicht über das Produktionskonzept bis zum Showcase."
+              options={DETAIL_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="artworkLightingDetails"
+              label="Lichtdetails"
+              help="Lichtquellen, Temperatur, Kontrast und dramatische Akzente."
+              wide
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="artworkExtraDetails"
+              label="Zusatzdetails"
+              help="Weitere freie Produktionshinweise; eingebrannte Schrift ist standardmäßig nicht vorgesehen."
+              maxLength={4000}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
     </div>
   );
 }

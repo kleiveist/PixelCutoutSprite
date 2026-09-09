@@ -1,5 +1,6 @@
 export {
   MovingObjectDetailsEditor,
+  type MovingObjectDetailsSection,
   type MovingObjectDetailsEditorProps,
 } from "./MovingObjectDetailsEditor";
 export {

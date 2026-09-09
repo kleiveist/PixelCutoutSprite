@@ -14,16 +14,21 @@ import type { ProfileLibrary } from "../../schemas";
 import {
   CharacterAnimationEditor,
   CharacterDetailsEditor,
+  type CharacterDetailsSection,
   type CharacterHeightSource,
 } from "../character-editor";
-import { MovingObjectAnimationEditor, MovingObjectDetailsEditor } from "../moving-object-editor";
-import { TextureMaterialEditor } from "../texture-editor";
-import { NatureTreeEditor } from "../nature-editor";
-import { StaticWorldObjectEditor } from "../static-object-editor";
-import { BuildingArchitectureEditor } from "../building-editor";
-import { TilesetEditor } from "../tileset-editor";
-import { ItemEquipmentEditor } from "../item-editor";
-import { ArtworkConceptEditor } from "../artwork-editor";
+import {
+  MovingObjectAnimationEditor,
+  MovingObjectDetailsEditor,
+  type MovingObjectDetailsSection,
+} from "../moving-object-editor";
+import { TextureMaterialEditor, type TextureDetailsSection } from "../texture-editor";
+import { NatureTreeEditor, type NatureDetailsSection } from "../nature-editor";
+import { StaticWorldObjectEditor, type StaticObjectDetailsSection } from "../static-object-editor";
+import { BuildingArchitectureEditor, type BuildingDetailsSection } from "../building-editor";
+import { TilesetEditor, type TilesetDetailsSection } from "../tileset-editor";
+import { ItemEquipmentEditor, type ItemDetailsSection } from "../item-editor";
+import { ArtworkConceptEditor, type ArtworkDetailsSection } from "../artwork-editor";
 import { CategoryIcon } from "../dashboard/CategoryIcon";
 import {
   DASHBOARD_CATEGORIES,
@@ -53,12 +58,23 @@ import {
   WIZARD_STATIC_OBJECT_DETAIL_FIELD_PATHS,
   WIZARD_TILESET_DETAIL_FIELD_PATHS,
   WIZARD_TEXTURE_DETAIL_FIELD_PATHS,
+  WizardCoreFormSchema,
   getWizardCoreStep,
   type WizardCoreFieldPath,
   type WizardCoreFormValues,
   type WizardCoreStepId,
 } from "./wizardSteps";
 import { resolveWizardDraftSnapshot } from "./wizardLifecycle";
+import {
+  WIZARD_CATALOG_PAGES,
+  WizardCatalogIdentitySchema,
+  WizardCatalogReviewSchema,
+  catalogPageForStep,
+  isCatalogPageApplicable,
+  schemaForCatalogPage,
+  updateWizardDraftFromCatalogForm,
+  type WizardCatalogStepId,
+} from "./wizardCatalog";
 import styles from "./WizardView.module.css";
 
 export interface WizardCoreFlowContext {
@@ -154,12 +170,13 @@ function ProjectStep({ form }: CoreStepProps) {
   return (
     <div className={styles.fieldGroup}>
       <label htmlFor="wizard-project-name">
-        Projektname <span className={styles.required}>Pflichtfeld</span>
+        Name des Assets <span className={styles.required}>Pflichtfeld</span>
       </label>
       <input
         id="wizard-project-name"
         type="text"
         autoComplete="off"
+        aria-label="Name des Assets (Projektname)"
         aria-describedby={describedBy}
         aria-invalid={error ? "true" : "false"}
         maxLength={120}
@@ -269,12 +286,20 @@ function CategoryStep({ draft, form, notifyProgrammaticChange }: CoreStepProps) 
     if (subtypeError) subtypeRef.current?.focus();
   }, [categoryError, subtypeError]);
 
-  const applyCategory = (nextCategory: AssetCategory): void => {
+  const applyCategory = (nextCategory: AssetCategory, captureSelection = false): void => {
+    const selectionSnapshot = captureSelection ? form.getValues() : undefined;
     subtypeController.field.onChange(undefined);
     clearClassificationFields(form, false);
     categoryController.field.onChange(nextCategory);
     setPendingCategory(null);
     setPendingSubtype(null);
+    if (selectionSnapshot) {
+      notifyProgrammaticChange({
+        allowIncompleteStep: true,
+        persistImmediately: true,
+        selectionSnapshot,
+      });
+    }
   };
 
   const requestCategory = (nextCategory: AssetCategory): void => {
@@ -287,7 +312,8 @@ function CategoryStep({ draft, form, notifyProgrammaticChange }: CoreStepProps) 
     applyCategory(nextCategory);
   };
 
-  const applySubtype = (nextSubtype: AssetSubtype | ""): void => {
+  const applySubtype = (nextSubtype: AssetSubtype | "", captureSelection = false): void => {
+    const selectionSnapshot = captureSelection ? form.getValues() : undefined;
     subtypeController.field.onChange(undefined);
     clearClassificationFields(form, false);
     if (nextSubtype !== "") {
@@ -350,6 +376,13 @@ function CategoryStep({ draft, form, notifyProgrammaticChange }: CoreStepProps) 
       }
     }
     setPendingSubtype(null);
+    if (selectionSnapshot) {
+      notifyProgrammaticChange({
+        allowIncompleteStep: true,
+        persistImmediately: true,
+        selectionSnapshot,
+      });
+    }
   };
 
   const selectSubtype = (nextSubtype: AssetSubtype | ""): void => {
@@ -437,7 +470,7 @@ function CategoryStep({ draft, form, notifyProgrammaticChange }: CoreStepProps) 
             <button
               type="button"
               className={styles.dangerButton}
-              onClick={() => applyCategory(pendingCategory)}
+              onClick={() => applyCategory(pendingCategory, true)}
             >
               Zu {getDashboardCategory(pendingCategory).label} wechseln
             </button>
@@ -598,7 +631,7 @@ function CategoryStep({ draft, form, notifyProgrammaticChange }: CoreStepProps) 
             <button
               type="button"
               className={styles.dangerButton}
-              onClick={() => applySubtype(pendingSubtype)}
+              onClick={() => applySubtype(pendingSubtype, true)}
             >
               {pendingSubtype === ""
                 ? "Untertyp leeren"
@@ -684,7 +717,13 @@ function DirectionsStep({ form }: CoreStepProps) {
   );
 }
 
-function CharacterDetailsStep({ context, draft, form, notifyProgrammaticChange }: CoreStepProps) {
+function CharacterDetailsStep({
+  context,
+  draft,
+  form,
+  notifyProgrammaticChange,
+  section,
+}: CoreStepProps & Readonly<{ section?: CharacterDetailsSection }>) {
   const category = useWatch({ control: form.control, name: "category" });
   const subtype = useWatch({ control: form.control, name: "subtype" });
   const baseProfileId = useWatch({
@@ -743,12 +782,17 @@ function CharacterDetailsStep({ context, draft, form, notifyProgrammaticChange }
       heightSource={heightSource}
       heightSourceName={heightSourceName}
       notifyProgrammaticChange={notifyProgrammaticChange}
+      {...(section ? { section } : {})}
       subtype={subtype as CharacterSubtype}
     />
   );
 }
 
-function MovingObjectDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
+function MovingObjectDetailsStep({
+  form,
+  notifyProgrammaticChange,
+  section,
+}: CoreStepProps & Readonly<{ section?: MovingObjectDetailsSection }>) {
   const category = useWatch({ control: form.control, name: "category" });
   const subtype = useWatch({ control: form.control, name: "subtype" });
   const knownMovingObjectSubtypes: readonly string[] = ASSET_SUBTYPES.movingObject;
@@ -772,12 +816,17 @@ function MovingObjectDetailsStep({ form, notifyProgrammaticChange }: CoreStepPro
     <MovingObjectDetailsEditor
       form={form}
       notifyProgrammaticChange={notifyProgrammaticChange}
+      {...(section ? { section } : {})}
       subtype={subtype as MovingObjectSubtype}
     />
   );
 }
 
-function TextureDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
+function TextureDetailsStep({
+  form,
+  notifyProgrammaticChange,
+  section,
+}: CoreStepProps & Readonly<{ section?: TextureDetailsSection }>) {
   const category = useWatch({ control: form.control, name: "category" });
   const subtype = useWatch({ control: form.control, name: "subtype" });
   const knownTextureSubtypes: readonly string[] = ASSET_SUBTYPES.texture;
@@ -795,12 +844,17 @@ function TextureDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
     <TextureMaterialEditor
       form={form}
       notifyProgrammaticChange={notifyProgrammaticChange}
+      {...(section ? { section } : {})}
       subtype={subtype as TextureSubtype}
     />
   );
 }
 
-function NatureDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
+function NatureDetailsStep({
+  form,
+  notifyProgrammaticChange,
+  section,
+}: CoreStepProps & Readonly<{ section?: NatureDetailsSection }>) {
   const category = useWatch({ control: form.control, name: "category" });
   const subtype = useWatch({ control: form.control, name: "subtype" });
   const knownNatureSubtypes: readonly string[] = ASSET_SUBTYPES.nature;
@@ -818,12 +872,17 @@ function NatureDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
     <NatureTreeEditor
       form={form}
       notifyProgrammaticChange={notifyProgrammaticChange}
+      {...(section ? { section } : {})}
       subtype={subtype as NatureSubtype}
     />
   );
 }
 
-function StaticObjectDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
+function StaticObjectDetailsStep({
+  form,
+  notifyProgrammaticChange,
+  section,
+}: CoreStepProps & Readonly<{ section?: StaticObjectDetailsSection }>) {
   const category = useWatch({ control: form.control, name: "category" });
   const subtype = useWatch({ control: form.control, name: "subtype" });
   const knownStaticObjectSubtypes: readonly string[] = ASSET_SUBTYPES.staticObject;
@@ -847,12 +906,17 @@ function StaticObjectDetailsStep({ form, notifyProgrammaticChange }: CoreStepPro
     <StaticWorldObjectEditor
       form={form}
       notifyProgrammaticChange={notifyProgrammaticChange}
+      {...(section ? { section } : {})}
       subtype={subtype as StaticObjectSubtype}
     />
   );
 }
 
-function BuildingDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
+function BuildingDetailsStep({
+  form,
+  notifyProgrammaticChange,
+  section,
+}: CoreStepProps & Readonly<{ section?: BuildingDetailsSection }>) {
   const category = useWatch({ control: form.control, name: "category" });
   const subtype = useWatch({ control: form.control, name: "subtype" });
   const knownBuildingSubtypes: readonly string[] = ASSET_SUBTYPES.building;
@@ -874,12 +938,17 @@ function BuildingDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) 
     <BuildingArchitectureEditor
       form={form}
       notifyProgrammaticChange={notifyProgrammaticChange}
+      {...(section ? { section } : {})}
       subtype={subtype as BuildingSubtype}
     />
   );
 }
 
-function TilesetDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
+function TilesetDetailsStep({
+  form,
+  notifyProgrammaticChange,
+  section,
+}: CoreStepProps & Readonly<{ section?: TilesetDetailsSection }>) {
   const category = useWatch({ control: form.control, name: "category" });
   const subtype = useWatch({ control: form.control, name: "subtype" });
   const knownTilesetSubtypes: readonly string[] = ASSET_SUBTYPES.tileset;
@@ -899,12 +968,17 @@ function TilesetDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
     <TilesetEditor
       form={form}
       notifyProgrammaticChange={notifyProgrammaticChange}
+      {...(section ? { section } : {})}
       subtype={subtype as TilesetSubtype}
     />
   );
 }
 
-function ItemDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
+function ItemDetailsStep({
+  form,
+  notifyProgrammaticChange,
+  section,
+}: CoreStepProps & Readonly<{ section?: ItemDetailsSection }>) {
   const category = useWatch({ control: form.control, name: "category" });
   const subtype = useWatch({ control: form.control, name: "subtype" });
   const knownItemSubtypes: readonly string[] = ASSET_SUBTYPES.item;
@@ -922,12 +996,17 @@ function ItemDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
     <ItemEquipmentEditor
       form={form}
       notifyProgrammaticChange={notifyProgrammaticChange}
+      {...(section ? { section } : {})}
       subtype={subtype as ItemSubtype}
     />
   );
 }
 
-function ArtworkDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
+function ArtworkDetailsStep({
+  form,
+  notifyProgrammaticChange,
+  section,
+}: CoreStepProps & Readonly<{ section?: ArtworkDetailsSection }>) {
   const category = useWatch({ control: form.control, name: "category" });
   const subtype = useWatch({ control: form.control, name: "subtype" });
   const knownArtworkSubtypes: readonly string[] = ASSET_SUBTYPES.artwork;
@@ -945,6 +1024,7 @@ function ArtworkDetailsStep({ form, notifyProgrammaticChange }: CoreStepProps) {
     <ArtworkConceptEditor
       form={form}
       notifyProgrammaticChange={notifyProgrammaticChange}
+      {...(section ? { section } : {})}
       subtype={subtype as ArtworkSubtype}
     />
   );
@@ -1025,6 +1105,133 @@ function AnimationStep({ form, notifyProgrammaticChange }: CoreStepProps) {
         <AnimationSelect form={form} options={ANIMATION_TYPE_OPTIONS.building} />
       ) : null}
     </div>
+  );
+}
+
+function CatalogHeader(props: CoreStepProps) {
+  const baseProfileId = useWatch({ control: props.form.control, name: "baseProfileId" });
+  const baseProfile = props.context.library?.baseProfiles.find(
+    (candidate) => candidate.id === baseProfileId,
+  );
+
+  return (
+    <section className={styles.catalogHeader} aria-label="Asset und Basiskontext">
+      <ProjectStep {...props} />
+      <div className={styles.baseContext}>
+        <div>
+          <p className={styles.eyebrow}>Schreibgeschützter Basiskontext</p>
+          <strong>{baseProfile?.name ?? "Noch kein Basisprofil eingerichtet"}</strong>
+        </div>
+        {baseProfile ? (
+          <dl>
+            <div>
+              <dt>Stil</dt>
+              <dd>{baseProfile.values.styleProfile}</dd>
+            </div>
+            <div>
+              <dt>Tile</dt>
+              <dd>{baseProfile.values.tileSize} px</dd>
+            </div>
+            <div>
+              <dt>Perspektive</dt>
+              <dd>{baseProfile.values.perspectiveType}</dd>
+            </div>
+          </dl>
+        ) : (
+          <p>
+            Die Katalogfragen bleiben erhalten. Vor dem Weitergehen ist eine Produktionsbasis
+            erforderlich.
+          </p>
+        )}
+        {props.context.onOpenBaseProfile ? (
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={props.context.onOpenBaseProfile}
+          >
+            Basisprofil {baseProfile ? "anzeigen" : "einrichten"}
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function CatalogIdentityStep(props: CoreStepProps) {
+  return <CategoryStep {...props} />;
+}
+
+function CatalogPageStep(props: CoreStepProps) {
+  const candidate = catalogPageForStep(props.stepId ?? "");
+  if (!candidate) {
+    return (
+      <section className={styles.changeWarning} role="alert">
+        <strong>Katalogseite nicht verfügbar</strong>
+        <p>Der gespeicherte Schritt wird beim nächsten Start auf eine gültige Seite migriert.</p>
+      </section>
+    );
+  }
+
+  const section = candidate.sectionId.split("/")[1];
+  switch (candidate.category) {
+    case "character":
+      return <CharacterDetailsStep {...props} section={section as CharacterDetailsSection} />;
+    case "movingObject":
+      return <MovingObjectDetailsStep {...props} section={section as MovingObjectDetailsSection} />;
+    case "texture":
+      return <TextureDetailsStep {...props} section={section as TextureDetailsSection} />;
+    case "nature":
+      return <NatureDetailsStep {...props} section={section as NatureDetailsSection} />;
+    case "staticObject":
+      return <StaticObjectDetailsStep {...props} section={section as StaticObjectDetailsSection} />;
+    case "building":
+      return <BuildingDetailsStep {...props} section={section as BuildingDetailsSection} />;
+    case "tileset":
+      return <TilesetDetailsStep {...props} section={section as TilesetDetailsSection} />;
+    case "item":
+      return <ItemDetailsStep {...props} section={section as ItemDetailsSection} />;
+    case "artwork":
+      return <ArtworkDetailsStep {...props} section={section as ArtworkDetailsSection} />;
+    case "capability":
+      return candidate.sectionId === "capabilities/directions" ? (
+        <DirectionsStep {...props} />
+      ) : (
+        <AnimationStep {...props} />
+      );
+  }
+}
+
+function CatalogReviewStep({ context, form }: CoreStepProps) {
+  const category = useWatch({ control: form.control, name: "category" });
+  const subtype = useWatch({ control: form.control, name: "subtype" });
+  const baseProfileId = useWatch({ control: form.control, name: "baseProfileId" });
+  const baseProfile = context.library?.baseProfiles.find(
+    (candidate) => candidate.id === baseProfileId,
+  );
+
+  return (
+    <section className={styles.reviewCard} aria-labelledby="wizard-review-title">
+      <p className={styles.eyebrow}>Abschlusskontrolle</p>
+      <h3 id="wizard-review-title">Antwortkatalog vollständig geprüft</h3>
+      <p>
+        Prüfe die Zusammenfassung rechts. „Entwurf sichern“ bestätigt nur den Katalog; eine Ausgabe
+        wird in diesem Schritt noch nicht erzeugt.
+      </p>
+      <dl>
+        <div>
+          <dt>Assetart</dt>
+          <dd>{category ? getDashboardCategory(category).label : "Nicht gewählt"}</dd>
+        </div>
+        <div>
+          <dt>Untertyp</dt>
+          <dd>{subtype ? formatSubtypeLabel(subtype) : "Nicht gewählt"}</dd>
+        </div>
+        <div>
+          <dt>Basis</dt>
+          <dd>{baseProfile?.name ?? "Nicht eingerichtet"}</dd>
+        </div>
+      </dl>
+    </section>
   );
 }
 
@@ -1170,5 +1377,53 @@ export const WIZARD_CORE_FLOW = Object.freeze({
 } satisfies GuidedWizardFlowDefinition<
   WizardCoreFormValues,
   WizardCoreStepId,
+  WizardCoreFlowContext
+>);
+
+const WIZARD_CATALOG_PAGE_STEPS = WIZARD_CATALOG_PAGES.map((candidate) =>
+  Object.freeze({
+    id: candidate.id,
+    title: candidate.title,
+    description: candidate.description,
+    fieldPaths: Object.freeze([
+      "projectName",
+      "baseProfileId",
+      ...candidate.fieldPaths,
+    ] as WizardCoreFieldPath[]),
+    schema: schemaForCatalogPage(candidate),
+    isApplicable: (values: WizardCoreFormValues) => isCatalogPageApplicable(candidate, values),
+    Component: CatalogPageStep,
+  }),
+);
+
+export const WIZARD_CATALOG_FLOW = Object.freeze({
+  steps: Object.freeze([
+    Object.freeze({
+      id: "identity" as const,
+      title: "Asset und Bildart",
+      description: "Benenne das Asset und wähle Hauptkategorie sowie Untertyp.",
+      fieldPaths: Object.freeze(["projectName", "category", "subtype"] as WizardCoreFieldPath[]),
+      schema: WizardCatalogIdentitySchema,
+      Component: CatalogIdentityStep,
+    }),
+    ...WIZARD_CATALOG_PAGE_STEPS,
+    Object.freeze({
+      id: "review" as const,
+      title: "Prüfung",
+      description: "Kontrolliere den vollständigen Katalog vor dem Abschluss.",
+      fieldPaths: Object.freeze(Object.keys(WizardCoreFormSchema.shape) as WizardCoreFieldPath[]),
+      schema: WizardCatalogReviewSchema,
+      isApplicable: (values: WizardCoreFormValues) =>
+        values.category !== undefined && values.subtype !== undefined,
+      Component: CatalogReviewStep,
+    }),
+  ] as const),
+  persistIncompleteChanges: true,
+  updateDraft: updateWizardDraftFromCatalogForm,
+  Header: CatalogHeader,
+  Summary: CoreSummary,
+} satisfies GuidedWizardFlowDefinition<
+  WizardCoreFormValues,
+  WizardCatalogStepId,
   WizardCoreFlowContext
 >);

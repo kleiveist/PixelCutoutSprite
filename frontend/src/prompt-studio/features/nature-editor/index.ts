@@ -1,1 +1,5 @@
-export { NatureTreeEditor, type NatureTreeEditorProps } from "./NatureTreeEditor";
+export {
+  NatureTreeEditor,
+  type NatureDetailsSection,
+  type NatureTreeEditorProps,
+} from "./NatureTreeEditor";

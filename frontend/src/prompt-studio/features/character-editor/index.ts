@@ -1,5 +1,6 @@
 export {
   CharacterDetailsEditor,
+  type CharacterDetailsSection,
   type CharacterDetailsEditorProps,
   type CharacterHeightSource,
 } from "./CharacterDetailsEditor";

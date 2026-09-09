@@ -400,12 +400,17 @@ function TileSizeField({ tileSize }: Readonly<{ tileSize?: number }>) {
 export interface StaticWorldObjectEditorProps {
   readonly form: StaticObjectForm;
   readonly notifyProgrammaticChange: () => void;
+  readonly section?: StaticObjectDetailsSection;
   readonly subtype: StaticObjectSubtype;
 }
+
+export type StaticObjectDetailsSection =
+  "core" | "material" | "interaction" | "footprint" | "details";
 
 export function StaticWorldObjectEditor({
   form,
   notifyProgrammaticChange,
+  section,
   subtype,
 }: StaticWorldObjectEditorProps) {
   const objectClass = getDefaultStaticObjectClass(subtype);
@@ -455,189 +460,199 @@ export function StaticWorldObjectEditor({
         </p>
       </section>
 
-      <fieldset className={styles.group}>
-        <legend>Funktion und Grundform</legend>
-        <p className={styles.groupIntro}>
-          Definiere zuerst Spielzweck, große Formmassen und Silhouette des unbewegten Weltobjekts.
-        </p>
-        <div className={styles.fieldGrid}>
-          <ObjectClassField objectClass={objectClass} subtype={subtype} />
-          <SelectField
-            form={form}
-            name="staticObjectPurpose"
-            label="Funktion / Zweck"
-            help="Bestimmt, ob das Objekt dekoriert, blockiert, begehbar oder interaktiv ist."
-            options={PURPOSE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="staticObjectBasicShape"
-            label="Grundform"
-            help="Große geometrische Form, die auch in nativer Pixelgröße lesbar bleibt."
-            options={BASIC_SHAPE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="staticObjectProportion"
-            label="Proportion"
-            help="Verhältnis von Höhe, Breite und visueller Masse."
-            options={PROPORTION_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="staticObjectSymmetry"
-            label="Symmetrie"
-            help="Ordnung der großen Formelemente, nicht kleinteiliges Oberflächenrauschen."
-            options={SYMMETRY_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="staticObjectDescription"
-            label="Kurze Objektbeschreibung"
-            help="Fasse Motiv, Funktion und wichtigste Erkennungsmerkmale zusammen."
-            maxLength={4000}
-            wide
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className={styles.group}>
-        <legend>Material, Zustand und Details</legend>
-        <p className={styles.groupIntro}>
-          Beschreibe Materialien als klare Flächen und Cluster, damit das Objekt trotz Alterung
-          gameplay-lesbar bleibt.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="staticObjectPrimaryMaterial"
-            label="Hauptmaterial"
-            help="Dominantes Material der Silhouette und größten sichtbaren Flächen."
-            options={MATERIAL_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="staticObjectSecondaryMaterial"
-            label="Sekundärmaterial"
-            help="Optionales zweites Material für Beschläge, Einfassungen oder Akzente."
-            options={MATERIAL_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="staticObjectCondition"
-            label="Zustand"
-            help="Sauber, gebraucht, verwittert, beschädigt oder überwuchert."
-            options={CONDITION_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="staticObjectMaterialDetails"
-            label="Materialaufbau und Oberfläche"
-            help="Beschreibe Maserung, Fugen, Beschläge, Bruchkanten oder Materialwechsel."
-            maxLength={500}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="staticObjectDetailElements"
-            label="Lesbare Detail-Elemente"
-            help="Nenne funktionale Griffe, Bänder, Symbole, Kanten oder andere wichtige Details."
-            maxLength={500}
-            wide
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className={styles.group}>
-        <legend>Inhalt, Interaktion und Schatten</legend>
-        <p className={styles.groupIntro}>
-          Inhalt und Interaktion definieren den Spielzustand. Animation bleibt weiterhin dem
-          separaten Capability-Schritt vorbehalten.
-        </p>
-        <div className={styles.fieldGrid}>
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="staticObjectContents"
-            label="Sichtbarer Inhalt"
-            help="Optionaler Inhalt, eine Einlage oder der Zustand des geöffneten Innenraums."
-            maxLength={500}
-            wide
-          />
-          <SelectField
-            form={form}
-            name="staticObjectInteraction"
-            label="Interaktion"
-            help="Fachliche Reaktion im Spiel; keine Animations- oder Richtungsdefinition."
-            options={INTERACTION_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="staticObjectShadowMode"
-            label="Schatten"
-            help="Kein eigener Schatten oder ein kleiner, weltlichtkonformer Kontaktschatten."
-            options={SHADOW_OPTIONS}
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className={styles.group}>
-        <legend>Standfläche und Varianten</legend>
-        <p className={styles.groupIntro}>
-          Breite und Tiefe bilden gemeinsam den optionalen Footprint. Ein einzelner Wert ist
-          unvollständig und muss ergänzt oder geleert werden.
-        </p>
-        <div className={styles.fieldGrid}>
-          <NumberField
-            form={form}
-            name="staticObjectFootprintWidthTiles"
-            label="Standfläche · Breite in Tiles"
-            help="Ganzzahlig von 1 bis 64; nur gemeinsam mit der Tiefe gültig."
-            min={1}
-            max={64}
-          />
-          <NumberField
-            form={form}
-            name="staticObjectFootprintDepthTiles"
-            label="Standfläche · Tiefe in Tiles"
-            help="Ganzzahlig von 1 bis 64; nur gemeinsam mit der Breite gültig."
-            min={1}
-            max={64}
-          />
-          <NumberField
-            form={form}
-            name="staticObjectVariantCount"
-            label="Verwandte Varianten"
-            help="Ein bis zwölf zusammengehörige Objektvarianten."
-            min={1}
-            max={12}
-          />
-          <TileSizeField {...(tileSize === undefined ? {} : { tileSize })} />
-        </div>
-        {footprintIsPartial ? (
-          <p className={styles.footprintWarning} role="status" aria-label="Footprint-Hinweis">
-            Der Footprint ist unvollständig. Ergänze Breite und Tiefe gemeinsam oder leere beide
-            Werte.
+      {section === undefined || section === "core" ? (
+        <fieldset className={styles.group}>
+          <legend>Funktion und Grundform</legend>
+          <p className={styles.groupIntro}>
+            Definiere zuerst Spielzweck, große Formmassen und Silhouette des unbewegten Weltobjekts.
           </p>
-        ) : null}
-      </fieldset>
+          <div className={styles.fieldGrid}>
+            <ObjectClassField objectClass={objectClass} subtype={subtype} />
+            <SelectField
+              form={form}
+              name="staticObjectPurpose"
+              label="Funktion / Zweck"
+              help="Bestimmt, ob das Objekt dekoriert, blockiert, begehbar oder interaktiv ist."
+              options={PURPOSE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="staticObjectBasicShape"
+              label="Grundform"
+              help="Große geometrische Form, die auch in nativer Pixelgröße lesbar bleibt."
+              options={BASIC_SHAPE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="staticObjectProportion"
+              label="Proportion"
+              help="Verhältnis von Höhe, Breite und visueller Masse."
+              options={PROPORTION_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="staticObjectSymmetry"
+              label="Symmetrie"
+              help="Ordnung der großen Formelemente, nicht kleinteiliges Oberflächenrauschen."
+              options={SYMMETRY_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="staticObjectDescription"
+              label="Kurze Objektbeschreibung"
+              help="Fasse Motiv, Funktion und wichtigste Erkennungsmerkmale zusammen."
+              maxLength={4000}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Weitere Objektdetails</legend>
-        <div className={styles.fieldGrid}>
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="staticObjectExtraDetails"
-            label="Weitere Objektdetails"
-            help="Optionale Ergänzungen zu Nutzungskontext, Farbwirkung, Alterung oder Lesbarkeit."
-            maxLength={4000}
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "material" ? (
+        <fieldset className={styles.group}>
+          <legend>Material, Zustand und Details</legend>
+          <p className={styles.groupIntro}>
+            Beschreibe Materialien als klare Flächen und Cluster, damit das Objekt trotz Alterung
+            gameplay-lesbar bleibt.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="staticObjectPrimaryMaterial"
+              label="Hauptmaterial"
+              help="Dominantes Material der Silhouette und größten sichtbaren Flächen."
+              options={MATERIAL_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="staticObjectSecondaryMaterial"
+              label="Sekundärmaterial"
+              help="Optionales zweites Material für Beschläge, Einfassungen oder Akzente."
+              options={MATERIAL_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="staticObjectCondition"
+              label="Zustand"
+              help="Sauber, gebraucht, verwittert, beschädigt oder überwuchert."
+              options={CONDITION_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="staticObjectMaterialDetails"
+              label="Materialaufbau und Oberfläche"
+              help="Beschreibe Maserung, Fugen, Beschläge, Bruchkanten oder Materialwechsel."
+              maxLength={500}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="staticObjectDetailElements"
+              label="Lesbare Detail-Elemente"
+              help="Nenne funktionale Griffe, Bänder, Symbole, Kanten oder andere wichtige Details."
+              maxLength={500}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
+
+      {section === undefined || section === "interaction" ? (
+        <fieldset className={styles.group}>
+          <legend>Inhalt, Interaktion und Schatten</legend>
+          <p className={styles.groupIntro}>
+            Inhalt und Interaktion definieren den Spielzustand. Animation bleibt weiterhin dem
+            separaten Capability-Schritt vorbehalten.
+          </p>
+          <div className={styles.fieldGrid}>
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="staticObjectContents"
+              label="Sichtbarer Inhalt"
+              help="Optionaler Inhalt, eine Einlage oder der Zustand des geöffneten Innenraums."
+              maxLength={500}
+              wide
+            />
+            <SelectField
+              form={form}
+              name="staticObjectInteraction"
+              label="Interaktion"
+              help="Fachliche Reaktion im Spiel; keine Animations- oder Richtungsdefinition."
+              options={INTERACTION_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="staticObjectShadowMode"
+              label="Schatten"
+              help="Kein eigener Schatten oder ein kleiner, weltlichtkonformer Kontaktschatten."
+              options={SHADOW_OPTIONS}
+            />
+          </div>
+        </fieldset>
+      ) : null}
+
+      {section === undefined || section === "footprint" ? (
+        <fieldset className={styles.group}>
+          <legend>Standfläche und Varianten</legend>
+          <p className={styles.groupIntro}>
+            Breite und Tiefe bilden gemeinsam den optionalen Footprint. Ein einzelner Wert ist
+            unvollständig und muss ergänzt oder geleert werden.
+          </p>
+          <div className={styles.fieldGrid}>
+            <NumberField
+              form={form}
+              name="staticObjectFootprintWidthTiles"
+              label="Standfläche · Breite in Tiles"
+              help="Ganzzahlig von 1 bis 64; nur gemeinsam mit der Tiefe gültig."
+              min={1}
+              max={64}
+            />
+            <NumberField
+              form={form}
+              name="staticObjectFootprintDepthTiles"
+              label="Standfläche · Tiefe in Tiles"
+              help="Ganzzahlig von 1 bis 64; nur gemeinsam mit der Breite gültig."
+              min={1}
+              max={64}
+            />
+            <NumberField
+              form={form}
+              name="staticObjectVariantCount"
+              label="Verwandte Varianten"
+              help="Ein bis zwölf zusammengehörige Objektvarianten."
+              min={1}
+              max={12}
+            />
+            <TileSizeField {...(tileSize === undefined ? {} : { tileSize })} />
+          </div>
+          {footprintIsPartial ? (
+            <p className={styles.footprintWarning} role="status" aria-label="Footprint-Hinweis">
+              Der Footprint ist unvollständig. Ergänze Breite und Tiefe gemeinsam oder leere beide
+              Werte.
+            </p>
+          ) : null}
+        </fieldset>
+      ) : null}
+
+      {section === undefined || section === "details" ? (
+        <fieldset className={styles.group}>
+          <legend>Weitere Objektdetails</legend>
+          <div className={styles.fieldGrid}>
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="staticObjectExtraDetails"
+              label="Weitere Objektdetails"
+              help="Optionale Ergänzungen zu Nutzungskontext, Farbwirkung, Alterung oder Lesbarkeit."
+              maxLength={4000}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
     </div>
   );
 }

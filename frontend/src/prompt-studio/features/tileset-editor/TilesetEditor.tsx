@@ -552,10 +552,19 @@ function TechnicalSpecificationCard({
 export interface TilesetEditorProps {
   readonly form: TilesetForm;
   readonly notifyProgrammaticChange: () => void;
+  readonly section?: TilesetDetailsSection;
   readonly subtype: TilesetSubtype;
 }
 
-export function TilesetEditor({ form, notifyProgrammaticChange, subtype }: TilesetEditorProps) {
+export type TilesetDetailsSection =
+  "grid" | "connections" | "seams" | "variants" | "atlas" | "details";
+
+export function TilesetEditor({
+  form,
+  notifyProgrammaticChange,
+  section,
+  subtype,
+}: TilesetEditorProps) {
   const tilesetType = getDefaultTilesetType(subtype);
   const supportsEdges = tilesetSubtypeSupportsEdges(subtype);
   const supportsCorners = tilesetSubtypeSupportsCorners(subtype);
@@ -630,261 +639,273 @@ export function TilesetEditor({ form, notifyProgrammaticChange, subtype }: Tiles
         </p>
       </section>
 
-      <fieldset className={styles.group}>
-        <legend>Grid und Tiletyp</legend>
-        <p className={styles.groupIntro}>
-          Tilegröße und Pixelmaßstab stammen aus der technischen Profilkette und werden nicht als
-          Tileset-Antwort dupliziert.
-        </p>
-        <div className={styles.fieldGrid}>
-          <DerivedField
-            id="tileset-type"
-            label="Tiletyp"
-            value={TYPE_LABELS[tilesetType]}
-            help={`Aus dem Untertyp ${SUBTYPE_LABELS[subtype]} abgeleitet.`}
-          />
-          <DerivedField
-            id="tileset-grid"
-            label="Wirksames Tile-Grid"
-            value={
-              tileSize === undefined
-                ? "Nicht festgelegt"
-                : `${String(tileSize)} × ${String(tileSize)} px`
-            }
-            help="Sperrbarer technischer Wert aus Base→Category→Asset."
-          />
-          <DerivedField
-            id="tileset-pixel-density"
-            label="Pixelmaßstab"
-            value={
-              pixelDensity === undefined ? "Nicht festgelegt" : PIXEL_DENSITY_LABELS[pixelDensity]
-            }
-            help="Die geerbte Pixeldichte gilt für jede Atlas-Zelle."
-          />
-          <SelectField
-            form={form}
-            name="tilesetUsage"
-            label="Einsatz im Mapping"
-            help="Fläche oder Anschlussrolle, für die das Set produziert wird."
-            options={USAGE_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="tilesetDescription"
-            label="Tileset-Beschreibung"
-            help="Material, Lesbarkeit und charakteristische Flächendetails."
-            maxLength={4000}
-            wide
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className={styles.group}>
-        <legend>Kanten, Übergänge und Ecken</legend>
-        <p className={styles.groupIntro}>
-          Nur Verbindungen erfassen, die der gewählte Untertyp tatsächlich als eigene Atlas-Slots
-          benötigt.
-        </p>
-        {supportsEdges || supportsCorners || supportsTransitions ? (
-          <div className={styles.fieldGrid}>
-            {supportsEdges ? (
-              <>
-                <SelectField
-                  form={form}
-                  name="tilesetEdgeSet"
-                  label="Kantenset"
-                  help="Kardinale und gegebenenfalls diagonale Anschlusszustände."
-                  options={EDGE_SET_OPTIONS}
-                />
-                <TextField
-                  form={form}
-                  notifyProgrammaticChange={notifyProgrammaticChange}
-                  name="tilesetEdgeDetails"
-                  label="Kantenregeln"
-                  help="Reihenfolge, Nachbarschaftsmasken und pixelgenaue Randlogik."
-                  maxLength={500}
-                />
-              </>
-            ) : null}
-            {supportsCorners ? (
-              <SelectField
-                form={form}
-                name="tilesetCornerSet"
-                label="Innen-/Außenecken"
-                help="Legt fest, welche konkaven und konvexen Eckzustände enthalten sind."
-                options={CORNER_SET_OPTIONS}
-              />
-            ) : null}
-            {supportsTransitions ? (
-              <>
-                <SelectField
-                  form={form}
-                  name="tilesetTransitionMode"
-                  label="Übergangslogik"
-                  help="Richtung und Umfang der Materialübergänge."
-                  options={TRANSITION_MODE_OPTIONS}
-                />
-                <TextField
-                  form={form}
-                  notifyProgrammaticChange={notifyProgrammaticChange}
-                  name="tilesetSourceMaterial"
-                  label="Ausgangsmaterial"
-                  help="Material auf der primären Seite des Übergangs."
-                  maxLength={200}
-                />
-                <TextField
-                  form={form}
-                  notifyProgrammaticChange={notifyProgrammaticChange}
-                  name="tilesetTargetMaterial"
-                  label="Nachbarmaterial"
-                  help="Material, das an der gegenüberliegenden Seite anschließt."
-                  maxLength={200}
-                />
-              </>
-            ) : null}
-          </div>
-        ) : (
-          <p className={styles.emptyGroupNote} role="note">
-            Dieser Untertyp benötigt kein separates Kanten-, Eck- oder Übergangsset. Seine Seam- und
-            Wiederholungsregeln bleiben relevant.
+      {section === undefined || section === "grid" ? (
+        <fieldset className={styles.group}>
+          <legend>Grid und Tiletyp</legend>
+          <p className={styles.groupIntro}>
+            Tilegröße und Pixelmaßstab stammen aus der technischen Profilkette und werden nicht als
+            Tileset-Antwort dupliziert.
           </p>
-        )}
-      </fieldset>
+          <div className={styles.fieldGrid}>
+            <DerivedField
+              id="tileset-type"
+              label="Tiletyp"
+              value={TYPE_LABELS[tilesetType]}
+              help={`Aus dem Untertyp ${SUBTYPE_LABELS[subtype]} abgeleitet.`}
+            />
+            <DerivedField
+              id="tileset-grid"
+              label="Wirksames Tile-Grid"
+              value={
+                tileSize === undefined
+                  ? "Nicht festgelegt"
+                  : `${String(tileSize)} × ${String(tileSize)} px`
+              }
+              help="Sperrbarer technischer Wert aus Base→Category→Asset."
+            />
+            <DerivedField
+              id="tileset-pixel-density"
+              label="Pixelmaßstab"
+              value={
+                pixelDensity === undefined ? "Nicht festgelegt" : PIXEL_DENSITY_LABELS[pixelDensity]
+              }
+              help="Die geerbte Pixeldichte gilt für jede Atlas-Zelle."
+            />
+            <SelectField
+              form={form}
+              name="tilesetUsage"
+              label="Einsatz im Mapping"
+              help="Fläche oder Anschlussrolle, für die das Set produziert wird."
+              options={USAGE_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="tilesetDescription"
+              label="Tileset-Beschreibung"
+              help="Material, Lesbarkeit und charakteristische Flächendetails."
+              maxLength={4000}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Seam-Regeln und Wiederholung</legend>
-        <p className={styles.groupIntro}>
-          Beschreibe sowohl die erlaubten Wiederholungsachsen als auch die sichtbare Behandlung der
-          Randpixel.
-        </p>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="tileableAxes"
-            label="Kachelbare Achsen"
-            help="Horizontale, vertikale, beidseitige oder keine Wiederholung."
-            options={TILEABLE_AXES_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="tilesetSeamMode"
-            label="Seam-Regel"
-            help="Nahtlosigkeit, passende Kanten oder eine bewusste Materialgrenze."
-            options={SEAM_MODE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="tilesetRepeatMode"
-            label="Wiederholungsmuster"
-            help="Steuert erkennbare Periodizität und den Einsatz von Varianten."
-            options={REPEAT_MODE_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="tilesetSeamDetails"
-            label="Seam- und Wiederholungsdetails"
-            help="Zum Beispiel identische Randzeilen, versetzte Motive oder kontrollierter Bleed."
-            maxLength={500}
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "connections" ? (
+        <fieldset className={styles.group}>
+          <legend>Kanten, Übergänge und Ecken</legend>
+          <p className={styles.groupIntro}>
+            Nur Verbindungen erfassen, die der gewählte Untertyp tatsächlich als eigene Atlas-Slots
+            benötigt.
+          </p>
+          {supportsEdges || supportsCorners || supportsTransitions ? (
+            <div className={styles.fieldGrid}>
+              {supportsEdges ? (
+                <>
+                  <SelectField
+                    form={form}
+                    name="tilesetEdgeSet"
+                    label="Kantenset"
+                    help="Kardinale und gegebenenfalls diagonale Anschlusszustände."
+                    options={EDGE_SET_OPTIONS}
+                  />
+                  <TextField
+                    form={form}
+                    notifyProgrammaticChange={notifyProgrammaticChange}
+                    name="tilesetEdgeDetails"
+                    label="Kantenregeln"
+                    help="Reihenfolge, Nachbarschaftsmasken und pixelgenaue Randlogik."
+                    maxLength={500}
+                  />
+                </>
+              ) : null}
+              {supportsCorners ? (
+                <SelectField
+                  form={form}
+                  name="tilesetCornerSet"
+                  label="Innen-/Außenecken"
+                  help="Legt fest, welche konkaven und konvexen Eckzustände enthalten sind."
+                  options={CORNER_SET_OPTIONS}
+                />
+              ) : null}
+              {supportsTransitions ? (
+                <>
+                  <SelectField
+                    form={form}
+                    name="tilesetTransitionMode"
+                    label="Übergangslogik"
+                    help="Richtung und Umfang der Materialübergänge."
+                    options={TRANSITION_MODE_OPTIONS}
+                  />
+                  <TextField
+                    form={form}
+                    notifyProgrammaticChange={notifyProgrammaticChange}
+                    name="tilesetSourceMaterial"
+                    label="Ausgangsmaterial"
+                    help="Material auf der primären Seite des Übergangs."
+                    maxLength={200}
+                  />
+                  <TextField
+                    form={form}
+                    notifyProgrammaticChange={notifyProgrammaticChange}
+                    name="tilesetTargetMaterial"
+                    label="Nachbarmaterial"
+                    help="Material, das an der gegenüberliegenden Seite anschließt."
+                    maxLength={200}
+                  />
+                </>
+              ) : null}
+            </div>
+          ) : (
+            <p className={styles.emptyGroupNote} role="note">
+              Dieser Untertyp benötigt kein separates Kanten-, Eck- oder Übergangsset. Seine Seam-
+              und Wiederholungsregeln bleiben relevant.
+            </p>
+          )}
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Varianten</legend>
-        <p className={styles.groupIntro}>
-          Varianten reduzieren sichtbare Wiederholung, ohne Anschlussregeln oder die
-          Materialidentität zu verändern.
-        </p>
-        <div className={styles.fieldGrid}>
-          <NumberField
-            form={form}
-            name="tilesetVariantCount"
-            label="Varianten pro Zustand"
-            help="Ganzzahlig von 1 bis 64."
-            min={1}
-            max={64}
-          />
-          <VariantKindsField form={form} />
-        </div>
-      </fieldset>
+      {section === undefined || section === "seams" ? (
+        <fieldset className={styles.group}>
+          <legend>Seam-Regeln und Wiederholung</legend>
+          <p className={styles.groupIntro}>
+            Beschreibe sowohl die erlaubten Wiederholungsachsen als auch die sichtbare Behandlung
+            der Randpixel.
+          </p>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="tileableAxes"
+              label="Kachelbare Achsen"
+              help="Horizontale, vertikale, beidseitige oder keine Wiederholung."
+              options={TILEABLE_AXES_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="tilesetSeamMode"
+              label="Seam-Regel"
+              help="Nahtlosigkeit, passende Kanten oder eine bewusste Materialgrenze."
+              options={SEAM_MODE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="tilesetRepeatMode"
+              label="Wiederholungsmuster"
+              help="Steuert erkennbare Periodizität und den Einsatz von Varianten."
+              options={REPEAT_MODE_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="tilesetSeamDetails"
+              label="Seam- und Wiederholungsdetails"
+              help="Zum Beispiel identische Randzeilen, versetzte Motive oder kontrollierter Bleed."
+              maxLength={500}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Atlaslayout und Tilemetriken</legend>
-        <p className={styles.groupIntro}>
-          Die Zeilenzahl und exakte Canvasgröße werden aus Slotzahl, Layout, Tilegröße, Zwischenraum
-          und Außenrand berechnet.
-        </p>
-        <div className={styles.fieldGrid}>
-          <NumberField
-            form={form}
-            name="tilesetAtlasTileCount"
-            label="Atlas-Tiles insgesamt"
-            help="Belegte Atlas-Slots von 1 bis 256, einschließlich Verbindungen und Varianten."
-            min={1}
-            max={256}
-          />
-          <SelectField
-            form={form}
-            name="tilesetAtlasLayout"
-            label="Atlaslayout"
-            help="Ohne Auswahl wird für die Vorschau ein kompaktes automatisches Raster verwendet."
-            options={ATLAS_LAYOUT_OPTIONS}
-            onValueChange={(value) => {
-              if (value === "fixedColumns") return;
-              form.setValue("tilesetAtlasColumns", undefined, {
-                shouldDirty: true,
-                shouldTouch: true,
-                shouldValidate: true,
-              });
-            }}
-          />
-          {atlasLayout === "fixedColumns" ? (
+      {section === undefined || section === "variants" ? (
+        <fieldset className={styles.group}>
+          <legend>Varianten</legend>
+          <p className={styles.groupIntro}>
+            Varianten reduzieren sichtbare Wiederholung, ohne Anschlussregeln oder die
+            Materialidentität zu verändern.
+          </p>
+          <div className={styles.fieldGrid}>
             <NumberField
               form={form}
-              name="tilesetAtlasColumns"
-              label="Feste Spaltenzahl"
-              help="Ganzzahlig von 1 bis 64; die benötigten Zeilen werden automatisch berechnet."
+              name="tilesetVariantCount"
+              label="Varianten pro Zustand"
+              help="Ganzzahlig von 1 bis 64."
               min={1}
               max={64}
             />
-          ) : null}
-          <NumberField
-            form={form}
-            name="tilesetAtlasGutterPixels"
-            label="Zwischenraum in Pixeln"
-            help="Optionaler Abstand von 0 bis 64 px zwischen Atlas-Zellen."
-            min={0}
-            max={64}
-          />
-          <NumberField
-            form={form}
-            name="tilesetAtlasMarginPixels"
-            label="Außenrand in Pixeln"
-            help="Optionaler Rand von 0 bis 64 px auf jeder Canvas-Seite."
-            min={0}
-            max={64}
-          />
-        </div>
-        <TechnicalSpecificationCard specification={specification} />
-      </fieldset>
+            <VariantKindsField form={form} />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Weitere Tileset-Details</legend>
-        <div className={styles.fieldGrid}>
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="tilesetExtraDetails"
-            label="Weitere Produktionshinweise"
-            help="Optionale Ergänzungen zu Slotreihenfolge, Export oder Mappingkonventionen."
-            maxLength={4000}
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "atlas" ? (
+        <fieldset className={styles.group}>
+          <legend>Atlaslayout und Tilemetriken</legend>
+          <p className={styles.groupIntro}>
+            Die Zeilenzahl und exakte Canvasgröße werden aus Slotzahl, Layout, Tilegröße,
+            Zwischenraum und Außenrand berechnet.
+          </p>
+          <div className={styles.fieldGrid}>
+            <NumberField
+              form={form}
+              name="tilesetAtlasTileCount"
+              label="Atlas-Tiles insgesamt"
+              help="Belegte Atlas-Slots von 1 bis 256, einschließlich Verbindungen und Varianten."
+              min={1}
+              max={256}
+            />
+            <SelectField
+              form={form}
+              name="tilesetAtlasLayout"
+              label="Atlaslayout"
+              help="Ohne Auswahl wird für die Vorschau ein kompaktes automatisches Raster verwendet."
+              options={ATLAS_LAYOUT_OPTIONS}
+              onValueChange={(value) => {
+                if (value === "fixedColumns") return;
+                form.setValue("tilesetAtlasColumns", undefined, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: true,
+                });
+              }}
+            />
+            {atlasLayout === "fixedColumns" ? (
+              <NumberField
+                form={form}
+                name="tilesetAtlasColumns"
+                label="Feste Spaltenzahl"
+                help="Ganzzahlig von 1 bis 64; die benötigten Zeilen werden automatisch berechnet."
+                min={1}
+                max={64}
+              />
+            ) : null}
+            <NumberField
+              form={form}
+              name="tilesetAtlasGutterPixels"
+              label="Zwischenraum in Pixeln"
+              help="Optionaler Abstand von 0 bis 64 px zwischen Atlas-Zellen."
+              min={0}
+              max={64}
+            />
+            <NumberField
+              form={form}
+              name="tilesetAtlasMarginPixels"
+              label="Außenrand in Pixeln"
+              help="Optionaler Rand von 0 bis 64 px auf jeder Canvas-Seite."
+              min={0}
+              max={64}
+            />
+          </div>
+          <TechnicalSpecificationCard specification={specification} />
+        </fieldset>
+      ) : null}
+
+      {section === undefined || section === "details" ? (
+        <fieldset className={styles.group}>
+          <legend>Weitere Tileset-Details</legend>
+          <div className={styles.fieldGrid}>
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="tilesetExtraDetails"
+              label="Weitere Produktionshinweise"
+              help="Optionale Ergänzungen zu Slotreihenfolge, Export oder Mappingkonventionen."
+              maxLength={4000}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
     </div>
   );
 }

@@ -1,1 +1,1 @@
-export { ArtworkConceptEditor } from "./ArtworkConceptEditor";
+export { ArtworkConceptEditor, type ArtworkDetailsSection } from "./ArtworkConceptEditor";

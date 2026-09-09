@@ -375,12 +375,16 @@ const SHADOW_OPTIONS = optionsFromIds(ITEM_SHADOW_MODE_IDS, SHADOW_LABELS);
 export interface ItemEquipmentEditorProps {
   readonly form: ItemForm;
   readonly notifyProgrammaticChange: () => void;
+  readonly section?: ItemDetailsSection;
   readonly subtype: ItemSubtype;
 }
+
+export type ItemDetailsSection = "core" | "material" | "readability" | "output";
 
 export function ItemEquipmentEditor({
   form,
   notifyProgrammaticChange,
+  section,
   subtype,
 }: ItemEquipmentEditorProps) {
   const pixelDensity = useWatch({ control: form.control, name: "pixelDensity" });
@@ -413,196 +417,204 @@ export function ItemEquipmentEditor({
         </ul>
       </section>
 
-      <fieldset className={styles.group}>
-        <legend>Itemkern und Funktion</legend>
-        <p className={styles.groupIntro}>
-          Lege Nutzung und Ausgabeform fest. Die Itemklasse folgt unveränderlich dem gewählten
-          Untertyp.
-        </p>
-        <div className={styles.fieldGrid}>
-          <DerivedField
-            id="item-class"
-            label="Itemklasse"
-            value={CLASS_LABELS[itemClass]}
-            help="Aus dem Untertyp abgeleitet; nicht separat überschreibbar."
-          />
-          <SelectField
-            form={form}
-            name="itemPurpose"
-            label="Zweck"
-            help="Praktische, dekorative, tragbare oder benutzbare Rolle."
-            options={purposeOptions}
-          />
-          <SelectField
-            form={form}
-            name="itemPresentation"
-            label="Darstellung"
-            help="Inventar-Icon, Weltobjekt oder ausgerüstete Ansicht."
-            options={presentationOptions}
-          />
-          {wearable ? (
+      {section === undefined || section === "core" ? (
+        <fieldset className={styles.group}>
+          <legend>Itemkern und Funktion</legend>
+          <p className={styles.groupIntro}>
+            Lege Nutzung und Ausgabeform fest. Die Itemklasse folgt unveränderlich dem gewählten
+            Untertyp.
+          </p>
+          <div className={styles.fieldGrid}>
+            <DerivedField
+              id="item-class"
+              label="Itemklasse"
+              value={CLASS_LABELS[itemClass]}
+              help="Aus dem Untertyp abgeleitet; nicht separat überschreibbar."
+            />
             <SelectField
               form={form}
-              name="itemWearPosition"
-              label="Trageposition"
-              help="Nur für explizit tragbare Item-Untertypen verfügbar."
-              options={WEAR_POSITION_OPTIONS}
+              name="itemPurpose"
+              label="Zweck"
+              help="Praktische, dekorative, tragbare oder benutzbare Rolle."
+              options={purposeOptions}
             />
-          ) : null}
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="itemDescription"
-            label="Motivbeschreibung"
-            help="Konkrete Form, Bestandteile und visuelle Identität."
-            maxLength={4000}
-            wide
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="itemFunctionDetails"
-            label="Funktion"
-            help="Wie das Item benutzt wird und welche Merkmale diese Funktion sichtbar machen."
-            wide
-          />
-        </div>
-      </fieldset>
+            <SelectField
+              form={form}
+              name="itemPresentation"
+              label="Darstellung"
+              help="Inventar-Icon, Weltobjekt oder ausgerüstete Ansicht."
+              options={presentationOptions}
+            />
+            {wearable ? (
+              <SelectField
+                form={form}
+                name="itemWearPosition"
+                label="Trageposition"
+                help="Nur für explizit tragbare Item-Untertypen verfügbar."
+                options={WEAR_POSITION_OPTIONS}
+              />
+            ) : null}
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="itemDescription"
+              label="Motivbeschreibung"
+              help="Konkrete Form, Bestandteile und visuelle Identität."
+              maxLength={4000}
+              wide
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="itemFunctionDetails"
+              label="Funktion"
+              help="Wie das Item benutzt wird und welche Merkmale diese Funktion sichtbar machen."
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Material und Zustand</legend>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="itemPrimaryMaterial"
-            label="Hauptmaterial"
-            help="Visuell dominantes Material."
-            options={MATERIAL_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="itemSecondaryMaterial"
-            label="Sekundärmaterial"
-            help="Optionales zweites Material für Kontrast und Konstruktion."
-            options={MATERIAL_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="itemCondition"
-            label="Zustand"
-            help="Alterung und Gebrauchsspuren ohne die Silhouette zu verschleiern."
-            options={CONDITION_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="itemGlowMode"
-            label="Leuchteffekt"
-            help="Kontrolliertes Emissionslicht; kein Ersatz für das Weltlicht."
-            options={GLOW_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="itemMaterialDetails"
-            label="Materialdetails"
-            help="Oberfläche, Verarbeitung, Beschläge und Materialübergänge."
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "material" ? (
+        <fieldset className={styles.group}>
+          <legend>Material und Zustand</legend>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="itemPrimaryMaterial"
+              label="Hauptmaterial"
+              help="Visuell dominantes Material."
+              options={MATERIAL_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="itemSecondaryMaterial"
+              label="Sekundärmaterial"
+              help="Optionales zweites Material für Kontrast und Konstruktion."
+              options={MATERIAL_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="itemCondition"
+              label="Zustand"
+              help="Alterung und Gebrauchsspuren ohne die Silhouette zu verschleiern."
+              options={CONDITION_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="itemGlowMode"
+              label="Leuchteffekt"
+              help="Kontrolliertes Emissionslicht; kein Ersatz für das Weltlicht."
+              options={GLOW_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="itemMaterialDetails"
+              label="Materialdetails"
+              help="Oberfläche, Verarbeitung, Beschläge und Materialübergänge."
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Bedeutung und Lesbarkeit</legend>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="itemSignificance"
-            label="Bedeutung"
-            help="Wert, Seltenheit oder narrative Relevanz."
-            options={SIGNIFICANCE_OPTIONS}
-          />
-          <SelectField
-            form={form}
-            name="itemReadability"
-            label="Detaildichte"
-            help="Priorität zwischen starker Silhouette und feinen Details."
-            options={READABILITY_OPTIONS}
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="itemMeaningDetails"
-            label="Symbolik und Bedeutung"
-            help="Erkennbare Zeichen, Herkunft oder erzählerische Funktion."
-            wide
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="itemSilhouette"
-            label="Silhouettenmerkmale"
-            help="Unverwechselbare Außenkontur und klare Negativräume."
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "readability" ? (
+        <fieldset className={styles.group}>
+          <legend>Bedeutung und Lesbarkeit</legend>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="itemSignificance"
+              label="Bedeutung"
+              help="Wert, Seltenheit oder narrative Relevanz."
+              options={SIGNIFICANCE_OPTIONS}
+            />
+            <SelectField
+              form={form}
+              name="itemReadability"
+              label="Detaildichte"
+              help="Priorität zwischen starker Silhouette und feinen Details."
+              options={READABILITY_OPTIONS}
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="itemMeaningDetails"
+              label="Symbolik und Bedeutung"
+              help="Erkennbare Zeichen, Herkunft oder erzählerische Funktion."
+              wide
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="itemSilhouette"
+              label="Silhouettenmerkmale"
+              help="Unverwechselbare Außenkontur und klare Negativräume."
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
-      <fieldset className={styles.group}>
-        <legend>Größe und Ausgabe</legend>
-        <div className={styles.fieldGrid}>
-          <SelectField
-            form={form}
-            name="itemSize"
-            label="Relative Größe"
-            help="Größeneindruck relativ zu Figur und Inventar."
-            options={SIZE_OPTIONS}
-          />
-          <NumberField
-            form={form}
-            name="itemIconSize"
-            label="Icongröße (px)"
-            help="Optionale Zielgröße für eine Inventardarstellung."
-            min={8}
-            max={512}
-          />
-          <NumberField
-            form={form}
-            name="itemVariantCount"
-            label="Varianten"
-            help="Anzahl klar unterscheidbarer Ausführungen."
-            min={1}
-            max={12}
-          />
-          <SelectField
-            form={form}
-            name="itemShadowMode"
-            label="Schatten"
-            help="Freigestellt ohne Schatten oder mit kleinem Kontaktschatten."
-            options={SHADOW_OPTIONS}
-          />
-          <DerivedField
-            id="item-background"
-            label="Hintergrund"
-            value={`${backgroundMode === "scene" ? "Szene" : "Transparent"}${alphaPadding === undefined ? "" : ` · ${String(alphaPadding)} px Alpha-Rand`}`}
-            help="Wird aus dem wirksamen Basisprofil übernommen."
-          />
-          <DerivedField
-            id="item-scale"
-            label="Produktionsmaßstab"
-            value={`${tileSize === undefined ? "–" : `${String(tileSize)} px Tile`} · ${pixelDensity ?? "–"}`}
-            help="Technischer Maßstab aus der gewählten Produktionsfamilie."
-          />
-          <TextField
-            form={form}
-            notifyProgrammaticChange={notifyProgrammaticChange}
-            name="itemExtraDetails"
-            label="Weitere Vorgaben"
-            help="Nur zusätzliche, itemspezifische Produktionshinweise."
-            maxLength={4000}
-            wide
-          />
-        </div>
-      </fieldset>
+      {section === undefined || section === "output" ? (
+        <fieldset className={styles.group}>
+          <legend>Größe und Ausgabe</legend>
+          <div className={styles.fieldGrid}>
+            <SelectField
+              form={form}
+              name="itemSize"
+              label="Relative Größe"
+              help="Größeneindruck relativ zu Figur und Inventar."
+              options={SIZE_OPTIONS}
+            />
+            <NumberField
+              form={form}
+              name="itemIconSize"
+              label="Icongröße (px)"
+              help="Optionale Zielgröße für eine Inventardarstellung."
+              min={8}
+              max={512}
+            />
+            <NumberField
+              form={form}
+              name="itemVariantCount"
+              label="Varianten"
+              help="Anzahl klar unterscheidbarer Ausführungen."
+              min={1}
+              max={12}
+            />
+            <SelectField
+              form={form}
+              name="itemShadowMode"
+              label="Schatten"
+              help="Freigestellt ohne Schatten oder mit kleinem Kontaktschatten."
+              options={SHADOW_OPTIONS}
+            />
+            <DerivedField
+              id="item-background"
+              label="Hintergrund"
+              value={`${backgroundMode === "scene" ? "Szene" : "Transparent"}${alphaPadding === undefined ? "" : ` · ${String(alphaPadding)} px Alpha-Rand`}`}
+              help="Wird aus dem wirksamen Basisprofil übernommen."
+            />
+            <DerivedField
+              id="item-scale"
+              label="Produktionsmaßstab"
+              value={`${tileSize === undefined ? "–" : `${String(tileSize)} px Tile`} · ${pixelDensity ?? "–"}`}
+              help="Technischer Maßstab aus der gewählten Produktionsfamilie."
+            />
+            <TextField
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              name="itemExtraDetails"
+              label="Weitere Vorgaben"
+              help="Nur zusätzliche, itemspezifische Produktionshinweise."
+              maxLength={4000}
+              wide
+            />
+          </div>
+        </fieldset>
+      ) : null}
     </div>
   );
 }

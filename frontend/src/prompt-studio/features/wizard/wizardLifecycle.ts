@@ -427,6 +427,16 @@ export function validateWizardResume(input: ValidateWizardResumeInput): Validate
     }
   }
 
+  // Versioned catalog steps are resolved by the catalog migration in WizardEngine.
+  // Treating their symbolic IDs as unknown V2 core steps would lose the exact resume position.
+  if (draft.catalogVersion !== undefined) {
+    return Object.freeze({
+      status: "ready",
+      draft,
+      notices: Object.freeze([]),
+    });
+  }
+
   const step = resolveWizardCoreStep(draft);
   if (!step.usedFallback || step.unknownStep === undefined) {
     return Object.freeze({

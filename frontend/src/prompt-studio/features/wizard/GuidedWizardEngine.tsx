@@ -35,16 +35,21 @@ export interface GuidedWizardStepComponentProps<Values extends FieldValues, Cont
   readonly context: Context;
   readonly draft: WizardDraft;
   readonly form: UseFormReturn<Values>;
+  readonly stepId?: string;
   /**
    * Re-projects and autosaves the current form snapshot after a step applies
    * several values programmatically. Native controls do not need to call it.
    */
-  readonly notifyProgrammaticChange: (options?: GuidedWizardProgrammaticChangeOptions) => void;
+  readonly notifyProgrammaticChange: (
+    options?: GuidedWizardProgrammaticChangeOptions<Values>,
+  ) => void;
 }
 
-export interface GuidedWizardProgrammaticChangeOptions {
+export interface GuidedWizardProgrammaticChangeOptions<Values extends FieldValues = FieldValues> {
   readonly allowIncompleteStep?: boolean;
   readonly persistImmediately?: boolean;
+  /** Snapshot taken immediately before an intentionally destructive classification change. */
+  readonly selectionSnapshot?: Values;
 }
 
 export interface GuidedWizardSummaryComponentProps<Values extends FieldValues, Context> {
@@ -75,6 +80,8 @@ export interface GuidedWizardDraftUpdate<
   readonly draft: WizardDraft;
   readonly values: Values;
   readonly stepId: StepId;
+  readonly completedStepIds?: readonly StepId[];
+  readonly selectionSnapshot?: Values;
   readonly savedAt?: string;
   readonly context: Context;
 }
@@ -88,10 +95,13 @@ export interface GuidedWizardFlowDefinition<
     GuidedWizardStepDefinition<Values, StepId, Context>,
     ...GuidedWizardStepDefinition<Values, StepId, Context>[],
   ];
+  /** Allows raw/incomplete page snapshots to reach draft journals without enabling navigation. */
+  readonly persistIncompleteChanges?: boolean;
   /** `null` keeps a valid form intermediate transient while navigation continues. */
   readonly updateDraft: (
     input: GuidedWizardDraftUpdate<Values, StepId, Context>,
   ) => WizardDraft | null;
+  readonly Header?: ComponentType<GuidedWizardStepComponentProps<Values, Context>>;
   readonly Summary: ComponentType<GuidedWizardSummaryComponentProps<Values, Context>>;
 }
 
@@ -252,8 +262,13 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
 }: GuidedWizardEngineProps<Values, StepId, Context>) {
   const initialApplicableSteps = applicableSteps(flow, initialValues, context);
   const initialStep = closestApplicableStep(flow, initialApplicableSteps, initialStepId);
+  const initialCompletedStepIds = initialApplicableSteps
+    .filter((step) => initialDraft.completedStepIds?.includes(step.id) ?? false)
+    .map((step) => step.id);
 
   const [currentStepId, setCurrentStepId] = useState(initialStep.id);
+  const [completedStepIds, setCompletedStepIds] =
+    useState<readonly StepId[]>(initialCompletedStepIds);
   const [draft, setDraft] = useState(initialDraft);
   const draftInitiallyDirty = !jsonValuesEqual(initialDraft, baselineDraft);
   const valuesInitiallyDirty = !jsonValuesEqual(initialValues, baselineValues);
@@ -273,6 +288,7 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
   const baselineRef = useRef(baselineDraft);
   const baselineValuesRef = useRef(baselineValues);
   const currentStepRef = useRef(currentStepId);
+  const completedStepIdsRef = useRef<readonly StepId[]>(initialCompletedStepIds);
   const isPersistedRef = useRef(initialDraftPersisted);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -305,6 +321,25 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
     autosaveTimerRef.current = null;
   }, []);
 
+  const applyCompletedStepIds = useCallback((stepIds: readonly StepId[]) => {
+    completedStepIdsRef.current = stepIds;
+    setCompletedStepIds(stepIds);
+  }, []);
+
+  const completionBeforeCurrent = useCallback(
+    (values: Values): readonly StepId[] => {
+      const steps = applicableSteps(flow, values, context);
+      const current = steps.findIndex((step) => step.id === currentStepRef.current);
+      if (current <= 0) return [];
+      const completed = new Set(completedStepIdsRef.current);
+      return steps
+        .slice(0, current)
+        .filter((step) => completed.has(step.id))
+        .map((step) => step.id);
+    },
+    [context, flow],
+  );
+
   const applyEditedDraft = useCallback(
     (candidate: WizardDraft) => {
       draftRef.current = candidate;
@@ -321,7 +356,12 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
   );
 
   const persistValues = useCallback(
-    (values: Values, stepId: StepId) => {
+    (
+      values: Values,
+      stepId: StepId,
+      completion: readonly StepId[] = completedStepIdsRef.current,
+      selectionSnapshot?: Values,
+    ) => {
       cancelAutosave();
       setSaveStatus({ kind: "saving" });
 
@@ -331,6 +371,8 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
           draft: draftRef.current,
           values,
           stepId,
+          completedStepIds: completion,
+          ...(selectionSnapshot ? { selectionSnapshot } : {}),
           savedAt: now(),
           context,
         });
@@ -369,15 +411,22 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
   );
 
   const applyFormChange = useCallback(
-    (values: Values, options: GuidedWizardProgrammaticChangeOptions = {}) => {
+    (values: Values, options: GuidedWizardProgrammaticChangeOptions<Values> = {}) => {
       cancelAutosave();
       setSubmitError(null);
       setActiveStepConfirmed(false);
 
+      const completion = completionBeforeCurrent(values);
+      applyCompletedStepIds(completion);
+
       onValuesChanged?.(values);
 
       const stepResult = activeStepRef.current.schema.safeParse(values);
-      if (!stepResult.success && !options.allowIncompleteStep) {
+      if (
+        !stepResult.success &&
+        !options.allowIncompleteStep &&
+        flow.persistIncompleteChanges !== true
+      ) {
         const dirty =
           !jsonValuesEqual(draftRef.current, baselineRef.current) ||
           !jsonValuesEqual(values, baselineValuesRef.current);
@@ -391,7 +440,12 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
       const projectedValues = stepResult.success ? stepResult.data : values;
 
       if (options.persistImmediately) {
-        persistValues(projectedValues, currentStepRef.current);
+        persistValues(
+          projectedValues,
+          currentStepRef.current,
+          completion,
+          options.selectionSnapshot,
+        );
         return;
       }
 
@@ -401,6 +455,8 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
           draft: draftRef.current,
           values: projectedValues,
           stepId: currentStepRef.current,
+          completedStepIds: completion,
+          ...(options.selectionSnapshot ? { selectionSnapshot: options.selectionSnapshot } : {}),
           context,
         });
       } catch {
@@ -425,14 +481,23 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
 
       autosaveTimerRef.current = setTimeout(() => {
         autosaveTimerRef.current = null;
-        persistValues(projectedValues, currentStepRef.current);
+        persistValues(projectedValues, currentStepRef.current, completion);
       }, AUTOSAVE_DELAY_MS);
     },
-    [applyEditedDraft, cancelAutosave, context, flow, onValuesChanged, persistValues],
+    [
+      applyCompletedStepIds,
+      applyEditedDraft,
+      cancelAutosave,
+      completionBeforeCurrent,
+      context,
+      flow,
+      onValuesChanged,
+      persistValues,
+    ],
   );
 
   const notifyProgrammaticChange = useCallback(
-    (options?: GuidedWizardProgrammaticChangeOptions) => {
+    (options?: GuidedWizardProgrammaticChangeOptions<Values>) => {
       applyFormChange(getValues(), options);
     },
     [applyFormChange, getValues],
@@ -465,14 +530,16 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
   }, [activeStep.id, currentStepId, setFocus]);
 
   const transitionTo = useCallback(
-    (values: Values, targetStep: StepId) => {
+    (values: Values, targetStep: StepId, completion: readonly StepId[]) => {
       cancelAutosave();
+      applyCompletedStepIds(completion);
       let candidate: WizardDraft | null;
       try {
         candidate = flow.updateDraft({
           draft: draftRef.current,
           values,
           stepId: targetStep,
+          completedStepIds: completion,
           context,
         });
       } catch {
@@ -491,9 +558,9 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
       setCurrentStepId(targetStep);
       setActiveStepConfirmed(false);
       setSubmitError(null);
-      if (candidate !== null) persistValues(values, targetStep);
+      if (candidate !== null) persistValues(values, targetStep, completion);
     },
-    [applyEditedDraft, cancelAutosave, context, flow, persistValues],
+    [applyCompletedStepIds, applyEditedDraft, cancelAutosave, context, flow, persistValues],
   );
 
   const submitValid = useCallback(
@@ -501,25 +568,37 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
       const steps = applicableSteps(flow, values, context);
       const currentIndex = stepIndex(steps, currentStepRef.current);
       const nextStep = stepAt(steps, currentIndex + 1);
+      const completion = steps
+        .slice(0, currentIndex + 1)
+        .filter(
+          (step) =>
+            step.id === currentStepRef.current || completedStepIdsRef.current.includes(step.id),
+        )
+        .map((step) => step.id);
       if (nextStep) {
-        transitionTo(values, nextStep.id);
+        transitionTo(values, nextStep.id, completion);
         return;
       }
       const alreadyPersistedAndClean =
         isPersistedRef.current &&
         jsonValuesEqual(draftRef.current, baselineRef.current) &&
         jsonValuesEqual(values, baselineValuesRef.current);
-      if (alreadyPersistedAndClean) {
+      if (
+        alreadyPersistedAndClean &&
+        (flow.persistIncompleteChanges !== true ||
+          completedStepIdsRef.current.includes(currentStepRef.current))
+      ) {
         setActiveStepConfirmed(true);
         setSubmitError(null);
         return;
       }
-      if (persistValues(values, currentStepRef.current)) {
+      applyCompletedStepIds(completion);
+      if (persistValues(values, currentStepRef.current, completion)) {
         setActiveStepConfirmed(true);
       }
       setSubmitError(null);
     },
-    [context, flow, persistValues, transitionTo],
+    [applyCompletedStepIds, context, flow, persistValues, transitionTo],
   );
 
   const submitInvalid = useCallback(
@@ -557,6 +636,7 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
         draft: draftRef.current,
         values,
         stepId: previousStep.id,
+        completedStepIds: completedStepIdsRef.current,
         context,
       });
       if (candidate !== null) {
@@ -572,7 +652,9 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
 
       if (candidate !== null) {
         const result = previousStep.schema.safeParse(values);
-        if (result.success) persistValues(result.data, previousStep.id);
+        if (result.success) {
+          persistValues(result.data, previousStep.id, completedStepIdsRef.current);
+        }
       }
     } catch {
       setIsDirty(true);
@@ -587,7 +669,9 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
   const progressValue = currentIndex + 1;
   const isLastStep = currentIndex === visibleSteps.length - 1;
   const ActiveStepComponent = activeStep.Component;
+  const Header = flow.Header;
   const Summary = flow.Summary;
+  const completedSteps = new Set(completedStepIds);
 
   return (
     <>
@@ -605,7 +689,7 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
               <li
                 key={step.id}
                 className={
-                  index < currentIndex
+                  completedSteps.has(step.id)
                     ? styles.completedStep
                     : index === currentIndex
                       ? styles.currentStep
@@ -628,6 +712,15 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
           aria-labelledby="wizard-step-title"
           onSubmit={handleSubmit(submitValid, submitInvalid)}
         >
+          {Header ? (
+            <Header
+              context={context}
+              draft={draft}
+              form={form}
+              notifyProgrammaticChange={notifyProgrammaticChange}
+              stepId={activeStep.id}
+            />
+          ) : null}
           <div className={styles.stepHeading}>
             <p className={styles.eyebrow}>Geführter Abfragekatalog</p>
             <h2 id="wizard-step-title" ref={stepHeadingRef} tabIndex={-1}>
@@ -649,6 +742,7 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
               draft={draft}
               form={form}
               notifyProgrammaticChange={notifyProgrammaticChange}
+              stepId={activeStep.id}
             />
           </div>
 

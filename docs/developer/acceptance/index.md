@@ -8,6 +8,7 @@
 ## Inhalt
 
 ### Seiten
+- [P34 — Wizard-Katalog seitenweise](P34-wizard_katalog_seitenweise.md)
 - [P19 — Desktop-Usability und Leistung](desktop-usability-and-performance.md)
 - [P21 — Beispiel-Vault und Nutzeranleitung](example-vault-and-user-guide.md)
 - [P22 — Gesamtabnahme](final-acceptance.md)
