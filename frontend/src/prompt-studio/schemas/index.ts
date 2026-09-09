@@ -104,3 +104,4 @@ export {
   type WizardDraftCollection,
 } from "./storage.schema";
 export { parseWizardDraft, WizardDraftSchema, type WizardDraft } from "./wizardDraft.schema";
+export * from "./v3Contracts.schema";

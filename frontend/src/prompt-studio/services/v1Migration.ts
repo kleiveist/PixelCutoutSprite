@@ -86,6 +86,20 @@ interface ProfileCollision {
 
 type LegacyStorageKey = (typeof LEGACY_V1_STORAGE_KEYS)[keyof typeof LEGACY_V1_STORAGE_KEYS];
 
+export interface LegacyV1RawSource {
+  readonly key: LegacyStorageKey;
+  readonly rawValue: string;
+}
+
+export type LegacyV1PreviewResult =
+  | Readonly<{
+      status: "valid";
+      library: ProfileLibrary;
+      warnings: readonly LegacyV1MigrationWarning[];
+      issues: readonly MigrationIssue[];
+    }>
+  | Readonly<{ status: "invalid"; issues: readonly MigrationIssue[] }>;
+
 function errorMessage(error: unknown): string {
   if (error instanceof z.ZodError) {
     return error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
@@ -275,6 +289,51 @@ function decodePresetSources(
     if (source) sources.push(source);
   });
   return sources;
+}
+
+/**
+ * Read-only V1 decoder used by the explicit Vault migration preview. Unlike
+ * `migrateLegacyV1Storage`, this function never creates a backup or writes V2.
+ */
+export function previewLegacyV1RawSources(
+  rawSources: readonly LegacyV1RawSource[],
+  migratedAt: string,
+): LegacyV1PreviewResult {
+  const issues: MigrationIssue[] = [];
+  const sources: LegacyV1MigrationSource[] = [];
+  let validContainers = 0;
+  for (const source of rawSources) {
+    const decoded =
+      source.key === LEGACY_V1_STORAGE_KEYS.autosave
+        ? decodeAutosaveSource(source.rawValue, source.key, issues)
+        : decodePresetSources(source.rawValue, source.key, issues);
+    if (decoded !== null) {
+      validContainers += 1;
+      sources.push(...decoded);
+    }
+  }
+  if (validContainers === 0 || sources.length === 0) return { status: "invalid", issues };
+  try {
+    const transformed = transformLegacyV1Sources(sources, migratedAt);
+    return {
+      status: "valid",
+      library: transformed.library,
+      warnings: transformed.warnings,
+      issues,
+    };
+  } catch (reason) {
+    return {
+      status: "invalid",
+      issues: [
+        ...issues,
+        {
+          sourceKey: "pixelforge:v1:preview-transform",
+          code: "invalidState",
+          message: errorMessage(reason),
+        },
+      ],
+    };
+  }
 }
 
 function decodeBackupSources(backup: MigrationBackup): DecodedLegacySources {

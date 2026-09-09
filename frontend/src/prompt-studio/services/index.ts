@@ -26,12 +26,16 @@ export {
 } from "./storageAdapter";
 export {
   migrateLegacyV1Storage,
+  previewLegacyV1RawSources,
+  type LegacyV1PreviewResult,
+  type LegacyV1RawSource,
   type LegacyV1StorageMigrationResult,
   type MigrationCounts,
   type MigrationIssue,
 } from "./v1Migration";
 export {
   initializeBrowserWorkspaceStorage,
+  initializeSessionWorkspaceStorage,
   initializeWorkspaceStorage,
   type WorkspaceStorageBootstrap,
 } from "./workspaceBootstrap";
@@ -51,3 +55,9 @@ export {
   type PromptStudioRuntimeAdapters,
   type PromptWorkspaceStorage,
 } from "./promptWorkspaceStorage";
+export * from "./vaultAutosave";
+export * from "./vaultPromptGenerator";
+export * from "./vaultPromptRegeneration";
+export * from "./vaultPromptRepository";
+export * from "./vaultWizardBridge";
+export * from "./legacyVaultMigration";

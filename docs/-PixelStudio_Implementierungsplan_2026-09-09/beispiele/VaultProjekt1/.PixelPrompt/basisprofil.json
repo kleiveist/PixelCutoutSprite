@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 3,
+  "kind": "vaultBaseProfile",
+  "id": "base_beispiel1",
+  "revision": 1,
+  "name": "Vault-Basis",
+  "values": {
+    "pixelDensity": "classicHd",
+    "styleProfile": "classic",
+    "tileSize": 32,
+    "characterHeight": 64,
+    "perspectiveType": "threeQuarter",
+    "cameraAngle": 45,
+    "cameraDirection": "southToNorth",
+    "projectionType": "orthographic",
+    "outlineStyle": "dark",
+    "paletteMode": "byProfile",
+    "backgroundMode": "transparent",
+    "alphaPadding": 2,
+    "nearestNeighbor": true,
+    "lightingDefaults": {
+      "policy": "neutralDay",
+      "notes": ""
+    }
+  },
+  "locks": {},
+  "createdAt": "2026-09-09T00:00:00Z",
+  "updatedAt": "2026-09-09T00:00:00Z"
+}

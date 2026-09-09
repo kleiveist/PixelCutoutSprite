@@ -1,0 +1,356 @@
+{
+  "schemaVersion": 1,
+  "kind": "spriteScene",
+  "id": "scene_kleif",
+  "revision": 1,
+  "setId": "set_kleif",
+  "generationId": "generation_example01",
+  "blendMode": "source-over",
+  "pixelSnap": true,
+  "layers": [
+    {
+      "partId": "head",
+      "position": {
+        "x": 64.0,
+        "y": 26.0
+      },
+      "pivot": {
+        "x": 22.0,
+        "y": 18.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 16,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "torso",
+      "position": {
+        "x": 64.0,
+        "y": 69.0
+      },
+      "pivot": {
+        "x": 28.0,
+        "y": 31.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 11,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "pelvis",
+      "position": {
+        "x": 64.0,
+        "y": 105.0
+      },
+      "pivot": {
+        "x": 24.0,
+        "y": 15.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 10,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "upper_arm_l",
+      "position": {
+        "x": 90.0,
+        "y": 60.0
+      },
+      "pivot": {
+        "x": 10.0,
+        "y": 20.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 12,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "forearm_l",
+      "position": {
+        "x": 97.0,
+        "y": 88.0
+      },
+      "pivot": {
+        "x": 9.0,
+        "y": 18.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 13,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "hand_l",
+      "position": {
+        "x": 97.0,
+        "y": 107.0
+      },
+      "pivot": {
+        "x": 9.0,
+        "y": 9.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 14,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "upper_arm_r",
+      "position": {
+        "x": 38.0,
+        "y": 60.0
+      },
+      "pivot": {
+        "x": 10.0,
+        "y": 20.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 1,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "forearm_r",
+      "position": {
+        "x": 31.0,
+        "y": 88.0
+      },
+      "pivot": {
+        "x": 9.0,
+        "y": 18.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 2,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "hand_r",
+      "position": {
+        "x": 31.0,
+        "y": 107.0
+      },
+      "pivot": {
+        "x": 9.0,
+        "y": 9.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 3,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "thigh_r",
+      "position": {
+        "x": 52.0,
+        "y": 127.0
+      },
+      "pivot": {
+        "x": 12.0,
+        "y": 19.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 4,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "shin_r",
+      "position": {
+        "x": 50.0,
+        "y": 155.0
+      },
+      "pivot": {
+        "x": 10.0,
+        "y": 17.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 5,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "foot_r",
+      "position": {
+        "x": 48.0,
+        "y": 175.0
+      },
+      "pivot": {
+        "x": 14.0,
+        "y": 9.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 6,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "thigh_l",
+      "position": {
+        "x": 76.0,
+        "y": 127.0
+      },
+      "pivot": {
+        "x": 12.0,
+        "y": 19.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 7,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "shin_l",
+      "position": {
+        "x": 78.0,
+        "y": 155.0
+      },
+      "pivot": {
+        "x": 10.0,
+        "y": 17.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 8,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "foot_l",
+      "position": {
+        "x": 80.0,
+        "y": 175.0
+      },
+      "pivot": {
+        "x": 14.0,
+        "y": 9.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 9,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "cape",
+      "position": {
+        "x": 64.0,
+        "y": 84.0
+      },
+      "pivot": {
+        "x": 36.0,
+        "y": 50.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 0,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "belt_accessory",
+      "position": {
+        "x": 64.0,
+        "y": 102.0
+      },
+      "pivot": {
+        "x": 22.0,
+        "y": 8.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 15,
+      "visible": true,
+      "locked": false
+    },
+    {
+      "partId": "hair",
+      "position": {
+        "x": 64.0,
+        "y": 18.0
+      },
+      "pivot": {
+        "x": 24.0,
+        "y": 12.0
+      },
+      "rotationDeg": 0,
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "zIndex": 17,
+      "visible": true,
+      "locked": false
+    }
+  ],
+  "createdAt": "2026-09-09T00:00:00Z",
+  "updatedAt": "2026-09-09T00:00:00Z"
+}

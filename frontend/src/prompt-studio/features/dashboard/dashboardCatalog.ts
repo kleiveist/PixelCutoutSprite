@@ -96,6 +96,8 @@ export function getDashboardCategory(category: AssetCategory): DashboardCategory
 }
 
 const subtypeLabels: Readonly<Partial<Record<AssetSubtype, string>>> = {
+  sword: "Schwert",
+  potion: "Trank",
   hero: "Held",
   npc: "NPC",
   merchant: "Händler",
@@ -138,6 +140,7 @@ const subtypeLabels: Readonly<Partial<Record<AssetSubtype, string>>> = {
   armorPiece: "Rüstungsteil",
   consumable: "Verbrauchsitem",
   questItem: "Questobjekt",
+  concept: "Konzept",
   characterConcept: "Charakterkonzept",
   environmentConcept: "Umgebungskonzept",
   scene: "Szene",

@@ -59,6 +59,8 @@ interface SelectOption {
 }
 
 const SUBTYPE_LABELS: Readonly<Record<ItemSubtype, string>> = {
+  sword: "Schwert",
+  potion: "Trank",
   weapon: "Waffe",
   tool: "Werkzeug",
   clothing: "Kleidung",

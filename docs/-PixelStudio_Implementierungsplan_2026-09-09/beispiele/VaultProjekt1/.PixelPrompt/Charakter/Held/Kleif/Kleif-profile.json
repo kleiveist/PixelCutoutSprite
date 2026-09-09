@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 3,
+  "kind": "vaultPromptProfile",
+  "id": "profile_kleif",
+  "revision": 3,
+  "draftRevision": 2,
+  "name": "Kleif",
+  "folderName": "Kleif",
+  "category": "character",
+  "subtype": "hero",
+  "baseProfileId": "base_beispiel1",
+  "catalogVersion": "v3.0",
+  "status": "incomplete",
+  "answers": {},
+  "wizard": {
+    "currentStepId": "catalog/appearance",
+    "completedStepIds": [
+      "identity"
+    ]
+  },
+  "outputSelection": {
+    "styles": [
+      "classic"
+    ],
+    "languages": [
+      "de"
+    ]
+  },
+  "outputs": {
+    "status": "stale",
+    "generatedFrom": {
+      "draftRevision": 1,
+      "baseRevision": 1,
+      "generatorVersion": "example-only"
+    },
+    "files": [
+      {
+        "relativePath": "Kleif-classic-de-main.md",
+        "style": "classic",
+        "language": "de",
+        "part": "main",
+        "sha256": "5af6f255c1e40f2d8fe70d875542e975f28979b2f3709863d7c46ac6544ffa05"
+      },
+      {
+        "relativePath": "Kleif-classic-de-negative.md",
+        "style": "classic",
+        "language": "de",
+        "part": "negative",
+        "sha256": "306dfa1a6f1e02d86c80775d80e46573a4c0145d082a634290c55de3603e6c16"
+      },
+      {
+        "relativePath": "Kleif-classic-de-technical.md",
+        "style": "classic",
+        "language": "de",
+        "part": "technical",
+        "sha256": "89c01fb3a2fa8d914871ffba2f88f1c04fd193f5e90e6552c78f117c85160c48"
+      },
+      {
+        "relativePath": "Kleif-classic-de-combined.md",
+        "style": "classic",
+        "language": "de",
+        "part": "combined",
+        "sha256": "23c0468191967450d75a231cde44db4b3b17f447ab9a205d660110ce8649530b"
+      }
+    ]
+  },
+  "createdAt": "2026-09-09T00:00:00Z",
+  "updatedAt": "2026-09-09T00:00:00Z"
+}

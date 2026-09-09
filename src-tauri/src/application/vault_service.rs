@@ -18,6 +18,7 @@ use crate::storage::{
     RecoveryChoice, StorageError, TransactionAction, TransactionPurpose, TransactionService,
     TransactionStep, VaultLayout, VaultLock, VaultRoot, VersionStamp, ADMIN_DIR,
 };
+use crate::workspace::{ensure_workspace, preflight_workspace};
 
 use super::{LabelCatalog, MotionDraft, ProjectViewState};
 
@@ -56,6 +57,7 @@ pub enum VaultOpenMode {
 #[derive(Debug, Clone, Serialize)]
 pub struct OpenVault {
     pub session_id: ObjectId,
+    pub session_generation: u64,
     pub vault_id: ObjectId,
     pub path: String,
     pub mode: VaultOpenMode,
@@ -101,6 +103,7 @@ impl VaultWriteLease {
 #[derive(Debug)]
 struct VaultSession {
     root: VaultRoot,
+    generation: u64,
     vault_id: ObjectId,
     mode: VaultOpenMode,
     writer_lock: Option<Arc<VaultLock>>,
@@ -118,6 +121,7 @@ pub(crate) struct VaultSessionContext {
 #[derive(Debug, Default)]
 pub struct VaultService {
     sessions: HashMap<ObjectId, VaultSession>,
+    next_generation: u64,
 }
 
 impl VaultService {
@@ -163,6 +167,7 @@ impl VaultService {
             }
         }
         let root = VaultRoot::open(path)?;
+        preflight_workspace(&root, None)?;
         root.ensure_directory(Path::new(ADMIN_DIR))?;
         root.ensure_directory(Path::new(ADMIN_DIR).join("runtime").as_path())?;
         let layout = VaultLayout::new(root);
@@ -187,6 +192,7 @@ impl VaultService {
             ));
         };
         let root = VaultRoot::open(path)?;
+        preflight_workspace(&root, Some(&vault_id.to_string()))?;
 
         // Discovery is read-only and precedes every mutation. In particular, a future project
         // schema prevents creation of runtime/lock files and prevents any older migration.
@@ -237,6 +243,8 @@ impl VaultService {
             );
             (VaultOpenMode::ReadOnly, ObjectIndex::default())
         } else if writer_lock.is_some() {
+            ensure_workspace(&root, &vault_id.to_string())?;
+            crate::workspace::WorkspaceWriter::new(root.clone()).recover_file_sets()?;
             TransactionService::<NoTransactionFault>::cleanup_terminal(&root)?;
             let quarantined =
                 TransactionService::<NoTransactionFault>::quarantine_orphan_project_creations(
@@ -277,8 +285,11 @@ impl VaultService {
             (VaultOpenMode::ReadOnly, ObjectIndex::default())
         };
 
+        self.next_generation = self.next_generation.saturating_add(1).max(1);
+        let session_generation = self.next_generation;
         let result = OpenVault {
             session_id,
+            session_generation,
             vault_id,
             path: root.path().to_string_lossy().into_owned(),
             mode,
@@ -292,6 +303,7 @@ impl VaultService {
             session_id,
             VaultSession {
                 root,
+                generation: session_generation,
                 vault_id,
                 mode,
                 writer_lock,
@@ -493,6 +505,22 @@ impl VaultService {
             }
         }
         Ok(session.root.clone())
+    }
+
+    pub fn session_root_at_generation(
+        &self,
+        session_id: ObjectId,
+        generation: u64,
+        require_write: bool,
+    ) -> Result<VaultRoot, StorageError> {
+        let session = self
+            .sessions
+            .get(&session_id)
+            .ok_or_else(|| StorageError::InvalidVault("unknown vault session".to_owned()))?;
+        if session.generation != generation {
+            return Err(StorageError::WriteConflict);
+        }
+        self.session_root(session_id, require_write)
     }
 
     pub(crate) fn refresh_index(&mut self, session_id: ObjectId) -> Result<(), StorageError> {

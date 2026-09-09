@@ -11,8 +11,10 @@ pub mod directions;
 pub mod domain;
 pub mod editor;
 pub mod exports;
+pub mod prompt_vault;
 pub mod render;
 pub mod storage;
+pub mod workspace;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,14 +40,6 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
         .manage(application::AssetImportJobRegistry::default())
         .manage(application::AssetInspectionRegistry::default())
         .setup(|_app| {
-            let prompt_root = _app
-                .path()
-                .app_data_dir()
-                .map_err(std::io::Error::other)?
-                .join("prompt-studio");
-            let prompt_storage = storage::PromptWorkspaceStorage::open(prompt_root)
-                .map_err(std::io::Error::other)?;
-            _app.manage(Mutex::new(prompt_storage));
             #[cfg(debug_assertions)]
             if let Some((width, height)) =
                 native_acceptance_window_size().map_err(std::io::Error::other)?
@@ -72,6 +66,8 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::recover_orphaned_lock,
             commands::heartbeat_vault,
             commands::recent_vaults,
+            commands::get_global_settings,
+            commands::save_global_settings,
             commands::get_project_dashboard,
             commands::list_projects,
             commands::save_project_view_state,
@@ -137,12 +133,17 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::start_npc_export,
             commands::get_npc_export_job,
             commands::cancel_npc_export,
-            commands::read_prompt_workspace,
-            commands::write_prompt_workspace,
-            commands::remove_prompt_draft,
+            commands::read_legacy_prompt_workspace,
             commands::read_prompt_package,
             commands::save_prompt_output,
             commands::handoff_prompt_to_area,
+            commands::scan_prompt_vault,
+            commands::save_vault_base_profile,
+            commands::save_prompt_vault_draft,
+            commands::save_prompt_vault_profile,
+            commands::save_prompt_vault_generation,
+            commands::remove_prompt_vault_draft,
+            commands::apply_prompt_vault_migration,
         ])
 }
 
@@ -165,9 +166,9 @@ fn parse_native_acceptance_window_size(value: &str) -> Result<(f64, f64), String
     let height = height
         .parse::<u32>()
         .map_err(|_| "acceptance window height is not an integer".to_owned())?;
-    if !(1280..=3840).contains(&width) || !(720..=2160).contains(&height) {
+    if !(480..=3840).contains(&width) || !(360..=2160).contains(&height) {
         return Err(
-            "acceptance window must stay within 1280..=3840 by 720..=2160 logical pixels"
+            "acceptance window must stay within 480..=3840 by 360..=2160 logical pixels"
                 .to_owned(),
         );
     }
@@ -207,10 +208,14 @@ mod tests {
     #[test]
     fn native_acceptance_window_parser_is_strict_and_bounded() {
         assert_eq!(
-            parse_native_acceptance_window_size("1280x720").unwrap(),
-            (1280.0, 720.0)
+            parse_native_acceptance_window_size("480x360").unwrap(),
+            (480.0, 360.0)
         );
-        assert!(parse_native_acceptance_window_size("1279x720").is_err());
-        assert!(parse_native_acceptance_window_size("1280X720").is_err());
+        assert_eq!(
+            parse_native_acceptance_window_size("720x450").unwrap(),
+            (720.0, 450.0)
+        );
+        assert!(parse_native_acceptance_window_size("479x360").is_err());
+        assert!(parse_native_acceptance_window_size("480X360").is_err());
     }
 }

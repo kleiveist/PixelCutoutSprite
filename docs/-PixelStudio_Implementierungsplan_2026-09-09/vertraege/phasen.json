@@ -1,0 +1,130 @@
+[
+  {
+    "id": "P28",
+    "title": "Bestandsaufnahme, Zielverträge und Baseline",
+    "dependsOn": [],
+    "prompt": "prompts/P28_Bestandsaufnahme_und_Vertraege.md"
+  },
+  {
+    "id": "P29",
+    "title": "Gemeinsame Shell, Navigation, Dialoge und Responsive-Grundlage",
+    "dependsOn": [
+      "P28"
+    ],
+    "prompt": "prompts/P29_Gemeinsame_Shell_Dialoge_Responsive.md"
+  },
+  {
+    "id": "P30",
+    "title": "Gemeinsamer Vault-Core und sichere Dateitransaktionen",
+    "dependsOn": [
+      "P28",
+      "P29"
+    ],
+    "prompt": "prompts/P30_Vault_Core_und_sichere_Dateien.md"
+  },
+  {
+    "id": "P31",
+    "title": "Globale Einstellungen und Legacy-Migrationsvorbereitung",
+    "dependsOn": [
+      "P30"
+    ],
+    "prompt": "prompts/P31_Globale_Settings_und_Legacy_Vorbereitung.md"
+  },
+  {
+    "id": "P32",
+    "title": "Prompt-Dateirepository, Autosave und bestätigte Migration",
+    "dependsOn": [
+      "P30",
+      "P31"
+    ],
+    "prompt": "prompts/P32_Prompt_Vault_Persistenz_Autosave_Migration.md"
+  },
+  {
+    "id": "P33",
+    "title": "Profile-Seite mit genau einem Vault-Basisprofil",
+    "dependsOn": [
+      "P32"
+    ],
+    "prompt": "prompts/P33_Vault_Profile_und_Basisprofil_Popup.md"
+  },
+  {
+    "id": "P34",
+    "title": "Geführter Wizard mit Name und echten Katalogseiten",
+    "dependsOn": [
+      "P33"
+    ],
+    "prompt": "prompts/P34_Wizard_Katalog_Seitenweise.md"
+  },
+  {
+    "id": "P35",
+    "title": "Dashboard, Profil-Popups, Ausgabe und Dateimanager",
+    "dependsOn": [
+      "P34"
+    ],
+    "prompt": "prompts/P35_Dashboard_Popups_Ausgabe_Explorer.md"
+  },
+  {
+    "id": "P36",
+    "title": "Gemeinsame DataFolderToolbar und Dateinavigation",
+    "dependsOn": [
+      "P35"
+    ],
+    "prompt": "prompts/P36_Gemeinsame_DataFolderToolbar.md"
+  },
+  {
+    "id": "P37",
+    "title": "Alte Cutout-Fachbasis entfernen und Willkommen neu aufbauen",
+    "dependsOn": [
+      "P36"
+    ],
+    "prompt": "prompts/P37_Cutout_Altbasis_entfernen_Willkommen.md"
+  },
+  {
+    "id": "P38",
+    "title": "Cutout-Editor, Quellbild und manuelle Masken",
+    "dependsOn": [
+      "P37"
+    ],
+    "prompt": "prompts/P38_Cutout_Editor_Manuelle_Masken.md"
+  },
+  {
+    "id": "P39",
+    "title": "Assistierte Auswahl, automatische Konturanpassung und Anschlusszonen",
+    "dependsOn": [
+      "P38"
+    ],
+    "prompt": "prompts/P39_Assistierte_Auswahl_und_Ueberlappungen.md"
+  },
+  {
+    "id": "P40",
+    "title": "PNG-Teile, Schnittprojekt und manifestgestützte Ausgabe",
+    "dependsOn": [
+      "P39"
+    ],
+    "prompt": "prompts/P40_PNG_Teile_und_Manifest.md"
+  },
+  {
+    "id": "P41",
+    "title": "PixelSpriteStudio mit Ordner-Autoload und Originalanordnung",
+    "dependsOn": [
+      "P40"
+    ],
+    "prompt": "prompts/P41_PixelSpriteStudio_Autoload_und_Assembly.md"
+  },
+  {
+    "id": "P42",
+    "title": "View-Ebenen, Transformationen und Szenen-Autosave",
+    "dependsOn": [
+      "P41"
+    ],
+    "prompt": "prompts/P42_View_Ebenen_Szenen_Autosave.md"
+  },
+  {
+    "id": "P43",
+    "title": "Gesamtabnahme, Desktop-Härtung und aktualisierte Dokumentation",
+    "dependsOn": [
+      "P42"
+    ],
+    "prompt": "prompts/P43_Gesamtabnahme_Haertung_Dokumentation.md"
+  }
+]

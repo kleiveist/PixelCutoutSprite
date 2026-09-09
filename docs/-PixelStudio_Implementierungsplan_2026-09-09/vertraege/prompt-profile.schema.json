@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Vault-Promptprofil V3: Dateihülle",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 3
+    },
+    "kind": {
+      "const": "vaultPromptProfile"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "draftRevision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "folderName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^[^/\\\\\\x00]+$"
+    },
+    "category": {
+      "enum": [
+        "character",
+        "movingObject",
+        "staticObject",
+        "texture",
+        "nature",
+        "building",
+        "tileset",
+        "item",
+        "artwork"
+      ]
+    },
+    "subtype": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "baseProfileId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "catalogVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "status": {
+      "enum": [
+        "incomplete",
+        "ready"
+      ]
+    },
+    "answers": {
+      "type": "object",
+      "maxProperties": 512,
+      "$comment": "Bei ready zusätzlich vollständige Kategorie-Fachvalidierung aus dem Repository anwenden. Bei incomplete gilt ein begrenzter, partieller Validator."
+    },
+    "wizard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "currentStepId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "completedStepIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "currentStepId",
+        "completedStepIds"
+      ]
+    },
+    "outputSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "styles": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "classic",
+              "dark"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "styles",
+        "languages"
+      ]
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "none",
+            "fresh",
+            "stale",
+            "error"
+          ]
+        },
+        "generatedFrom": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "draftRevision": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "baseRevision": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "generatorVersion": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "required": [
+                "draftRevision",
+                "baseRevision",
+                "generatorVersion"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "relativePath": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024,
+                "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[^\\x00]+$"
+              },
+              "style": {
+                "enum": [
+                  "classic",
+                  "dark"
+                ]
+              },
+              "language": {
+                "type": "string",
+                "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$"
+              },
+              "part": {
+                "enum": [
+                  "main",
+                  "negative",
+                  "technical",
+                  "combined"
+                ]
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "relativePath",
+              "style",
+              "language",
+              "part",
+              "sha256"
+            ]
+          },
+          "maxItems": 256
+        }
+      },
+      "required": [
+        "status",
+        "generatedFrom",
+        "files"
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "kind",
+    "id",
+    "revision",
+    "draftRevision",
+    "name",
+    "folderName",
+    "category",
+    "subtype",
+    "baseProfileId",
+    "catalogVersion",
+    "status",
+    "answers",
+    "wizard",
+    "outputSelection",
+    "outputs",
+    "createdAt",
+    "updatedAt"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ready"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "baseProfileId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$"
+          }
+        }
+      }
+    }
+  ]
+}

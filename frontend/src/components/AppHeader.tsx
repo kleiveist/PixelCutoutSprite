@@ -5,6 +5,8 @@ interface AppHeaderProps {
   activeStudio: StudioMode;
   onOpenCutoutStudio: () => void;
   onOpenPromptStudio: () => void;
+  onOpenSpriteStudio?: () => void;
+  onSettings?: () => void;
   onHelp: () => void;
 }
 
@@ -12,6 +14,8 @@ export function AppHeader({
   activeStudio,
   onOpenCutoutStudio,
   onOpenPromptStudio,
+  onOpenSpriteStudio = () => undefined,
+  onSettings = () => undefined,
   onHelp,
 }: AppHeaderProps) {
   return (
@@ -50,16 +54,44 @@ export function AppHeader({
             <small>GENERATOR</small>
           </span>
         </button>
+        <button
+          type="button"
+          className="sprite-lockup studio-switch-button"
+          aria-label="PixelSpriteStudio öffnen"
+          aria-pressed={activeStudio === "sprite"}
+          onClick={onOpenSpriteStudio}
+        >
+          <span className="sprite-mark" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+          </span>
+          <span>
+            <strong>PixelSpriteStudio</strong>
+            <small>ASSEMBLY</small>
+          </span>
+        </button>
       </div>
       <div className="header-actions">
         <span className="desktop-badge">LOCAL DESKTOP</span>
         <button
-          className="icon-button"
+          className="header-action-button"
+          type="button"
+          onClick={onSettings}
+          aria-label="Globale Einstellungen öffnen"
+        >
+          <span aria-hidden="true">⚙</span>
+          <span className="header-action-label">Einstellungen</span>
+        </button>
+        <button
+          className="header-action-button"
           type="button"
           onClick={onHelp}
           aria-label="Open shortcut help"
         >
-          ?
+          <span aria-hidden="true">?</span>
+          <span className="header-action-label">Hilfe</span>
         </button>
       </div>
     </header>

@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Genau ein Vault-Basisprofil",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 3
+    },
+    "kind": {
+      "const": "vaultBaseProfile"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "values": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pixelDensity": {
+          "enum": [
+            "classicHd",
+            "modernHd",
+            "ultraHd"
+          ]
+        },
+        "styleProfile": {
+          "enum": [
+            "classic",
+            "dark",
+            "both"
+          ]
+        },
+        "tileSize": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 512
+        },
+        "characterHeight": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 1024
+        },
+        "perspectiveType": {
+          "enum": [
+            "topdown",
+            "threeQuarter",
+            "isometric",
+            "side"
+          ]
+        },
+        "cameraAngle": {
+          "enum": [
+            30,
+            45,
+            60
+          ]
+        },
+        "cameraDirection": {
+          "enum": [
+            "southToNorth",
+            "swToNe",
+            "seToNw"
+          ]
+        },
+        "projectionType": {
+          "enum": [
+            "orthographic",
+            "mildPerspective"
+          ]
+        },
+        "outlineStyle": {
+          "enum": [
+            "dark",
+            "softSelective",
+            "minimal"
+          ]
+        },
+        "paletteMode": {
+          "enum": [
+            "natural",
+            "vivid",
+            "desaturated",
+            "byProfile"
+          ]
+        },
+        "backgroundMode": {
+          "enum": [
+            "transparent",
+            "scene"
+          ]
+        },
+        "alphaPadding": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "nearestNeighbor": {
+          "type": "boolean"
+        },
+        "lightingDefaults": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policy": {
+              "enum": [
+                "adaptive",
+                "neutralDay",
+                "warmInterior",
+                "gloomyDiffuse",
+                "neutralNight",
+                "coolNight",
+                "custom"
+              ]
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "policy",
+            "notes"
+          ]
+        }
+      },
+      "required": [
+        "pixelDensity",
+        "styleProfile",
+        "tileSize",
+        "perspectiveType",
+        "cameraAngle",
+        "cameraDirection",
+        "projectionType",
+        "outlineStyle",
+        "paletteMode",
+        "backgroundMode",
+        "alphaPadding",
+        "nearestNeighbor",
+        "lightingDefaults"
+      ]
+    },
+    "locks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pixelDensity": {
+          "type": "boolean"
+        },
+        "styleProfile": {
+          "type": "boolean"
+        },
+        "tileSize": {
+          "type": "boolean"
+        },
+        "characterHeight": {
+          "type": "boolean"
+        },
+        "perspectiveType": {
+          "type": "boolean"
+        },
+        "cameraAngle": {
+          "type": "boolean"
+        },
+        "cameraDirection": {
+          "type": "boolean"
+        },
+        "projectionType": {
+          "type": "boolean"
+        },
+        "outlineStyle": {
+          "type": "boolean"
+        },
+        "paletteMode": {
+          "type": "boolean"
+        },
+        "backgroundMode": {
+          "type": "boolean"
+        },
+        "alphaPadding": {
+          "type": "boolean"
+        },
+        "nearestNeighbor": {
+          "type": "boolean"
+        },
+        "lightingDefaults": {
+          "type": "boolean"
+        }
+      },
+      "required": []
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "kind",
+    "id",
+    "revision",
+    "name",
+    "values",
+    "locks",
+    "createdAt",
+    "updatedAt"
+  ]
+}

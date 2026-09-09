@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SpriteStudio-Szene",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "kind": {
+      "const": "spriteScene"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "setId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "generationId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "blendMode": {
+      "const": "source-over"
+    },
+    "pixelSnap": {
+      "type": "boolean"
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "partId": {
+            "enum": [
+              "head",
+              "torso",
+              "pelvis",
+              "upper_arm_l",
+              "forearm_l",
+              "hand_l",
+              "upper_arm_r",
+              "forearm_r",
+              "hand_r",
+              "thigh_r",
+              "shin_r",
+              "foot_r",
+              "thigh_l",
+              "shin_l",
+              "foot_l",
+              "cape",
+              "belt_accessory",
+              "sword",
+              "hair"
+            ]
+          },
+          "position": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "y"
+            ],
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            }
+          },
+          "pivot": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "y"
+            ],
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            }
+          },
+          "rotationDeg": {
+            "type": "number",
+            "minimum": -360000,
+            "maximum": 360000
+          },
+          "scale": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "y": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ]
+          },
+          "zIndex": {
+            "type": "integer"
+          },
+          "visible": {
+            "type": "boolean"
+          },
+          "locked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "partId",
+          "position",
+          "pivot",
+          "rotationDeg",
+          "scale",
+          "zIndex",
+          "visible",
+          "locked"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 18
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "kind",
+    "id",
+    "revision",
+    "setId",
+    "generationId",
+    "blendMode",
+    "pixelSnap",
+    "layers",
+    "createdAt",
+    "updatedAt"
+  ]
+}

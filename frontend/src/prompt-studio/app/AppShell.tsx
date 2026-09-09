@@ -4,9 +4,9 @@ import { APP_VIEW_IDS, type AppView } from "../domain/navigation";
 import type { AssetCategory } from "../domain/assets";
 import type { PromptHandoff, PromptHandoffAvailability } from "../domain/handoff";
 import { ReviewOutputWorkspace } from "../features/review-output";
-import { SettingsView } from "../features/settings";
 import { WizardView, type WizardStorage } from "../features/wizard";
-import { ProfileLibraryView } from "../features/profiles";
+import { ProfileLibraryView, VaultProfileView } from "../features/profiles";
+import { SettingsView } from "../features/settings";
 import { DashboardView, type DashboardViewProps } from "../features/dashboard/DashboardView";
 import type { DashboardStorage } from "../features/dashboard/dashboardData";
 import type { StableId } from "../schemas";
@@ -14,6 +14,7 @@ import type { LegacyV1StorageMigrationResult, OutputWorkspaceAdapter } from "../
 import { useNavigation } from "../store/navigation";
 import { useSettings } from "../store/settings";
 import { useWizardSession } from "../store/wizard";
+import { useOptionalVaultPrompt } from "../store/vault";
 import { APP_VIEW_DEFINITIONS } from "./appViewConfig";
 import styles from "./AppShell.module.css";
 
@@ -24,15 +25,75 @@ interface ActiveViewProps {
   readonly handoffAvailability?: PromptHandoffAvailability;
   readonly onHandoff?: (handoff: PromptHandoff) => Promise<void> | void;
   readonly onOpenProfile: (profileId: StableId) => void;
+  readonly onOpenBaseProfile?: () => void;
+  readonly onOpenLegacyMigration: () => void;
   readonly onProfileDeleted: (profileId: StableId) => void;
   readonly onResumeDraft: (draftId: StableId) => void;
   readonly onSelectBaseProfile: DashboardViewProps["onSelectBaseProfile"];
   readonly onStartNewAsset: (category: AssetCategory | null) => void;
   readonly outputAdapter: OutputWorkspaceAdapter;
   readonly sessionRevision: number;
-  readonly startupMigration: LegacyV1StorageMigrationResult;
   readonly storageAdapter: DashboardStorage & WizardStorage;
+  readonly startupMigration: LegacyV1StorageMigrationResult;
   readonly view: AppView;
+}
+
+function ProfilesRoute({
+  onOpenBaseProfile,
+  onOpenLegacyMigration,
+  onOpenProfile,
+  onProfileDeleted,
+  onStartNewAsset,
+}: Readonly<{
+  onOpenBaseProfile: () => void;
+  onOpenLegacyMigration: () => void;
+  onOpenProfile: (profileId: StableId) => void;
+  onProfileDeleted: (profileId: StableId) => void;
+  onStartNewAsset: () => void;
+}>) {
+  const vaultPrompt = useOptionalVaultPrompt();
+  return vaultPrompt ? (
+    <VaultProfileView
+      onOpenBaseProfile={onOpenBaseProfile}
+      onOpenLegacyMigration={onOpenLegacyMigration}
+    />
+  ) : (
+    <ProfileLibraryView
+      onLoadProfile={onOpenProfile}
+      onProfileDeleted={onProfileDeleted}
+      onStartNewAsset={onStartNewAsset}
+    />
+  );
+}
+
+function SettingsRoute({
+  now,
+  outputAdapter,
+  startupMigration,
+  storageAdapter,
+}: Readonly<{
+  now?: () => string;
+  outputAdapter: OutputWorkspaceAdapter;
+  startupMigration: LegacyV1StorageMigrationResult;
+  storageAdapter: DashboardStorage & WizardStorage;
+}>) {
+  const vaultPrompt = useOptionalVaultPrompt();
+  if (vaultPrompt) {
+    return (
+      <section role="status">
+        <h1 id="settings-view-title">Einstellungen wurden verschoben</h1>
+        <p>Globale Darstellungseinstellungen erreichst du über das Zahnrad im App-Header.</p>
+      </section>
+    );
+  }
+  return (
+    <SettingsView
+      outputAdapter={outputAdapter}
+      startupMigration={startupMigration}
+      storageAdapter={storageAdapter}
+      {...(now ? { now } : {})}
+    />
+  );
 }
 
 function ActiveView({
@@ -42,14 +103,16 @@ function ActiveView({
   handoffAvailability,
   onHandoff,
   onOpenProfile,
+  onOpenBaseProfile,
+  onOpenLegacyMigration,
   onProfileDeleted,
   onResumeDraft,
   onSelectBaseProfile,
   onStartNewAsset,
   outputAdapter,
   sessionRevision,
-  startupMigration,
   storageAdapter,
+  startupMigration,
   view,
 }: ActiveViewProps) {
   if (view === "dashboard") {
@@ -67,8 +130,10 @@ function ActiveView({
 
   if (view === "profiles") {
     return (
-      <ProfileLibraryView
-        onLoadProfile={onOpenProfile}
+      <ProfilesRoute
+        onOpenBaseProfile={onOpenBaseProfile ?? (() => undefined)}
+        onOpenLegacyMigration={onOpenLegacyMigration}
+        onOpenProfile={onOpenProfile}
         onProfileDeleted={onProfileDeleted}
         onStartNewAsset={() => onStartNewAsset(null)}
       />
@@ -80,6 +145,7 @@ function ActiveView({
       <WizardView
         key={`wizard-session-${sessionRevision}`}
         storageAdapter={storageAdapter}
+        {...(onOpenBaseProfile ? { onOpenBaseProfile } : {})}
         {...(now ? { now } : {})}
         {...(createDraftId ? { createDraftId } : {})}
       />
@@ -99,11 +165,11 @@ function ActiveView({
   }
 
   return (
-    <SettingsView
+    <SettingsRoute
+      {...(now ? { now } : {})}
       outputAdapter={outputAdapter}
       startupMigration={startupMigration}
       storageAdapter={storageAdapter}
-      {...(now ? { now } : {})}
     />
   );
 }
@@ -114,6 +180,8 @@ export interface PromptStudioShellProps {
   readonly now?: () => string;
   readonly handoffAvailability?: PromptHandoffAvailability;
   readonly onHandoff?: (handoff: PromptHandoff) => Promise<void> | void;
+  readonly onOpenBaseProfile?: () => void;
+  readonly onOpenLegacyMigration: () => void;
   readonly outputAdapter: OutputWorkspaceAdapter;
   readonly startupMigration: LegacyV1StorageMigrationResult;
   readonly storageAdapter: DashboardStorage & WizardStorage;
@@ -160,6 +228,8 @@ export function PromptStudioShell({
   now,
   handoffAvailability,
   onHandoff,
+  onOpenBaseProfile,
+  onOpenLegacyMigration,
   outputAdapter,
   startupMigration,
   storageAdapter,
@@ -200,6 +270,8 @@ export function PromptStudioShell({
       {...(createDraftId ? { createDraftId } : {})}
       {...(now ? { now } : {})}
       onOpenProfile={openProfile}
+      {...(onOpenBaseProfile ? { onOpenBaseProfile } : {})}
+      onOpenLegacyMigration={onOpenLegacyMigration}
       onProfileDeleted={clearProfileRequest}
       onResumeDraft={resumeDraft}
       onSelectBaseProfile={setActiveBaseProfile}
@@ -208,8 +280,8 @@ export function PromptStudioShell({
       {...(handoffAvailability ? { handoffAvailability } : {})}
       {...(onHandoff ? { onHandoff } : {})}
       sessionRevision={sessionRevision}
-      startupMigration={startupMigration}
       storageAdapter={storageAdapter}
+      startupMigration={startupMigration}
       view={view}
     />
   );

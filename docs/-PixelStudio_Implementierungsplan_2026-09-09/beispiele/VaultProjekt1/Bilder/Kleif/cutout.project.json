@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "kind": "cutoutProject",
+  "id": "cutout_kleif",
+  "revision": 1,
+  "source": {
+    "originalPath": "Bilder/Kleif.png",
+    "originalSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "snapshotPath": ".source/original.png",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "width": 128,
+    "height": 192
+  },
+  "activePartId": "hand_l",
+  "parts": [
+    {
+      "partId": "head",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/head.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "torso",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/torso.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "pelvis",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/pelvis.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "upper_arm_l",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/upper_arm_l.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "forearm_l",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/forearm_l.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "hand_l",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/hand_l.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "upper_arm_r",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/upper_arm_r.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "forearm_r",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/forearm_r.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "hand_r",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/hand_r.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "thigh_r",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/thigh_r.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "shin_r",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/shin_r.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "foot_r",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/foot_r.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "thigh_l",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/thigh_l.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "shin_l",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/shin_l.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "foot_l",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/foot_l.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "cape",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/cape.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "belt_accessory",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/belt_accessory.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "partId": "hair",
+      "status": "confirmed",
+      "maskRevision": 1,
+      "maskPath": ".masks/hair.png",
+      "maskSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "createdAt": "2026-09-09T00:00:00Z",
+  "updatedAt": "2026-09-09T00:00:00Z"
+}

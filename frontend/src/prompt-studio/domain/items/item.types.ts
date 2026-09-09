@@ -97,6 +97,8 @@ export type ItemGlowMode = (typeof ITEM_GLOW_MODE_IDS)[number];
 export type ItemShadowMode = (typeof ITEM_SHADOW_MODE_IDS)[number];
 
 export const ITEM_CLASS_BY_SUBTYPE = Object.freeze({
+  sword: "weapon",
+  potion: "consumable",
   weapon: "weapon",
   tool: "tool",
   clothing: "clothing",

@@ -127,6 +127,8 @@ export const ASSET_SUBTYPES = Object.freeze({
     "animatedTile",
   ] as const),
   item: Object.freeze([
+    "sword",
+    "potion",
     "weapon",
     "tool",
     "clothing",
@@ -139,6 +141,7 @@ export const ASSET_SUBTYPES = Object.freeze({
     "collectible",
   ] as const),
   artwork: Object.freeze([
+    "concept",
     "characterConcept",
     "environmentConcept",
     "buildingConcept",

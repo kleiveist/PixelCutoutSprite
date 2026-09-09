@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Lokales Schnittprojekt",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "kind": {
+      "const": "cutoutProject"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "originalPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[^\\x00]+$"
+        },
+        "originalSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "snapshotPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[^\\x00]+$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        }
+      },
+      "required": [
+        "snapshotPath",
+        "sha256",
+        "width",
+        "height"
+      ]
+    },
+    "activePartId": {
+      "enum": [
+        "head",
+        "torso",
+        "pelvis",
+        "upper_arm_l",
+        "forearm_l",
+        "hand_l",
+        "upper_arm_r",
+        "forearm_r",
+        "hand_r",
+        "thigh_r",
+        "shin_r",
+        "foot_r",
+        "thigh_l",
+        "shin_l",
+        "foot_l",
+        "cape",
+        "belt_accessory",
+        "sword",
+        "hair"
+      ]
+    },
+    "parts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "partId": {
+            "enum": [
+              "head",
+              "torso",
+              "pelvis",
+              "upper_arm_l",
+              "forearm_l",
+              "hand_l",
+              "upper_arm_r",
+              "forearm_r",
+              "hand_r",
+              "thigh_r",
+              "shin_r",
+              "foot_r",
+              "thigh_l",
+              "shin_l",
+              "foot_l",
+              "cape",
+              "belt_accessory",
+              "sword",
+              "hair"
+            ]
+          },
+          "status": {
+            "enum": [
+              "unmarked",
+              "editing",
+              "confirmed",
+              "not_present",
+              "disabled"
+            ]
+          },
+          "maskRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maskPath": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024,
+                "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[^\\x00]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maskSha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "protectedOverlapMaskPath": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024,
+                "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[^\\x00]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selectionParameters": {
+            "type": "object",
+            "maxProperties": 32
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "partId",
+          "status",
+          "maskRevision",
+          "maskPath",
+          "maskSha256"
+        ]
+      },
+      "minItems": 15,
+      "maxItems": 18
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "kind",
+    "id",
+    "revision",
+    "source",
+    "activePartId",
+    "parts",
+    "createdAt",
+    "updatedAt"
+  ]
+}

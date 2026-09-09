@@ -1,6 +1,7 @@
 import type { AssetSubtypeByCategory } from "../assets";
 
 export const ARTWORK_TYPE_IDS = Object.freeze([
+  "concept",
   "characterConcept",
   "environmentConcept",
   "buildingConcept",
@@ -68,6 +69,7 @@ export type ArtworkLightingDrama = (typeof ARTWORK_LIGHTING_DRAMA_IDS)[number];
 export type ArtworkDetailLevel = (typeof ARTWORK_DETAIL_LEVEL_IDS)[number];
 
 export const ARTWORK_TYPE_BY_SUBTYPE = Object.freeze({
+  concept: "concept",
   characterConcept: "characterConcept",
   environmentConcept: "environmentConcept",
   buildingConcept: "buildingConcept",

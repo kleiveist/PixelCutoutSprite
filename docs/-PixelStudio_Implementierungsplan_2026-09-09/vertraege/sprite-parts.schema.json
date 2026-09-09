@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Erzeugtes Sprite-Teileset",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "kind": {
+      "const": "spriteParts"
+    },
+    "setId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "generationId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "cutoutRevision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "originalPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[^\\x00]+$"
+        },
+        "originalSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "snapshotPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[^\\x00]+$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        }
+      },
+      "required": [
+        "snapshotPath",
+        "sha256",
+        "width",
+        "height"
+      ]
+    },
+    "complete": {
+      "type": "boolean"
+    },
+    "parts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "partId": {
+            "enum": [
+              "head",
+              "torso",
+              "pelvis",
+              "upper_arm_l",
+              "forearm_l",
+              "hand_l",
+              "upper_arm_r",
+              "forearm_r",
+              "hand_r",
+              "thigh_r",
+              "shin_r",
+              "foot_r",
+              "thigh_l",
+              "shin_l",
+              "foot_l",
+              "cape",
+              "belt_accessory",
+              "sword",
+              "hair"
+            ]
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[^\\x00]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "sourceRect": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "y": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "pivot": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "y"
+            ],
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            }
+          },
+          "defaultPosition": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "y"
+            ],
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            }
+          },
+          "defaultZ": {
+            "type": "integer"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "enum": [
+                  "head",
+                  "torso",
+                  "pelvis",
+                  "upper_arm_l",
+                  "forearm_l",
+                  "hand_l",
+                  "upper_arm_r",
+                  "forearm_r",
+                  "hand_r",
+                  "thigh_r",
+                  "shin_r",
+                  "foot_r",
+                  "thigh_l",
+                  "shin_l",
+                  "foot_l",
+                  "cape",
+                  "belt_accessory",
+                  "sword",
+                  "hair"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "partId",
+          "file",
+          "sha256",
+          "sourceRect",
+          "pivot",
+          "defaultPosition",
+          "defaultZ",
+          "parentId"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 18
+    },
+    "omittedParts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "partId": {
+            "enum": [
+              "head",
+              "torso",
+              "pelvis",
+              "upper_arm_l",
+              "forearm_l",
+              "hand_l",
+              "upper_arm_r",
+              "forearm_r",
+              "hand_r",
+              "thigh_r",
+              "shin_r",
+              "foot_r",
+              "thigh_l",
+              "shin_l",
+              "foot_l",
+              "cape",
+              "belt_accessory",
+              "sword",
+              "hair"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "partId",
+          "reason"
+        ]
+      },
+      "maxItems": 15
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "kind",
+    "setId",
+    "generationId",
+    "cutoutRevision",
+    "source",
+    "complete",
+    "parts",
+    "omittedParts",
+    "createdAt"
+  ]
+}

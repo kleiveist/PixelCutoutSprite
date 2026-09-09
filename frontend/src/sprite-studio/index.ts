@@ -1,0 +1,1 @@
+export { SpriteStudioWelcome } from "./SpriteStudioWelcome";

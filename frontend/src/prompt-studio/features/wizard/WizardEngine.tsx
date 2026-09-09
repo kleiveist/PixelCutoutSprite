@@ -21,6 +21,7 @@ export interface WizardEngineProps {
   readonly now: () => string;
   readonly onDraftEdited: (draft: WizardDraft) => void;
   readonly onDraftSaved: (draft: WizardDraft) => void;
+  readonly onOpenBaseProfile?: () => void;
   readonly onRawCoreFormValuesChanged?: (values: WizardCoreFormValues) => void;
   readonly storageAdapter: WizardDraftStorage;
 }
@@ -40,12 +41,13 @@ export function WizardEngine({
   now,
   onDraftEdited,
   onDraftSaved,
+  onOpenBaseProfile,
   onRawCoreFormValuesChanged,
   storageAdapter,
 }: WizardEngineProps) {
   const context = useMemo<WizardCoreFlowContext>(
-    () => ({ categoryHint, library }),
-    [categoryHint, library],
+    () => ({ categoryHint, library, ...(onOpenBaseProfile ? { onOpenBaseProfile } : {}) }),
+    [categoryHint, library, onOpenBaseProfile],
   );
   const baselineValues = createWizardCoreFormValues(baselineDraft, categoryHint, library);
   const initialValues =

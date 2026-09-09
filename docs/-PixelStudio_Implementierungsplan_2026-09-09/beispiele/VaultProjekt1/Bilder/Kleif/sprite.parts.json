@@ -1,0 +1,398 @@
+{
+  "schemaVersion": 1,
+  "kind": "spriteParts",
+  "setId": "set_kleif",
+  "generationId": "generation_example01",
+  "cutoutRevision": 1,
+  "source": {
+    "originalPath": "Bilder/Kleif.png",
+    "originalSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "snapshotPath": ".source/original.png",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "width": 128,
+    "height": 192
+  },
+  "complete": true,
+  "parts": [
+    {
+      "partId": "head",
+      "file": "01_head.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 42,
+        "y": 8,
+        "width": 44,
+        "height": 36
+      },
+      "pivot": {
+        "x": 22.0,
+        "y": 18.0
+      },
+      "defaultPosition": {
+        "x": 64.0,
+        "y": 26.0
+      },
+      "defaultZ": 16,
+      "parentId": null
+    },
+    {
+      "partId": "torso",
+      "file": "02_torso.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 36,
+        "y": 38,
+        "width": 56,
+        "height": 62
+      },
+      "pivot": {
+        "x": 28.0,
+        "y": 31.0
+      },
+      "defaultPosition": {
+        "x": 64.0,
+        "y": 69.0
+      },
+      "defaultZ": 11,
+      "parentId": "pelvis"
+    },
+    {
+      "partId": "pelvis",
+      "file": "03_pelvis.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 40,
+        "y": 90,
+        "width": 48,
+        "height": 30
+      },
+      "pivot": {
+        "x": 24.0,
+        "y": 15.0
+      },
+      "defaultPosition": {
+        "x": 64.0,
+        "y": 105.0
+      },
+      "defaultZ": 10,
+      "parentId": null
+    },
+    {
+      "partId": "upper_arm_l",
+      "file": "04_upper_arm_l.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 80,
+        "y": 40,
+        "width": 20,
+        "height": 40
+      },
+      "pivot": {
+        "x": 10.0,
+        "y": 20.0
+      },
+      "defaultPosition": {
+        "x": 90.0,
+        "y": 60.0
+      },
+      "defaultZ": 12,
+      "parentId": "torso"
+    },
+    {
+      "partId": "forearm_l",
+      "file": "05_forearm_l.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 88,
+        "y": 70,
+        "width": 18,
+        "height": 36
+      },
+      "pivot": {
+        "x": 9.0,
+        "y": 18.0
+      },
+      "defaultPosition": {
+        "x": 97.0,
+        "y": 88.0
+      },
+      "defaultZ": 13,
+      "parentId": "upper_arm_l"
+    },
+    {
+      "partId": "hand_l",
+      "file": "06_hand_l.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 88,
+        "y": 98,
+        "width": 18,
+        "height": 18
+      },
+      "pivot": {
+        "x": 9.0,
+        "y": 9.0
+      },
+      "defaultPosition": {
+        "x": 97.0,
+        "y": 107.0
+      },
+      "defaultZ": 14,
+      "parentId": "forearm_l"
+    },
+    {
+      "partId": "upper_arm_r",
+      "file": "07_upper_arm_r.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 28,
+        "y": 40,
+        "width": 20,
+        "height": 40
+      },
+      "pivot": {
+        "x": 10.0,
+        "y": 20.0
+      },
+      "defaultPosition": {
+        "x": 38.0,
+        "y": 60.0
+      },
+      "defaultZ": 1,
+      "parentId": "torso"
+    },
+    {
+      "partId": "forearm_r",
+      "file": "08_forearm_r.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 22,
+        "y": 70,
+        "width": 18,
+        "height": 36
+      },
+      "pivot": {
+        "x": 9.0,
+        "y": 18.0
+      },
+      "defaultPosition": {
+        "x": 31.0,
+        "y": 88.0
+      },
+      "defaultZ": 2,
+      "parentId": "upper_arm_r"
+    },
+    {
+      "partId": "hand_r",
+      "file": "09_hand_r.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 22,
+        "y": 98,
+        "width": 18,
+        "height": 18
+      },
+      "pivot": {
+        "x": 9.0,
+        "y": 9.0
+      },
+      "defaultPosition": {
+        "x": 31.0,
+        "y": 107.0
+      },
+      "defaultZ": 3,
+      "parentId": "forearm_r"
+    },
+    {
+      "partId": "thigh_r",
+      "file": "10_thigh_r.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 40,
+        "y": 108,
+        "width": 24,
+        "height": 38
+      },
+      "pivot": {
+        "x": 12.0,
+        "y": 19.0
+      },
+      "defaultPosition": {
+        "x": 52.0,
+        "y": 127.0
+      },
+      "defaultZ": 4,
+      "parentId": "pelvis"
+    },
+    {
+      "partId": "shin_r",
+      "file": "11_shin_r.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 40,
+        "y": 138,
+        "width": 20,
+        "height": 34
+      },
+      "pivot": {
+        "x": 10.0,
+        "y": 17.0
+      },
+      "defaultPosition": {
+        "x": 50.0,
+        "y": 155.0
+      },
+      "defaultZ": 5,
+      "parentId": "thigh_r"
+    },
+    {
+      "partId": "foot_r",
+      "file": "12_foot_r.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 34,
+        "y": 166,
+        "width": 28,
+        "height": 18
+      },
+      "pivot": {
+        "x": 14.0,
+        "y": 9.0
+      },
+      "defaultPosition": {
+        "x": 48.0,
+        "y": 175.0
+      },
+      "defaultZ": 6,
+      "parentId": "shin_r"
+    },
+    {
+      "partId": "thigh_l",
+      "file": "13_thigh_l.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 64,
+        "y": 108,
+        "width": 24,
+        "height": 38
+      },
+      "pivot": {
+        "x": 12.0,
+        "y": 19.0
+      },
+      "defaultPosition": {
+        "x": 76.0,
+        "y": 127.0
+      },
+      "defaultZ": 7,
+      "parentId": "pelvis"
+    },
+    {
+      "partId": "shin_l",
+      "file": "14_shin_l.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 68,
+        "y": 138,
+        "width": 20,
+        "height": 34
+      },
+      "pivot": {
+        "x": 10.0,
+        "y": 17.0
+      },
+      "defaultPosition": {
+        "x": 78.0,
+        "y": 155.0
+      },
+      "defaultZ": 8,
+      "parentId": "thigh_l"
+    },
+    {
+      "partId": "foot_l",
+      "file": "15_foot_l.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 66,
+        "y": 166,
+        "width": 28,
+        "height": 18
+      },
+      "pivot": {
+        "x": 14.0,
+        "y": 9.0
+      },
+      "defaultPosition": {
+        "x": 80.0,
+        "y": 175.0
+      },
+      "defaultZ": 9,
+      "parentId": "shin_l"
+    },
+    {
+      "partId": "cape",
+      "file": "16_cape.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 28,
+        "y": 34,
+        "width": 72,
+        "height": 100
+      },
+      "pivot": {
+        "x": 36.0,
+        "y": 50.0
+      },
+      "defaultPosition": {
+        "x": 64.0,
+        "y": 84.0
+      },
+      "defaultZ": 0,
+      "parentId": "torso"
+    },
+    {
+      "partId": "belt_accessory",
+      "file": "17_belt_accessory.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 42,
+        "y": 94,
+        "width": 44,
+        "height": 16
+      },
+      "pivot": {
+        "x": 22.0,
+        "y": 8.0
+      },
+      "defaultPosition": {
+        "x": 64.0,
+        "y": 102.0
+      },
+      "defaultZ": 15,
+      "parentId": "pelvis"
+    },
+    {
+      "partId": "hair",
+      "file": "18_hair.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "sourceRect": {
+        "x": 40,
+        "y": 6,
+        "width": 48,
+        "height": 24
+      },
+      "pivot": {
+        "x": 24.0,
+        "y": 12.0
+      },
+      "defaultPosition": {
+        "x": 64.0,
+        "y": 18.0
+      },
+      "defaultZ": 17,
+      "parentId": "head"
+    }
+  ],
+  "omittedParts": [],
+  "createdAt": "2026-09-09T00:00:00Z"
+}

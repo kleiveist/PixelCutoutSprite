@@ -1,0 +1,246 @@
+.view {
+  display: grid;
+  gap: 28px;
+}
+.hero {
+  max-width: 760px;
+}
+.eyebrow {
+  color: var(--color-accent, var(--accent));
+  font:
+    600 0.72rem/1 "DM Mono",
+    monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.hero h1 {
+  margin: 10px 0 12px;
+  font-size: clamp(2rem, 5vw, 4.6rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+.hero p,
+.state p {
+  color: var(--color-text-muted, var(--muted));
+  line-height: 1.6;
+}
+.baseButton {
+  display: grid;
+  width: min(100%, 820px);
+  min-height: 190px;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 28px;
+  padding: clamp(22px, 4vw, 42px);
+  border: 1px solid var(--color-line, var(--line));
+  background: var(--color-panel, var(--surface-raised));
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.baseButton:hover:not(:disabled) {
+  border-color: var(--color-accent, var(--accent));
+}
+.baseButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.baseButton strong {
+  display: block;
+  margin: 8px 0 12px;
+  font-size: clamp(1.5rem, 3vw, 2.6rem);
+}
+.baseButton small {
+  color: var(--color-text-muted, var(--muted));
+}
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.summary li,
+.revision {
+  padding: 6px 8px;
+  border: 1px solid var(--color-line, var(--line));
+  color: var(--color-text-muted, var(--muted));
+  font:
+    500 0.7rem/1 "DM Mono",
+    monospace;
+}
+.state,
+.regeneration {
+  width: min(100%, 820px);
+  padding: 22px;
+  border: 1px solid var(--color-line, var(--line));
+  background: var(--color-panel-soft, var(--surface-soft));
+}
+.error {
+  border-color: #a75b50;
+}
+.regeneration progress {
+  width: 100%;
+  margin-top: 12px;
+}
+@media (max-width: 560px) {
+  .baseButton {
+    min-height: 160px;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .revision {
+    justify-self: start;
+  }
+}
+
+.baseDialog {
+  width: min(960px, calc(100vw - 28px));
+}
+.baseForm {
+  display: grid;
+  gap: 22px;
+}
+.formIntro {
+  margin: 0;
+  color: var(--color-text-muted, var(--muted));
+  line-height: 1.55;
+}
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid var(--color-line, var(--line));
+}
+.fieldGrid legend {
+  padding: 0 8px;
+  color: var(--color-text-muted, var(--muted));
+  font:
+    600 0.72rem/1 "DM Mono",
+    monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.profileField,
+.controlLabel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.controlLabel > span {
+  font-weight: 600;
+}
+.controlLabel input,
+.controlLabel select,
+.controlLabel textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--color-line, var(--line));
+  background: var(--color-panel-soft, var(--surface-soft));
+  color: inherit;
+  font: inherit;
+}
+.lockControl {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-muted, var(--muted));
+  font-size: 0.78rem;
+}
+.lockControl input {
+  margin: 0;
+}
+.notesField {
+  grid-column: 1 / -1;
+}
+.formError {
+  margin: 0;
+  color: #e39a8d;
+}
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  position: sticky;
+  bottom: 0;
+  padding: 12px 0 2px;
+  background: var(--color-panel, var(--surface-raised));
+}
+.migrationButton {
+  justify-self: start;
+}
+.migrationDialog {
+  width: min(800px, calc(100vw - 28px));
+}
+.migrationContent {
+  display: grid;
+  gap: 18px;
+}
+.migrationContent > p {
+  margin: 0;
+  line-height: 1.5;
+}
+.sourceList {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--color-line, var(--line));
+}
+.sourceList label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.sourceList label span {
+  display: grid;
+  gap: 3px;
+}
+.sourceList small {
+  color: var(--color-text-muted, var(--muted));
+}
+.migrationPreview {
+  padding: 16px;
+  border: 1px solid var(--color-line, var(--line));
+}
+.migrationPreview h3 {
+  margin-top: 0;
+}
+.migrationPreview dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.migrationPreview dl div {
+  min-width: 110px;
+  padding: 8px;
+  background: var(--color-panel-soft, var(--surface-soft));
+}
+.migrationPreview dt {
+  color: var(--color-text-muted, var(--muted));
+  font-size: 0.76rem;
+}
+.migrationPreview dd {
+  margin: 4px 0 0;
+  font-size: 1.25rem;
+}
+.confirmMigration {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 16px;
+}
+.migrationSuccess {
+  padding: 12px;
+  border: 1px solid #4f9b71;
+}
+
+@media (max-width: 680px) {
+  .fieldGrid {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+}

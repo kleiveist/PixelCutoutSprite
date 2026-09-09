@@ -62,6 +62,7 @@ export interface RecoveryStatus {
 
 export interface OpenVault {
   session_id: string;
+  session_generation?: number;
   vault_id: string;
   path: string;
   mode: "read_write" | "read_only";

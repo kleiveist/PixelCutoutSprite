@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 describe("integrated PixelPromptStudio", () => {
-  it("exposes all five prompt views in the shared shell without browser routing", async () => {
+  it("exposes all four prompt views in the single shared module row", async () => {
     const historyBefore = window.location.href;
     renderIntegratedApp();
 
@@ -49,15 +49,14 @@ describe("integrated PixelPromptStudio", () => {
     ).toBeVisible();
 
     const destinations = [
-      ["Profile", "Produktionsprofile sicher organisieren."],
+      ["Profile", "Kein Vault geöffnet"],
       ["Wizard", "Neue Assets geführt aufsetzen."],
       ["Ausgabe", "Prompt-Pakete produktionsbereit ausgeben."],
-      ["Einstellungen", "Das Studio passend konfigurieren."],
       ["Dashboard", "Pixelart-Produktion beginnt mit der richtigen Asset-Art."],
     ] as const;
 
     for (const [label, heading] of destinations) {
-      fireEvent.click(within(generator).getByRole("button", { name: label }));
+      fireEvent.click(screen.getByRole("button", { name: label }));
       expect(await within(generator).findByRole("heading", { name: heading })).toBeVisible();
     }
 
@@ -74,10 +73,10 @@ describe("integrated PixelPromptStudio", () => {
     const generator = await screen.findByRole("region", {
       name: "PixelPromptStudio Generator",
     });
-    fireEvent.click(within(generator).getByRole("button", { name: "Profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "Profile" }));
     expect(
       await within(generator).findByRole("heading", {
-        name: "Produktionsprofile sicher organisieren.",
+        name: "Kein Vault geöffnet",
       }),
     ).toBeInTheDocument();
 
@@ -86,9 +85,7 @@ describe("integrated PixelPromptStudio", () => {
     expect(screen.getByRole("heading", { name: "Areas" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "PixelPromptStudio Generator öffnen" }));
-    expect(
-      await screen.findByRole("heading", { name: "Produktionsprofile sicher organisieren." }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Kein Vault geöffnet" })).toBeInTheDocument();
   });
 
   it("blocks a studio switch until a dirty wizard draft is saved and then resumes it", async () => {

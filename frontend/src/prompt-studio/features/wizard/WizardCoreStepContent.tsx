@@ -36,6 +36,7 @@ import {
   type GuidedWizardSummaryComponentProps,
 } from "./GuidedWizardEngine";
 import { BaseProfileStep } from "./BaseProfileStep";
+import { VaultBaseProfileStep } from "./VaultBaseProfileStep";
 import { WizardTechnicalSummary } from "./WizardTechnicalSummary";
 import {
   resolveWizardCapabilities,
@@ -63,6 +64,7 @@ import styles from "./WizardView.module.css";
 export interface WizardCoreFlowContext {
   readonly categoryHint: AssetCategory | null;
   readonly library: ProfileLibrary | null;
+  readonly onOpenBaseProfile?: () => void;
 }
 
 type CoreStepProps = GuidedWizardStepComponentProps<WizardCoreFormValues, WizardCoreFlowContext>;
@@ -1055,10 +1057,18 @@ function getSelectionSummary(values: WizardCoreFormValues) {
   } as const;
 }
 
+function ProductiveBaseProfileStep(props: CoreStepProps) {
+  return props.context.onOpenBaseProfile ? (
+    <VaultBaseProfileStep {...props} />
+  ) : (
+    <BaseProfileStep {...props} />
+  );
+}
+
 const STEP_COMPONENTS = {
   project: ProjectStep,
   category: CategoryStep,
-  baseProfile: BaseProfileStep,
+  baseProfile: ProductiveBaseProfileStep,
   characterDetails: CharacterDetailsStep,
   movingObjectDetails: MovingObjectDetailsStep,
   textureDetails: TextureDetailsStep,

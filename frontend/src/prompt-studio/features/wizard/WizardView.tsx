@@ -64,6 +64,7 @@ export interface WizardViewProps {
   readonly createDraftId?: () => string;
   readonly now?: () => string;
   readonly storageAdapter: WizardStorage;
+  readonly onOpenBaseProfile?: () => void;
 }
 
 let fallbackDraftSequence = 0;
@@ -374,6 +375,7 @@ export function WizardView({
   createDraftId = createDefaultDraftId,
   now = currentIsoTimestamp,
   storageAdapter,
+  onOpenBaseProfile,
 }: WizardViewProps) {
   const {
     activeDraft,
@@ -497,6 +499,7 @@ export function WizardView({
             storageAdapter={storageAdapter}
             onDraftEdited={activateEditedDraft}
             onDraftSaved={activateSavedDraft}
+            {...(onOpenBaseProfile ? { onOpenBaseProfile } : {})}
             onRawCoreFormValuesChanged={captureRawCoreFormValues}
           />
         </>

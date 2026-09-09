@@ -1,0 +1,597 @@
+[
+  {
+    "id": "R-G01",
+    "description": "Globaler Einstellungsbutton rechts neben Hilfe; keine Prompt-Settings-Seite",
+    "phases": [
+      "P29",
+      "P31",
+      "P35"
+    ],
+    "tests": [
+      "T01",
+      "T02"
+    ]
+  },
+  {
+    "id": "R-G02",
+    "description": "Alle Popups schließen per X, Escape und echtem Außenklick",
+    "phases": [
+      "P29",
+      "P33",
+      "P35"
+    ],
+    "tests": [
+      "T02"
+    ]
+  },
+  {
+    "id": "R-G03",
+    "description": "Eine einheitliche Navigation-Row in jedem Bereich, auch ohne Aktionen",
+    "phases": [
+      "P29",
+      "P37",
+      "P41"
+    ],
+    "tests": [
+      "T01",
+      "T03"
+    ]
+  },
+  {
+    "id": "R-G04",
+    "description": "Responsive-Reflow auch bei halbiertem Fenster und kleinen nativen Grenzen",
+    "phases": [
+      "P29",
+      "P36",
+      "P43"
+    ],
+    "tests": [
+      "T03"
+    ]
+  },
+  {
+    "id": "R-G05",
+    "description": "Eine gemeinsame App mit Prompt, Cutout und neuem SpriteStudio",
+    "phases": [
+      "P29",
+      "P37",
+      "P41"
+    ],
+    "tests": [
+      "T01",
+      "T24"
+    ]
+  },
+  {
+    "id": "R-G06",
+    "description": "Tastatur, Fokus, beschriftete Icons und nicht ausschließlich Farbcodierung",
+    "phases": [
+      "P29",
+      "P38",
+      "P42",
+      "P43"
+    ],
+    "tests": [
+      "T02",
+      "T03",
+      "T26"
+    ]
+  },
+  {
+    "id": "R-G07",
+    "description": "Offline/lokal ohne Cloud-Upload und Modelldownload",
+    "phases": [
+      "P30",
+      "P39",
+      "P43"
+    ],
+    "tests": [
+      "T27"
+    ]
+  },
+  {
+    "id": "R-G08",
+    "description": "Stabile Komponenten-/Datenselektoren statt festgeschriebener CSS-Hashes",
+    "phases": [
+      "P29",
+      "P35"
+    ],
+    "tests": [
+      "T01"
+    ]
+  },
+  {
+    "id": "R-D01",
+    "description": "Aktiver Vault ist einziger fachlicher Arbeitskontext",
+    "phases": [
+      "P30",
+      "P32"
+    ],
+    "tests": [
+      "T04",
+      "T05"
+    ]
+  },
+  {
+    "id": "R-D02",
+    "description": "Keine produktiven Profile/Drafts/Szenen in App-Data oder Browser-Storage",
+    "phases": [
+      "P31",
+      "P32",
+      "P42"
+    ],
+    "tests": [
+      "T05"
+    ]
+  },
+  {
+    "id": "R-D03",
+    "description": "Genau ein aktives Basisprofil pro Vault",
+    "phases": [
+      "P32",
+      "P33"
+    ],
+    "tests": [
+      "T06"
+    ]
+  },
+  {
+    "id": "R-D04",
+    "description": "Automatisches Sichern auch unvollständiger/noch unbenannter Eingaben",
+    "phases": [
+      "P32",
+      "P34",
+      "P38"
+    ],
+    "tests": [
+      "T07",
+      "T16"
+    ]
+  },
+  {
+    "id": "R-D05",
+    "description": "Crash-sichere Dateisätze, ehrlicher Save-Status und Writer-Konflikte",
+    "phases": [
+      "P30",
+      "P32",
+      "P40",
+      "P43"
+    ],
+    "tests": [
+      "T08",
+      "T09"
+    ]
+  },
+  {
+    "id": "R-D06",
+    "description": "Sichere Namen, Unicode, Kollisionen und transaktionale Umbenennung",
+    "phases": [
+      "P30",
+      "P32",
+      "P40"
+    ],
+    "tests": [
+      "T10"
+    ]
+  },
+  {
+    "id": "R-D07",
+    "description": "Kontrollierte Legacy-Migration ohne stilles Löschen oder Mehrbasis-Übernahme",
+    "phases": [
+      "P28",
+      "P31",
+      "P32"
+    ],
+    "tests": [
+      "T11"
+    ]
+  },
+  {
+    "id": "R-D08",
+    "description": "MD-/JSON-Ziel im System-Dateimanager; Windows-Neufenster gesondert prüfen",
+    "phases": [
+      "P35",
+      "P43"
+    ],
+    "tests": [
+      "T12"
+    ]
+  },
+  {
+    "id": "R-D09",
+    "description": "Backend-Scope, Größenlimits und Schutz vor Path-Escape",
+    "phases": [
+      "P30",
+      "P36",
+      "P40",
+      "P41"
+    ],
+    "tests": [
+      "T13"
+    ]
+  },
+  {
+    "id": "R-D10",
+    "description": "Externe Dateiereignisse, Wiederöffnung und recoverbarer Scan",
+    "phases": [
+      "P32",
+      "P36",
+      "P43"
+    ],
+    "tests": [
+      "T14"
+    ]
+  },
+  {
+    "id": "R-P01",
+    "description": "Neun Typen mit den gewünschten Untertypbeispielen und Icons",
+    "phases": [
+      "P28",
+      "P34",
+      "P35"
+    ],
+    "tests": [
+      "T15"
+    ]
+  },
+  {
+    "id": "R-P02",
+    "description": ".PixelPrompt/Typ/Untertyp/Name mit benannten MDs und Profil-JSON",
+    "phases": [
+      "P32",
+      "P35"
+    ],
+    "tests": [
+      "T07",
+      "T15"
+    ]
+  },
+  {
+    "id": "R-P03",
+    "description": "Profile-Seite zeigt nur Vault und großen Basisprofil-Button mit Popup/Zusammenfassung",
+    "phases": [
+      "P33"
+    ],
+    "tests": [
+      "T06"
+    ]
+  },
+  {
+    "id": "R-P04",
+    "description": "Name steht oberhalb des geführten Abfragekatalogs",
+    "phases": [
+      "P34"
+    ],
+    "tests": [
+      "T16"
+    ]
+  },
+  {
+    "id": "R-P05",
+    "description": "Fragen Seite für Seite statt vollständigem Langformular",
+    "phases": [
+      "P34"
+    ],
+    "tests": [
+      "T16"
+    ]
+  },
+  {
+    "id": "R-P06",
+    "description": "Kein Basisprofil-Schritt oder Basisprofil-Editor im Wizard",
+    "phases": [
+      "P33",
+      "P34"
+    ],
+    "tests": [
+      "T16"
+    ]
+  },
+  {
+    "id": "R-P07",
+    "description": "Dashboard-Karten zeigen Typen, Profilzahlen und vorhandene Namen",
+    "phases": [
+      "P35"
+    ],
+    "tests": [
+      "T17"
+    ]
+  },
+  {
+    "id": "R-P08",
+    "description": "Kategorie-Popup mit vollständigem Profil-Laden in den Wizard",
+    "phases": [
+      "P35"
+    ],
+    "tests": [
+      "T17"
+    ]
+  },
+  {
+    "id": "R-P09",
+    "description": "Ausgabe zeigt alle bisherigen Varianten und speichert sie automatisch",
+    "phases": [
+      "P28",
+      "P32",
+      "P35"
+    ],
+    "tests": [
+      "T18"
+    ]
+  },
+  {
+    "id": "R-P10",
+    "description": "Keine Export-/Kopier-/Download-/JSON-Exportbuttons im Prompt-Ablauf",
+    "phases": [
+      "P35"
+    ],
+    "tests": [
+      "T18"
+    ]
+  },
+  {
+    "id": "R-P11",
+    "description": "Profil-JSON enthält vollständigen Wizard-Zustand und Step-IDs",
+    "phases": [
+      "P32",
+      "P34"
+    ],
+    "tests": [
+      "T16",
+      "T17"
+    ]
+  },
+  {
+    "id": "R-P12",
+    "description": "Änderung der einen Basis markiert und regeneriert abhängige Ausgaben",
+    "phases": [
+      "P32",
+      "P33"
+    ],
+    "tests": [
+      "T19"
+    ]
+  },
+  {
+    "id": "R-C01",
+    "description": "Bisherige Cutout-Fachbasis einschließlich alter Commands tatsächlich entfernen",
+    "phases": [
+      "P28",
+      "P30",
+      "P37"
+    ],
+    "tests": [
+      "T20"
+    ]
+  },
+  {
+    "id": "R-C02",
+    "description": "Neue Cutout-Willkommen-Seite statt alter Start-/Projektstrecke",
+    "phases": [
+      "P37"
+    ],
+    "tests": [
+      "T20"
+    ]
+  },
+  {
+    "id": "R-C03",
+    "description": "Gemeinsame DataFolderToolbar links in Cutout",
+    "phases": [
+      "P36",
+      "P38"
+    ],
+    "tests": [
+      "T21"
+    ]
+  },
+  {
+    "id": "R-C04",
+    "description": "Bilddateiklick lädt den neuen Editor mit validierter Quelle",
+    "phases": [
+      "P38"
+    ],
+    "tests": [
+      "T21",
+      "T22"
+    ]
+  },
+  {
+    "id": "R-C05",
+    "description": "Sechs Icon-Gruppen mit jeweils drei Untereinträgen und nutzbarem Flyout",
+    "phases": [
+      "P38"
+    ],
+    "tests": [
+      "T22"
+    ]
+  },
+  {
+    "id": "R-C06",
+    "description": "Grobauswahl automatisch an sichtbaren Teil anpassen, korrigierbar",
+    "phases": [
+      "P39"
+    ],
+    "tests": [
+      "T23"
+    ]
+  },
+  {
+    "id": "R-C07",
+    "description": "Aktive Markierung kräftiger, bestätigte Bereiche blasser",
+    "phases": [
+      "P38"
+    ],
+    "tests": [
+      "T22",
+      "T26"
+    ]
+  },
+  {
+    "id": "R-C08",
+    "description": "Unabhängige überlappende Masken und Anschlusszugaben",
+    "phases": [
+      "P38",
+      "P39"
+    ],
+    "tests": [
+      "T23"
+    ]
+  },
+  {
+    "id": "R-C09",
+    "description": "Exakte PNG-Dateinamen 01–15 und optional 16–18 gemäß Register",
+    "phases": [
+      "P40"
+    ],
+    "tests": [
+      "T24"
+    ]
+  },
+  {
+    "id": "R-C10",
+    "description": "Teileordner nach Stammname der Quelle, sichere lokale Ablage",
+    "phases": [
+      "P40"
+    ],
+    "tests": [
+      "T10",
+      "T24"
+    ]
+  },
+  {
+    "id": "R-C11",
+    "description": "Extras optional; drei Slots einschließlich aufgelöstem Zubehör-Widerspruch",
+    "phases": [
+      "P28",
+      "P38",
+      "P40"
+    ],
+    "tests": [
+      "T22",
+      "T24"
+    ]
+  },
+  {
+    "id": "R-C12",
+    "description": "Undo/Redo, Abbruch und keine Übernahme veralteter Segmentierungsantworten",
+    "phases": [
+      "P38",
+      "P39"
+    ],
+    "tests": [
+      "T23"
+    ]
+  },
+  {
+    "id": "R-C13",
+    "description": "Originalbilder unverändert; Ausschnitte erhalten Pixel/Alpha",
+    "phases": [
+      "P38",
+      "P40"
+    ],
+    "tests": [
+      "T24"
+    ]
+  },
+  {
+    "id": "R-C14",
+    "description": "Schnittprojekt und Masken lokal wiederöffnen",
+    "phases": [
+      "P38",
+      "P40"
+    ],
+    "tests": [
+      "T24"
+    ]
+  },
+  {
+    "id": "R-S01",
+    "description": "Neuer Abschnitt PixelSpriteStudio mit eigener Studioansicht",
+    "phases": [
+      "P29",
+      "P41"
+    ],
+    "tests": [
+      "T01",
+      "T25"
+    ]
+  },
+  {
+    "id": "R-S02",
+    "description": "Dieselbe DataFolderToolbar plus View-Register",
+    "phases": [
+      "P36",
+      "P41",
+      "P42"
+    ],
+    "tests": [
+      "T21",
+      "T25"
+    ]
+  },
+  {
+    "id": "R-S03",
+    "description": "Richtigen Teileordner anklicken und automatisch laden",
+    "phases": [
+      "P41"
+    ],
+    "tests": [
+      "T25"
+    ]
+  },
+  {
+    "id": "R-S04",
+    "description": "View bestimmt Z-Reihenfolge, Sichtbarkeit und Sperren",
+    "phases": [
+      "P42"
+    ],
+    "tests": [
+      "T25"
+    ]
+  },
+  {
+    "id": "R-S05",
+    "description": "Szenenänderungen ausschließlich lokal im Vault autosaven",
+    "phases": [
+      "P42"
+    ],
+    "tests": [
+      "T05",
+      "T25"
+    ]
+  },
+  {
+    "id": "R-S06",
+    "description": "Manifest enthält Crop/Position/Pivot für korrekte Zusammenstellung",
+    "phases": [
+      "P40",
+      "P41"
+    ],
+    "tests": [
+      "T24",
+      "T25"
+    ]
+  },
+  {
+    "id": "R-S07",
+    "description": "Neue Teilegeneration setzt eine bearbeitete Szene nicht still zurück",
+    "phases": [
+      "P41",
+      "P42"
+    ],
+    "tests": [
+      "T25"
+    ]
+  },
+  {
+    "id": "R-S08",
+    "description": "Ohne Manifest keine erfundene räumliche Autoanordnung",
+    "phases": [
+      "P41"
+    ],
+    "tests": [
+      "T25"
+    ]
+  }
+]

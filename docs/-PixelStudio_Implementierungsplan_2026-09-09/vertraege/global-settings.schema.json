@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ausschließlich globale Geräte-UI",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "kind": {
+      "const": "globalSettings"
+    },
+    "theme": {
+      "enum": [
+        "system",
+        "light",
+        "dark"
+      ]
+    },
+    "uiLanguage": {
+      "enum": [
+        "de",
+        "en"
+      ]
+    },
+    "density": {
+      "enum": [
+        "compact",
+        "comfortable"
+      ]
+    },
+    "windowState": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 480
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 360
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "kind",
+    "theme",
+    "uiLanguage",
+    "density"
+  ]
+}

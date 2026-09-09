@@ -19,8 +19,8 @@
         "title": "PixelCutoutSprite Studio",
         "width": 1440,
         "height": 900,
-        "minWidth": 1280,
-        "minHeight": 720,
+        "minWidth": 480,
+        "minHeight": 360,
         "resizable": true,
         "fullscreen": false
       }

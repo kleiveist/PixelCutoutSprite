@@ -1,0 +1,213 @@
+{
+  "version": "v3.0",
+  "note": "Pflichtbeispiele, keine Löschliste: weitere vorhandene Untertypen erhalten. Neue IDs gegen ASSET_SUBTYPES prüfen/ergänzen; vorhandene V2-Antworten kontrolliert mappen. Icon-IDs sind logische Rollen, keine vorausgesetzte Icon-Bibliothek.",
+  "categories": [
+    {
+      "id": "character",
+      "label": "Charakter / Figur",
+      "folder": "Charakter",
+      "icon": "character",
+      "requiredSubtypes": [
+        {
+          "id": "npc",
+          "label": "NPC",
+          "folder": "NPC"
+        },
+        {
+          "id": "hero",
+          "label": "Held",
+          "folder": "Held"
+        },
+        {
+          "id": "boss",
+          "label": "Boss",
+          "folder": "Boss"
+        }
+      ]
+    },
+    {
+      "id": "movingObject",
+      "label": "Bewegliches Objekt",
+      "folder": "Bewegliches-Objekt",
+      "icon": "moving-object",
+      "requiredSubtypes": [
+        {
+          "id": "cart",
+          "label": "Wagen",
+          "folder": "Wagen"
+        },
+        {
+          "id": "boat",
+          "label": "Boot",
+          "folder": "Boot"
+        },
+        {
+          "id": "mechanicalConstruct",
+          "label": "Mechanik",
+          "folder": "Mechanik"
+        }
+      ]
+    },
+    {
+      "id": "staticObject",
+      "label": "Statisches Objekt",
+      "folder": "Statisches-Objekt",
+      "icon": "static-object",
+      "requiredSubtypes": [
+        {
+          "id": "crate",
+          "label": "Kiste",
+          "folder": "Kiste"
+        },
+        {
+          "id": "well",
+          "label": "Brunnen",
+          "folder": "Brunnen"
+        },
+        {
+          "id": "altar",
+          "label": "Altar",
+          "folder": "Altar"
+        }
+      ]
+    },
+    {
+      "id": "texture",
+      "label": "Textur / Material",
+      "folder": "Textur",
+      "icon": "texture",
+      "requiredSubtypes": [
+        {
+          "id": "wood",
+          "label": "Holz",
+          "folder": "Holz"
+        },
+        {
+          "id": "stone",
+          "label": "Stein",
+          "folder": "Stein"
+        },
+        {
+          "id": "snow",
+          "label": "Schnee",
+          "folder": "Schnee"
+        }
+      ]
+    },
+    {
+      "id": "nature",
+      "label": "Natur / Pflanze",
+      "folder": "Natur",
+      "icon": "nature",
+      "requiredSubtypes": [
+        {
+          "id": "tree",
+          "label": "Baum",
+          "folder": "Baum"
+        },
+        {
+          "id": "mushroom",
+          "label": "Pilz",
+          "folder": "Pilz"
+        },
+        {
+          "id": "root",
+          "label": "Wurzel",
+          "folder": "Wurzel"
+        }
+      ]
+    },
+    {
+      "id": "building",
+      "label": "Gebäude / Architektur",
+      "folder": "Gebaeude",
+      "icon": "building",
+      "requiredSubtypes": [
+        {
+          "id": "house",
+          "label": "Haus",
+          "folder": "Haus"
+        },
+        {
+          "id": "tower",
+          "label": "Turm",
+          "folder": "Turm"
+        },
+        {
+          "id": "temple",
+          "label": "Tempel",
+          "folder": "Tempel"
+        }
+      ]
+    },
+    {
+      "id": "tileset",
+      "label": "Tileset / Mapping",
+      "folder": "Tileset",
+      "icon": "tileset",
+      "requiredSubtypes": [
+        {
+          "id": "groundTile",
+          "label": "Boden",
+          "folder": "Boden"
+        },
+        {
+          "id": "wallTile",
+          "label": "Wand",
+          "folder": "Wand"
+        },
+        {
+          "id": "autotile",
+          "label": "Autotile",
+          "folder": "Autotile"
+        }
+      ]
+    },
+    {
+      "id": "item",
+      "label": "Item / Ausrüstung",
+      "folder": "Item",
+      "icon": "item",
+      "requiredSubtypes": [
+        {
+          "id": "sword",
+          "label": "Schwert",
+          "folder": "Schwert"
+        },
+        {
+          "id": "potion",
+          "label": "Trank",
+          "folder": "Trank"
+        },
+        {
+          "id": "tool",
+          "label": "Werkzeug",
+          "folder": "Werkzeug"
+        }
+      ]
+    },
+    {
+      "id": "artwork",
+      "label": "Artwork / Konzeptbild",
+      "folder": "Artwork",
+      "icon": "artwork",
+      "requiredSubtypes": [
+        {
+          "id": "concept",
+          "label": "Konzept",
+          "folder": "Konzept"
+        },
+        {
+          "id": "scene",
+          "label": "Szene",
+          "folder": "Szene"
+        },
+        {
+          "id": "promoArtwork",
+          "label": "Promo",
+          "folder": "Promo"
+        }
+      ]
+    }
+  ]
+}

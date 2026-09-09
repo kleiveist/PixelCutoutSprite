@@ -27,10 +27,12 @@ import type { MotionOpenTarget } from "../domain/animations";
 import type { RevisionRef } from "../domain/common";
 import type { AssetImportJobView } from "../domain/inventory";
 import { PromptGeneratorRoot } from "../prompt-studio/app";
+import { LegacyMigrationDialog, VaultBaseProfileDialog } from "../prompt-studio/features/profiles";
+import { VaultPromptProvider, type VaultPromptProviderProps } from "../prompt-studio/store/vault";
 import type { PromptHandoff, PromptHandoffAvailability } from "../prompt-studio/domain/handoff";
 import {
   createBrowserOutputWorkspaceAdapter,
-  initializeBrowserWorkspaceStorage,
+  initializeSessionWorkspaceStorage,
   type LegacyV1StorageMigrationResult,
   type OutputWorkspaceAdapter,
   type V2StorageAdapter,
@@ -43,6 +45,16 @@ import { NpcWorkspace } from "../features/npcs";
 import { OutfitEditor } from "../features/outfit";
 import { ProjectDashboard } from "../features/projects/ProjectDashboard";
 import { RecoveryPanel } from "../features/vault/RecoveryPanel";
+import { ModalHost } from "../shared/dialogs";
+import { ModuleNavigationRow } from "../shared/navigation";
+import {
+  GlobalSettingsDialog,
+  GlobalSettingsProvider,
+  type GlobalSettingsClient,
+} from "../shared/settings";
+import { registerNativeCloseFlush, SaveQueue } from "../shared/storage";
+import { ActiveVaultProvider, type ActiveVault, vaultDisplayName } from "../shared/vault";
+import { SpriteStudioWelcome } from "../sprite-studio";
 import {
   classifyNativeError,
   guardEditorNavigation,
@@ -53,6 +65,7 @@ import {
 } from "../features/editing";
 import {
   navigationItems,
+  promptNavigationItems,
   routeBreadcrumbs,
   routeDetails,
   type PromptView,
@@ -75,12 +88,14 @@ export interface AppProps {
   promptStartupMigration?: LegacyV1StorageMigrationResult;
   promptStorageAdapter?: V2StorageAdapter;
   flushPromptStorage?: () => Promise<void>;
+  globalSettingsApi?: GlobalSettingsClient;
+  promptVaultRepositoryFactory?: VaultPromptProviderProps["repositoryFactory"];
   vaultApi?: VaultClient;
 }
 
 async function noOpPromptStorageFlush(): Promise<void> {}
 
-const browserPromptWorkspace = initializeBrowserWorkspaceStorage();
+const sessionPromptWorkspace = initializeSessionWorkspaceStorage();
 const browserPromptOutput = createBrowserOutputWorkspaceAdapter();
 
 export function App({
@@ -93,9 +108,11 @@ export function App({
   projectsApi = projectClient,
   promptApi = promptStudioClient,
   promptOutputAdapter = browserPromptOutput,
-  promptStartupMigration = browserPromptWorkspace.migration,
-  promptStorageAdapter = browserPromptWorkspace.storageAdapter,
+  promptStartupMigration = sessionPromptWorkspace.migration,
+  promptStorageAdapter = sessionPromptWorkspace.storageAdapter,
   flushPromptStorage = noOpPromptStorageFlush,
+  globalSettingsApi,
+  promptVaultRepositoryFactory,
   vaultApi = vaultClient,
 }: AppProps = {}) {
   const [activeStudio, setActiveStudio] = useState<StudioMode>("cutout");
@@ -103,9 +120,12 @@ export function App({
   const [promptDraftDirty, setPromptDraftDirty] = useState(false);
   const [route, setRoute] = useState<WorkspaceRoute>("welcome");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [baseProfileOpen, setBaseProfileOpen] = useState(false);
+  const [legacyMigrationOpen, setLegacyMigrationOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState("Ready · changes stay on this device");
-  const [vault, setVault] = useState<OpenVault | null>(null);
+  const [vault, setVault] = useState<ActiveVault | null>(null);
   const [selectedProject, setSelectedProject] = useState<ProjectCard | null>(null);
   const [selectedArea, setSelectedArea] = useState<AreaCard | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -125,10 +145,24 @@ export function App({
   const studioSwitchInFlight = useRef(false);
   const editorController = useRef<EditorController | null>(null);
   const npcRecoveryCopy = useRef<EditorRecoveryCopy | null>(null);
-  const vaultRef = useRef<OpenVault | null>(null);
+  const vaultRef = useRef<ActiveVault | null>(null);
+  const fallbackSessionGeneration = useRef(0);
+  const saveQueueRef = useRef<SaveQueue | null>(null);
+  if (saveQueueRef.current === null) {
+    saveQueueRef.current = new SaveQueue(() => {
+      const current = vaultRef.current;
+      return current
+        ? { sessionId: current.session_id, generation: current.session_generation }
+        : null;
+    });
+  }
+  const saveQueue = saveQueueRef.current;
   const recoveryRefreshInFlight = useRef<Promise<void> | null>(null);
   const handledImportTerminal = useRef<string | null>(null);
   vaultRef.current = vault;
+
+  const openBaseProfile = useCallback(() => setBaseProfileOpen(true), []);
+  const openLegacyMigration = useCallback(() => setLegacyMigrationOpen(true), []);
 
   const handleNativeRejection = useCallback(
     (reason: unknown): void => {
@@ -307,6 +341,38 @@ export function App({
     },
     [sessionId, vaultApi],
   );
+
+  useEffect(() => {
+    let active = true;
+    let unlisten: (() => void) | null = null;
+    void registerNativeCloseFlush(
+      async () => {
+        const current = vaultRef.current;
+        await saveQueue.flush(
+          current
+            ? { sessionId: current.session_id, generation: current.session_generation }
+            : undefined,
+        );
+        await flushPromptStorage();
+      },
+      (reason) => {
+        if (active) {
+          setStatus(`App close blocked · pending data was not saved · ${message(reason)}`);
+        }
+      },
+    )
+      .then((stop) => {
+        if (active) unlisten = stop;
+        else stop();
+      })
+      .catch((reason) => {
+        if (active) setStatus(`Native close protection unavailable · ${message(reason)}`);
+      });
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, [flushPromptStorage, saveQueue]);
 
   const trackAssetImport = useCallback((job: AssetImportJobView): void => {
     if (vaultRef.current?.session_id === job.session_id) setAssetImportJob(job);
@@ -503,6 +569,9 @@ export function App({
       }
       studioSwitchInFlight.current = true;
       try {
+        await saveQueue.flush(
+          vault ? { sessionId: vault.session_id, generation: vault.session_generation } : undefined,
+        );
         await flushPromptStorage();
       } catch (reason) {
         setStatus(`Studio switch blocked · prompt data was not saved · ${message(reason)}`);
@@ -515,7 +584,9 @@ export function App({
     setStatus(
       nextStudio === "prompt"
         ? "PixelPromptStudio Generator opened"
-        : `${routeDetails(route).label} restored`,
+        : nextStudio === "sprite"
+          ? "PixelSpriteStudio opened · assembly follows in P41/P42"
+          : `${routeDetails(route).label} restored`,
     );
   }
 
@@ -535,7 +606,7 @@ export function App({
     }
   }
 
-  function openVault(opened: OpenVault): void {
+  async function openVault(opened: OpenVault): Promise<void> {
     if (
       vaultRef.current &&
       vaultRef.current.session_id !== opened.session_id &&
@@ -544,8 +615,28 @@ export function App({
       setStatus("Vault switch blocked · cancel the active asset import first");
       return;
     }
-    const normalized: OpenVault = {
+    const previous = vaultRef.current;
+    if (previous && previous.session_id !== opened.session_id) {
+      try {
+        await saveQueue.flush({
+          sessionId: previous.session_id,
+          generation: previous.session_generation,
+        });
+        await flushPromptStorage();
+      } catch (reason) {
+        setStatus(`Vault switch blocked · pending data was not saved · ${message(reason)}`);
+        return;
+      }
+    }
+    const suppliedGeneration = opened.session_generation;
+    fallbackSessionGeneration.current = Math.max(
+      fallbackSessionGeneration.current + (suppliedGeneration ? 0 : 1),
+      suppliedGeneration ?? 0,
+    );
+    const normalized: ActiveVault = {
       ...opened,
+      session_generation: suppliedGeneration ?? fallbackSessionGeneration.current,
+      display_name: vaultDisplayName(opened.path),
       recovery: opened.recovery ?? [],
       recovery_writable: opened.recovery_writable ?? opened.mode === "read_write",
       lock_recovery: opened.lock_recovery ?? null,
@@ -602,10 +693,22 @@ export function App({
     setStatus("Vault recovery complete · project index refreshed");
   }
 
-  function closeCurrentVault(): void {
+  async function closeCurrentVault(): Promise<void> {
     if (isActiveAssetImport(assetImportJob)) {
       setStatus("Vault close blocked · cancel the active asset import first");
       return;
+    }
+    if (vault) {
+      try {
+        await saveQueue.flush({
+          sessionId: vault.session_id,
+          generation: vault.session_generation,
+        });
+        await flushPromptStorage();
+      } catch (reason) {
+        setStatus(`Vault close blocked · pending data was not saved · ${message(reason)}`);
+        return;
+      }
     }
     setVault(null);
     setSelectedProject(null);
@@ -738,198 +841,256 @@ export function App({
   }
 
   return (
-    <div className="app-frame" data-studio={activeStudio}>
-      <AppHeader
-        activeStudio={activeStudio}
-        onOpenCutoutStudio={() => void switchStudio("cutout")}
-        onOpenPromptStudio={() => void switchStudio("prompt")}
-        onHelp={() => setHelpOpen(true)}
-      />
-      {activeStudio === "cutout" ? (
-        <>
-          <WorkspaceNav activeRoute={route} items={navigationItems} onNavigate={navigate} />
-          {assetImportJob && isActiveAssetImport(assetImportJob) && (
-            <section className="app-import-job" aria-label="Active asset import">
-              <div>
-                <strong>{assetImportJob.progress.message}</strong>
-                <span>
-                  {assetImportJob.progress.completed} / {assetImportJob.progress.total} ·{" "}
-                  {assetImportJob.progress.stage}
-                </span>
-              </div>
-              <progress
-                value={assetImportJob.progress.completed}
-                max={Math.max(1, assetImportJob.progress.total)}
-              />
-              <button
-                type="button"
-                disabled={assetImportCancelling}
-                onClick={() => void cancelActiveAssetImport()}
-              >
-                {assetImportCancelling ? "Cancelling…" : "Cancel import"}
-              </button>
-            </section>
-          )}
-          <div className="content-frame">
-            <Breadcrumbs items={breadcrumbs} />
-            <main
-              ref={mainContent}
-              className="main-content"
-              tabIndex={-1}
-              aria-label={`${details.label} workspace`}
-            >
-              {vault && (vault.recovery?.length ?? 0) > 0 ? (
-                <RecoveryPanel
-                  client={vaultApi}
-                  editorRecoveryCopy={editorRecoveryCopy}
-                  vault={vault}
-                  onCloseVault={closeCurrentVault}
-                  onRecovered={updateRecovery}
-                />
-              ) : route === "projects" && vault ? (
-                <ProjectDashboard
-                  key={vault.session_id}
-                  client={observedProjectsApi}
-                  sessionId={vault.session_id}
-                  onOpen={openProject}
-                  onStatus={setStatus}
-                />
-              ) : route === "animations" && vault && selectedArea ? (
-                <AnimationDashboard
-                  areaId={selectedArea.id}
-                  characterId={selectedNpcId}
-                  client={observedMotionsApi}
-                  defaultFrameSize={selectedArea.default_frame_size_px}
-                  defaultGroundOrigin={selectedArea.default_ground_origin_px}
-                  onOpen={openMotionTarget}
-                  onOpenNpcs={() => navigate("characters")}
-                  onPublishingChange={setReleaseRunning}
-                  onStatus={setStatus}
-                  sessionId={vault.session_id}
-                />
-              ) : route === "dummy-editor" && vault && selectedTemplateId ? (
-                <MotionDummyEditorRoute
-                  key={selectedTemplateId}
-                  client={observedMotionsApi}
-                  onEditorControllerChange={registerEditorController}
-                  onPlaybackChange={setPlaying}
-                  onStatus={setStatus}
-                  sessionId={vault.session_id}
-                  templateId={selectedTemplateId}
-                />
-              ) : route === "outfit" && vault && selectedArea && selectedTemplateRef ? (
-                <OutfitEditor
-                  areaId={selectedArea.id}
-                  assetsClient={observedAssetsApi}
-                  client={observedOutfitsApi}
-                  importJob={assetImportJob}
-                  onImportJobChange={trackAssetImport}
-                  onEditorControllerChange={registerEditorController}
-                  onOpenDummy={(templateRef) => {
-                    setSelectedTemplateId(templateRef.id);
-                    setSelectedTemplateRef(null);
-                    setRoute("dummy-editor");
-                    setStatus("Reusable dummy motion editor opened");
-                  }}
-                  onPlaybackChange={setPlaying}
-                  onSavedNpc={(npc) => setStatus(`${npc.character.name} saved as an NPC`)}
-                  onStatus={setStatus}
-                  sessionId={vault.session_id}
-                  templateRef={selectedTemplateRef}
-                  writable={vault.mode === "read_write"}
-                />
-              ) : route === "outfit" && vault && selectedArea ? (
-                <InventoryWorkspace
-                  areaId={selectedArea.id}
-                  client={observedAssetsApi}
-                  importJob={assetImportJob}
-                  onImportJobChange={trackAssetImport}
-                  onStatus={setStatus}
-                  sessionId={vault.session_id}
-                />
-              ) : route === "characters" && vault && selectedArea ? (
-                <NpcWorkspace
-                  key={selectedArea.id}
-                  areaId={selectedArea.id}
-                  client={observedNpcsApi}
-                  initialBindingId={selectedBindingId ?? undefined}
-                  initialNpcId={selectedNpcId ?? undefined}
-                  onDirtyChange={setNpcEditorDirty}
-                  onMutationInFlightChange={setNpcMutationInFlight}
-                  onRecoveryCopyChange={registerNpcRecoveryCopy}
-                  onSectionChange={(section, context) => {
-                    setSelectedNpcId(context.npcId);
-                    setSelectedBindingId(context.bindingId);
-                    if (section === "animations") navigate("animations");
-                    if (section === "export") navigate("export");
-                  }}
-                  onSelectionChange={(selection) => {
-                    setSelectedNpcId(selection.npcId);
-                    setSelectedBindingId(selection.bindingId);
-                  }}
-                  onStatus={setStatus}
-                  readOnly={vault.mode !== "read_write"}
-                  sessionId={vault.session_id}
-                />
-              ) : route === "export" && vault && selectedArea ? (
-                <ExportWorkspace
-                  key={selectedArea.id}
-                  areaId={selectedArea.id}
-                  client={observedExportsApi}
-                  initialBindingId={selectedBindingId ?? undefined}
-                  initialNpcId={selectedNpcId ?? undefined}
-                  npcsClient={observedNpcsApi}
-                  onRunningChange={setExportRunning}
-                  onSelectionChange={(selection) => {
-                    setSelectedNpcId(selection.npcId);
-                    setSelectedBindingId(selection.bindingId);
-                  }}
-                  onStatus={setStatus}
-                  readOnly={vault.mode !== "read_write"}
-                  sessionId={vault.session_id}
-                />
-              ) : (
-                <PlaceholderView
-                  details={details}
-                  areaClient={observedAreasApi}
-                  onOpenAreaAnimations={openAreaAnimations}
-                  onOpenAreaInventory={openAreaInventory}
-                  onVaultOpened={openVault}
-                  projectId={selectedProject?.id ?? null}
-                  vault={vault}
-                  vaultClient={vaultApi}
-                />
-              )}
-            </main>
-          </div>
-        </>
-      ) : (
-        <div className="content-frame prompt-content-frame">
-          <main
-            ref={promptContent}
-            className="main-content prompt-workspace"
-            tabIndex={-1}
-            aria-label="PixelPromptStudio Generator"
-            data-prompt-view={promptView}
-          >
-            <PromptGeneratorRoot
-              view={promptView}
-              onNavigate={setPromptView}
-              onDirtyChange={setPromptDraftDirty}
-              outputAdapter={promptOutputAdapter}
-              startupMigration={promptStartupMigration}
-              storageAdapter={promptStorageAdapter}
-              handoffAvailability={promptHandoffAvailability}
-              onHandoff={handoffPrompt}
+    <GlobalSettingsProvider client={globalSettingsApi}>
+      <ActiveVaultProvider activeVault={vault} saveQueue={saveQueue}>
+        <VaultPromptProvider
+          {...(promptVaultRepositoryFactory
+            ? { repositoryFactory: promptVaultRepositoryFactory }
+            : {})}
+        >
+          <div className="app-frame" data-studio={activeStudio} data-modal-background>
+            <AppHeader
+              activeStudio={activeStudio}
+              onOpenCutoutStudio={() => void switchStudio("cutout")}
+              onOpenPromptStudio={() => void switchStudio("prompt")}
+              onOpenSpriteStudio={() => void switchStudio("sprite")}
+              onSettings={() => setSettingsOpen(true)}
+              onHelp={() => setHelpOpen(true)}
             />
-          </main>
-        </div>
-      )}
-      <StatusBar message={status} playing={playing} />
-      {import.meta.env.VITE_P19_ACCEPTANCE_PROBE === "1" && <NativeAcceptanceProbe />}
-      <span className="visually-hidden" data-selected-template={selectedTemplateId ?? undefined} />
-      <DialogLayer open={helpOpen} onClose={() => setHelpOpen(false)} />
-    </div>
+            {activeStudio === "cutout" ? (
+              <WorkspaceNav activeRoute={route} items={navigationItems} onNavigate={navigate} />
+            ) : activeStudio === "prompt" ? (
+              <ModuleNavigationRow
+                module="prompt"
+                items={promptNavigationItems.map((item) => ({
+                  id: item.id,
+                  label: item.label,
+                  current: promptView === item.id,
+                  onSelect: setPromptView,
+                }))}
+                actions={
+                  <button type="button" onClick={() => setPromptView("wizard")}>
+                    <span aria-hidden="true">+</span> Neues Asset
+                  </button>
+                }
+              />
+            ) : (
+              <ModuleNavigationRow module="sprite" />
+            )}
+            {activeStudio === "cutout" ? (
+              <>
+                {assetImportJob && isActiveAssetImport(assetImportJob) && (
+                  <section className="app-import-job" aria-label="Active asset import">
+                    <div>
+                      <strong>{assetImportJob.progress.message}</strong>
+                      <span>
+                        {assetImportJob.progress.completed} / {assetImportJob.progress.total} ·{" "}
+                        {assetImportJob.progress.stage}
+                      </span>
+                    </div>
+                    <progress
+                      value={assetImportJob.progress.completed}
+                      max={Math.max(1, assetImportJob.progress.total)}
+                    />
+                    <button
+                      type="button"
+                      disabled={assetImportCancelling}
+                      onClick={() => void cancelActiveAssetImport()}
+                    >
+                      {assetImportCancelling ? "Cancelling…" : "Cancel import"}
+                    </button>
+                  </section>
+                )}
+                <div className="content-frame">
+                  <Breadcrumbs items={breadcrumbs} />
+                  <main
+                    ref={mainContent}
+                    className="main-content"
+                    tabIndex={-1}
+                    aria-label={`${details.label} workspace`}
+                  >
+                    {vault && (vault.recovery?.length ?? 0) > 0 ? (
+                      <RecoveryPanel
+                        client={vaultApi}
+                        editorRecoveryCopy={editorRecoveryCopy}
+                        vault={vault}
+                        onCloseVault={closeCurrentVault}
+                        onRecovered={updateRecovery}
+                      />
+                    ) : route === "projects" && vault ? (
+                      <ProjectDashboard
+                        key={vault.session_id}
+                        client={observedProjectsApi}
+                        sessionId={vault.session_id}
+                        onOpen={openProject}
+                        onStatus={setStatus}
+                      />
+                    ) : route === "animations" && vault && selectedArea ? (
+                      <AnimationDashboard
+                        areaId={selectedArea.id}
+                        characterId={selectedNpcId}
+                        client={observedMotionsApi}
+                        defaultFrameSize={selectedArea.default_frame_size_px}
+                        defaultGroundOrigin={selectedArea.default_ground_origin_px}
+                        onOpen={openMotionTarget}
+                        onOpenNpcs={() => navigate("characters")}
+                        onPublishingChange={setReleaseRunning}
+                        onStatus={setStatus}
+                        sessionId={vault.session_id}
+                      />
+                    ) : route === "dummy-editor" && vault && selectedTemplateId ? (
+                      <MotionDummyEditorRoute
+                        key={selectedTemplateId}
+                        client={observedMotionsApi}
+                        onEditorControllerChange={registerEditorController}
+                        onPlaybackChange={setPlaying}
+                        onStatus={setStatus}
+                        sessionId={vault.session_id}
+                        templateId={selectedTemplateId}
+                      />
+                    ) : route === "outfit" && vault && selectedArea && selectedTemplateRef ? (
+                      <OutfitEditor
+                        areaId={selectedArea.id}
+                        assetsClient={observedAssetsApi}
+                        client={observedOutfitsApi}
+                        importJob={assetImportJob}
+                        onImportJobChange={trackAssetImport}
+                        onEditorControllerChange={registerEditorController}
+                        onOpenDummy={(templateRef) => {
+                          setSelectedTemplateId(templateRef.id);
+                          setSelectedTemplateRef(null);
+                          setRoute("dummy-editor");
+                          setStatus("Reusable dummy motion editor opened");
+                        }}
+                        onPlaybackChange={setPlaying}
+                        onSavedNpc={(npc) => setStatus(`${npc.character.name} saved as an NPC`)}
+                        onStatus={setStatus}
+                        sessionId={vault.session_id}
+                        templateRef={selectedTemplateRef}
+                        writable={vault.mode === "read_write"}
+                      />
+                    ) : route === "outfit" && vault && selectedArea ? (
+                      <InventoryWorkspace
+                        areaId={selectedArea.id}
+                        client={observedAssetsApi}
+                        importJob={assetImportJob}
+                        onImportJobChange={trackAssetImport}
+                        onStatus={setStatus}
+                        sessionId={vault.session_id}
+                      />
+                    ) : route === "characters" && vault && selectedArea ? (
+                      <NpcWorkspace
+                        key={selectedArea.id}
+                        areaId={selectedArea.id}
+                        client={observedNpcsApi}
+                        initialBindingId={selectedBindingId ?? undefined}
+                        initialNpcId={selectedNpcId ?? undefined}
+                        onDirtyChange={setNpcEditorDirty}
+                        onMutationInFlightChange={setNpcMutationInFlight}
+                        onRecoveryCopyChange={registerNpcRecoveryCopy}
+                        onSectionChange={(section, context) => {
+                          setSelectedNpcId(context.npcId);
+                          setSelectedBindingId(context.bindingId);
+                          if (section === "animations") navigate("animations");
+                          if (section === "export") navigate("export");
+                        }}
+                        onSelectionChange={(selection) => {
+                          setSelectedNpcId(selection.npcId);
+                          setSelectedBindingId(selection.bindingId);
+                        }}
+                        onStatus={setStatus}
+                        readOnly={vault.mode !== "read_write"}
+                        sessionId={vault.session_id}
+                      />
+                    ) : route === "export" && vault && selectedArea ? (
+                      <ExportWorkspace
+                        key={selectedArea.id}
+                        areaId={selectedArea.id}
+                        client={observedExportsApi}
+                        initialBindingId={selectedBindingId ?? undefined}
+                        initialNpcId={selectedNpcId ?? undefined}
+                        npcsClient={observedNpcsApi}
+                        onRunningChange={setExportRunning}
+                        onSelectionChange={(selection) => {
+                          setSelectedNpcId(selection.npcId);
+                          setSelectedBindingId(selection.bindingId);
+                        }}
+                        onStatus={setStatus}
+                        readOnly={vault.mode !== "read_write"}
+                        sessionId={vault.session_id}
+                      />
+                    ) : (
+                      <PlaceholderView
+                        details={details}
+                        areaClient={observedAreasApi}
+                        onOpenAreaAnimations={openAreaAnimations}
+                        onOpenAreaInventory={openAreaInventory}
+                        onVaultOpened={openVault}
+                        projectId={selectedProject?.id ?? null}
+                        vault={vault}
+                        vaultClient={vaultApi}
+                      />
+                    )}
+                  </main>
+                </div>
+              </>
+            ) : activeStudio === "prompt" ? (
+              <div className="content-frame prompt-content-frame">
+                <main
+                  ref={promptContent}
+                  className="main-content prompt-workspace"
+                  tabIndex={-1}
+                  aria-label="PixelPromptStudio Generator"
+                  data-prompt-view={promptView}
+                >
+                  <PromptGeneratorRoot
+                    view={promptView}
+                    onNavigate={setPromptView}
+                    onDirtyChange={setPromptDraftDirty}
+                    outputAdapter={promptOutputAdapter}
+                    startupMigration={promptStartupMigration}
+                    storageAdapter={promptStorageAdapter}
+                    handoffAvailability={promptHandoffAvailability}
+                    onHandoff={handoffPrompt}
+                    onOpenBaseProfile={openBaseProfile}
+                    onOpenLegacyMigration={openLegacyMigration}
+                  />
+                </main>
+              </div>
+            ) : (
+              <div className="content-frame sprite-content-frame">
+                <main
+                  ref={mainContent}
+                  className="main-content"
+                  tabIndex={-1}
+                  aria-label="PixelSpriteStudio"
+                >
+                  <SpriteStudioWelcome />
+                </main>
+              </div>
+            )}
+            <StatusBar message={status} playing={playing} />
+            {import.meta.env.VITE_P19_ACCEPTANCE_PROBE === "1" && <NativeAcceptanceProbe />}
+            <span
+              className="visually-hidden"
+              data-selected-template={selectedTemplateId ?? undefined}
+            />
+            <ModalHost>
+              <DialogLayer open={helpOpen} onClose={() => setHelpOpen(false)} />
+              <GlobalSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+              <VaultBaseProfileDialog
+                open={baseProfileOpen}
+                onClose={() => setBaseProfileOpen(false)}
+              />
+              <LegacyMigrationDialog
+                open={legacyMigrationOpen}
+                onClose={() => setLegacyMigrationOpen(false)}
+              />
+            </ModalHost>
+          </div>
+        </VaultPromptProvider>
+      </ActiveVaultProvider>
+    </GlobalSettingsProvider>
   );
 }
 

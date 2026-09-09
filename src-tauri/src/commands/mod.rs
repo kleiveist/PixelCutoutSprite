@@ -6,6 +6,8 @@ mod npc;
 mod outfit;
 mod projects;
 mod prompt_generator;
+mod prompt_vault;
+mod settings;
 mod vault;
 
 pub use area::*;
@@ -16,4 +18,6 @@ pub use npc::*;
 pub use outfit::*;
 pub use projects::*;
 pub use prompt_generator::*;
+pub use prompt_vault::*;
+pub use settings::*;
 pub use vault::*;

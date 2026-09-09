@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 3,
+  "kind": "vaultPromptDraft",
+  "draftId": "draft_unbenannt01",
+  "profileId": null,
+  "revision": 1,
+  "identity": {
+    "name": "",
+    "category": null,
+    "subtype": null
+  },
+  "rawValues": {},
+  "wizard": {
+    "currentStepId": "identity",
+    "completedStepIds": []
+  },
+  "createdAt": "2026-09-09T00:00:00Z",
+  "updatedAt": "2026-09-09T00:00:00Z"
+}

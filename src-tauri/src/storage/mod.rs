@@ -1,5 +1,6 @@
 mod device_settings;
 mod error;
+mod global_settings;
 mod index;
 mod json_store;
 mod layout;
@@ -11,6 +12,7 @@ mod transaction;
 
 pub use device_settings::*;
 pub use error::*;
+pub use global_settings::*;
 pub use index::*;
 pub use json_store::*;
 pub use layout::*;

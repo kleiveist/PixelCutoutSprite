@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Unvollständiger/roher Vault-Draft",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 3
+    },
+    "kind": {
+      "const": "vaultPromptDraft"
+    },
+    "draftId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$"
+    },
+    "profileId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{2,127}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "category": {
+          "anyOf": [
+            {
+              "enum": [
+                "character",
+                "movingObject",
+                "staticObject",
+                "texture",
+                "nature",
+                "building",
+                "tileset",
+                "item",
+                "artwork"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subtype": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "name",
+        "category",
+        "subtype"
+      ]
+    },
+    "rawValues": {
+      "type": "object",
+      "maxProperties": 512
+    },
+    "wizard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "currentStepId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "completedStepIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "currentStepId",
+        "completedStepIds"
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "kind",
+    "draftId",
+    "profileId",
+    "revision",
+    "identity",
+    "rawValues",
+    "wizard",
+    "createdAt",
+    "updatedAt"
+  ]
+}

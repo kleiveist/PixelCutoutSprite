@@ -1,6 +1,13 @@
-export type StudioMode = "cutout" | "prompt";
+export type StudioMode = "cutout" | "prompt" | "sprite";
 
 export type PromptView = "dashboard" | "profiles" | "wizard" | "output" | "settings";
+
+export const promptNavigationItems = [
+  { id: "dashboard", label: "Dashboard" },
+  { id: "profiles", label: "Profile" },
+  { id: "wizard", label: "Wizard" },
+  { id: "output", label: "Ausgabe" },
+] as const satisfies readonly { readonly id: PromptView; readonly label: string }[];
 
 export const workspaceRoutes = [
   "welcome",

@@ -39,3 +39,20 @@ export function initializeBrowserWorkspaceStorage(): WorkspaceStorageBootstrap {
     return initializeWorkspaceStorage(null);
   }
 }
+
+/**
+ * Compatibility state for the still-mounted V2 wizard UI. It intentionally
+ * lives only for the current renderer session and is never a persistence
+ * fallback for the vault repository.
+ */
+export function initializeSessionWorkspaceStorage(): WorkspaceStorageBootstrap {
+  const values = new Map<string, string>();
+  return {
+    storageAdapter: createV2StorageAdapter({
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => void values.set(key, value),
+      removeItem: (key) => void values.delete(key),
+    }),
+    migration: { status: "notNeeded" },
+  };
+}

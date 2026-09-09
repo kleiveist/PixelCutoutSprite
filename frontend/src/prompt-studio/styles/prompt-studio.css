@@ -10,7 +10,7 @@
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   color: var(--color-text);
   background:
     radial-gradient(circle at 76% 10%, var(--color-page-glow), transparent 31rem), var(--color-page);

@@ -1,42 +1,64 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::Mutex;
 
 use serde_json::Value;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 use crate::application::VaultService;
 use crate::domain::{
     PromptHandoff, PromptHandoffReceipt, PromptOutputFormat, PromptWorkspaceFile,
     PromptWorkspaceSnapshot, MAX_PROMPT_OUTPUT_BYTES,
 };
-use crate::storage::{write_atomic_bytes, write_atomic_json, PromptWorkspaceStorage};
+use crate::storage::{write_atomic_bytes, write_atomic_json};
 
 use super::outfit::locked_area_session;
 
 const MAX_IMPORT_BYTES: u64 = 10 * 1024 * 1024;
 
 #[tauri::command]
-pub fn read_prompt_workspace(
-    storage: State<'_, Mutex<PromptWorkspaceStorage>>,
-) -> Result<PromptWorkspaceSnapshot, String> {
-    lock_prompt_storage(&storage)?.read_snapshot()
-}
-
-#[tauri::command]
-pub fn write_prompt_workspace(
-    kind: PromptWorkspaceFile,
-    value: Value,
-    storage: State<'_, Mutex<PromptWorkspaceStorage>>,
-) -> Result<(), String> {
-    lock_prompt_storage(&storage)?.write(kind, value)
-}
-
-#[tauri::command]
-pub fn remove_prompt_draft(
-    storage: State<'_, Mutex<PromptWorkspaceStorage>>,
-) -> Result<(), String> {
-    lock_prompt_storage(&storage)?.remove_draft()
+pub fn read_legacy_prompt_workspace(app: AppHandle) -> Result<PromptWorkspaceSnapshot, String> {
+    let root = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("resolve legacy app-data directory: {error}"))?
+        .join("prompt-studio");
+    let metadata = match fs::symlink_metadata(&root) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(PromptWorkspaceSnapshot::default())
+        }
+        Err(error) => return Err(format!("inspect legacy app-data directory: {error}")),
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err("legacy prompt-studio app-data path must be a real directory".to_owned());
+    }
+    let read = |kind: PromptWorkspaceFile| -> Result<Option<Value>, String> {
+        let path = root.join(kind.filename());
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(format!("inspect legacy {}: {error}", kind.filename())),
+        };
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(format!("legacy {} must be a regular file", kind.filename()));
+        }
+        if metadata.len() > kind.maximum_bytes() as u64 {
+            return Err(format!("legacy {} exceeds its size limit", kind.filename()));
+        }
+        let bytes = fs::read(&path)
+            .map_err(|error| format!("read legacy {}: {error}", kind.filename()))?;
+        let value: Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("parse legacy {}: {error}", kind.filename()))?;
+        kind.validate(&value)?;
+        Ok(Some(value))
+    };
+    Ok(PromptWorkspaceSnapshot {
+        settings: read(PromptWorkspaceFile::Settings)?,
+        profiles: read(PromptWorkspaceFile::Profiles)?,
+        draft: read(PromptWorkspaceFile::Draft)?,
+        migration_backup: read(PromptWorkspaceFile::MigrationBackup)?,
+    })
 }
 
 #[tauri::command]
@@ -113,14 +135,6 @@ fn store_prompt_handoff(
     Ok(PromptHandoffReceipt {
         relative_path: relative_path.to_string_lossy().replace('\\', "/"),
     })
-}
-
-fn lock_prompt_storage<'a>(
-    storage: &'a State<'_, Mutex<PromptWorkspaceStorage>>,
-) -> Result<MutexGuard<'a, PromptWorkspaceStorage>, String> {
-    storage
-        .lock()
-        .map_err(|_| "prompt workspace storage lock is poisoned".to_owned())
 }
 
 fn validate_user_file_path(value: &str, extension: &str) -> Result<PathBuf, String> {

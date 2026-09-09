@@ -852,6 +852,7 @@ const ITEM_SHADOW_LABELS: Readonly<Record<ItemShadowMode, string>> = {
 };
 
 const ARTWORK_TYPE_LABELS: Readonly<Record<ArtworkType, string>> = {
+  concept: "Konzept",
   characterConcept: "Charakterkonzept",
   environmentConcept: "Umgebungskonzept",
   buildingConcept: "Gebäudeentwurf",

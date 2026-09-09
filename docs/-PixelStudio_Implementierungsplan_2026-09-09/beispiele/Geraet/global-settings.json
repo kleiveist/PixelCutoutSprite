@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "kind": "globalSettings",
+  "theme": "system",
+  "uiLanguage": "de",
+  "density": "comfortable",
+  "windowState": {
+    "width": 1440,
+    "height": 900
+  }
+}

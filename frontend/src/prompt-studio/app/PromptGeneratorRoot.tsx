@@ -8,11 +8,16 @@ import type {
   OutputWorkspaceAdapter,
   V2StorageAdapter,
 } from "../services";
-import { createIntegratedPromptNavigationAdapter } from "../services";
+import {
+  createIntegratedPromptNavigationAdapter,
+  createVaultCompatibilityStorage,
+} from "../services";
 import { NavigationProvider, useNavigation } from "../store/navigation";
 import { ProfileLibraryProvider } from "../store/profiles";
 import { SettingsProvider, useSettings } from "../store/settings";
 import { WizardSessionProvider, useWizardSession } from "../store/wizard";
+import { useOptionalVaultPrompt } from "../store/vault";
+import { useOptionalActiveVault } from "../../shared/vault";
 import { PromptStudioNavigation, PromptStudioShell } from "./AppShell";
 import "../styles/tokens.css";
 import "../styles/prompt-studio.css";
@@ -26,6 +31,8 @@ export interface PromptGeneratorRootProps {
   readonly startupMigration?: LegacyV1StorageMigrationResult;
   readonly handoffAvailability?: PromptHandoffAvailability;
   readonly onHandoff?: (handoff: PromptHandoff) => Promise<void> | void;
+  readonly onOpenBaseProfile?: () => void;
+  readonly onOpenLegacyMigration?: () => void;
   readonly now?: () => string;
   readonly createDraftId?: () => string;
   readonly createProfileId?: () => string;
@@ -38,6 +45,8 @@ interface PromptWorkspaceProps {
   readonly startupMigration: LegacyV1StorageMigrationResult;
   readonly handoffAvailability: PromptHandoffAvailability;
   readonly onHandoff?: (handoff: PromptHandoff) => Promise<void> | void;
+  readonly onOpenBaseProfile?: () => void;
+  readonly onOpenLegacyMigration: () => void;
   readonly onDirtyChange?: (dirty: boolean) => void;
   readonly now?: () => string;
   readonly createDraftId?: () => string;
@@ -49,15 +58,19 @@ function PromptWorkspace({
   startupMigration,
   handoffAvailability,
   onHandoff,
+  onOpenBaseProfile,
+  onOpenLegacyMigration = () => undefined,
   onDirtyChange,
   now,
   createDraftId,
 }: PromptWorkspaceProps) {
   const { activeView } = useNavigation();
-  const { resolvedTheme, settings } = useSettings();
-  const { draftDirty, sessionRevision } = useWizardSession();
+  const { settings } = useSettings();
+  const { activeDraft, draftDirty, rawCoreFormValues, sessionRevision } = useWizardSession();
+  const vaultPrompt = useOptionalVaultPrompt();
   const rootRef = useRef<HTMLElement>(null);
   const previousSessionRevisionRef = useRef(sessionRevision);
+  const lastQueuedWizardState = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     onDirtyChange?.(draftDirty);
@@ -73,17 +86,33 @@ function PromptWorkspace({
     focusTarget?.focus({ preventScroll: true });
   }, [activeView, sessionRevision]);
 
+  useEffect(() => {
+    if (!activeDraft || !vaultPrompt) {
+      lastQueuedWizardState.current = null;
+      return;
+    }
+    const fingerprint = JSON.stringify({ draft: activeDraft, rawCoreFormValues });
+    if (lastQueuedWizardState.current === fingerprint) return;
+    const initialHydration = lastQueuedWizardState.current === null;
+    lastQueuedWizardState.current = fingerprint;
+    if (initialHydration && !draftDirty && rawCoreFormValues === null) return;
+    vaultPrompt.queueWizardState(activeDraft, rawCoreFormValues);
+  }, [activeDraft, draftDirty, rawCoreFormValues, vaultPrompt]);
+
   return (
     <section
       ref={rootRef}
       className="prompt-generator-root"
       data-prompt-view={activeView}
-      data-theme={resolvedTheme}
+      {...(!vaultPrompt ? { "data-theme": settings.theme } : {})}
       aria-label="PixelPromptStudio Generator"
     >
-      <div className="prompt-generator-navigation">
-        <PromptStudioNavigation />
-      </div>
+      {vaultPrompt?.autosave.status === "error" ? (
+        <div className="prompt-vault-save-error" role="alert">
+          Vault-Autosave fehlgeschlagen: {vaultPrompt.autosave.message}
+        </div>
+      ) : null}
+      {!vaultPrompt ? <PromptStudioNavigation /> : null}
       <div className="prompt-generator-scroll">
         <div className="prompt-generator-content">
           <PromptStudioShell
@@ -93,6 +122,8 @@ function PromptWorkspace({
             storageAdapter={storageAdapter}
             view={activeView}
             handoffAvailability={handoffAvailability}
+            {...(onOpenBaseProfile ? { onOpenBaseProfile } : {})}
+            onOpenLegacyMigration={onOpenLegacyMigration}
             {...(onHandoff ? { onHandoff } : {})}
             {...(now ? { now } : {})}
             {...(createDraftId ? { createDraftId } : {})}
@@ -115,11 +146,35 @@ export function PromptGeneratorRoot({
     reason: "Öffne einen schreibbaren Cutout-Arbeitsbereich für die Übergabe.",
   },
   onHandoff,
+  onOpenBaseProfile,
+  onOpenLegacyMigration = () => undefined,
   now,
   createDraftId,
   createProfileId,
   createBaseProfileId,
 }: PromptGeneratorRootProps) {
+  const vaultPrompt = useOptionalVaultPrompt();
+  const activeVault = useOptionalActiveVault();
+  const hydratedStorage = useRef<{
+    readonly key: string;
+    readonly adapter: V2StorageAdapter;
+  } | null>(null);
+  const session = activeVault?.session;
+  const baseHash = vaultPrompt?.index?.baseProfile?.sha256 ?? "no-base";
+  const hydrationKey =
+    session && vaultPrompt?.status === "ready" && vaultPrompt.index
+      ? `${session.sessionId}:${session.generation}:${baseHash}`
+      : "provided";
+  if (hydratedStorage.current?.key !== hydrationKey) {
+    hydratedStorage.current = {
+      key: hydrationKey,
+      adapter:
+        hydrationKey === "provided" || !vaultPrompt?.index
+          ? storageAdapter
+          : createVaultCompatibilityStorage(vaultPrompt.index, now),
+    };
+  }
+  const effectiveStorage = hydratedStorage.current.adapter;
   const onNavigateRef = useRef(onNavigate);
   onNavigateRef.current = onNavigate;
 
@@ -135,9 +190,13 @@ export function PromptGeneratorRoot({
   }, [view]);
 
   return (
-    <SettingsProvider storageAdapter={storageAdapter} {...(now ? { now } : {})}>
+    <SettingsProvider
+      key={hydrationKey}
+      storageAdapter={effectiveStorage}
+      {...(now ? { now } : {})}
+    >
       <ProfileLibraryProvider
-        storageAdapter={storageAdapter}
+        storageAdapter={effectiveStorage}
         {...(now ? { now } : {})}
         {...(createProfileId ? { createProfileId } : {})}
         {...(createBaseProfileId ? { createBaseProfileId } : {})}
@@ -145,10 +204,12 @@ export function PromptGeneratorRoot({
         <NavigationProvider navigationAdapter={adapterRef.current}>
           <WizardSessionProvider>
             <PromptWorkspace
-              storageAdapter={storageAdapter}
+              storageAdapter={effectiveStorage}
               outputAdapter={outputAdapter}
               startupMigration={startupMigration}
               handoffAvailability={handoffAvailability}
+              {...(onOpenBaseProfile ? { onOpenBaseProfile } : {})}
+              onOpenLegacyMigration={onOpenLegacyMigration}
               {...(onHandoff ? { onHandoff } : {})}
               {...(onDirtyChange ? { onDirtyChange } : {})}
               {...(now ? { now } : {})}

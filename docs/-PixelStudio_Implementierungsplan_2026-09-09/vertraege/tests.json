@@ -1,0 +1,191 @@
+[
+  {
+    "id": "T01",
+    "title": "Shell und Navigation",
+    "method": "Komponenten-/Browsertest",
+    "procedure": "Öffne nacheinander Prompt, Cutout und Sprite, außerdem eine Willkommen-Ansicht ohne lokale Aktionen. Prüfe die Headeraktionen und schalte per Tastatur zwischen Modulen.",
+    "expected": "Genau ein globaler Header, ein Zahnrad neben Hilfe und eine gemeinsame Navigation-Row pro Modul. Keine CSS-Hash-Abhängigkeit. Kein doppelter Prompt-Navigationsbereich."
+  },
+  {
+    "id": "T02",
+    "title": "Popup-Dismiss und Fokus",
+    "method": "Komponenten-/Browsertest; native Stichprobe",
+    "procedure": "Prüfe Einstellungen, Basisprofil und Kategorie-Liste jeweils mit X, Escape und Backdrop. Klicke innen, ziehe einen Pointer von innen nach außen, tabbe vorwärts und rückwärts. Öffne den Dialog erneut.",
+    "expected": "Alle vereinbarten Schließwege funktionieren. Inneninteraktion schließt nicht. Fokus bleibt im Modal und kehrt zum Auslöser zurück. Schließen bestätigt keine ungespeicherten Formulardaten."
+  },
+  {
+    "id": "T03",
+    "title": "Halbes Fenster und Zoom",
+    "method": "Browser-Layouttest plus native Fensterprüfung",
+    "procedure": "Prüfe 1920×1080, 1440×900, 960×540, 720×450, 640×480 und 480×360 sowie 200 % Zoom. Ändere die Größe mit offenem Dialog, aktivem Pinsel und View-Liste.",
+    "expected": "Keine alte 1280-px-Mindestbarriere. Keine unerreichbaren Buttons oder globale horizontale Überbreite. Drawer/Scroll funktioniert. Resize verändert keine Quellpixelmasken."
+  },
+  {
+    "id": "T04",
+    "title": "Vault-Isolation",
+    "method": "Native Dateisystemintegration",
+    "procedure": "Erzeuge Vault A und B mit jeweils einem Asset namens Kleif und unterschiedlichen Basiswerten. Verzögere einen Save in A und fordere den Wechsel nach B an. Öffne beide nach Neustart.",
+    "expected": "Keine Dateien oder verspäteten Antworten aus A landen in B. Ein blockierter Flush hält den alten Kontext sichtbar. Dateipfade stammen aus der erfassten Sitzung."
+  },
+  {
+    "id": "T05",
+    "title": "Keine Fachpersistenz außerhalb des Vaults",
+    "method": "Native Dateisystemtest plus Browser-Storage-Spies",
+    "procedure": "Erfasse App-Data-/Konfigurationszustand vor und nach Profilanlage, Wizard, Masken und Szene. Instrumentiere localStorage/IndexedDB im produktiven Adapterpfad. Wiederhole mit Legacy-Daten.",
+    "expected": "Nur erlaubte globale UI-Daten bzw. letzte Pfade außerhalb des Vaults. Keine neuen Antworten, Profile, Masken oder Szenen dort. Inaktive Legacy-Quelldateien werden nicht weitergeschrieben."
+  },
+  {
+    "id": "T06",
+    "title": "Ein Basisprofil",
+    "method": "Repository-/Formulartest",
+    "procedure": "Lege eine Basis an, ändere sie und versuche eine zweite parallele Änderung mit alter Revision. Öffne das Popup mit ungültigen Werten und schließe es über jeden Dismiss-Weg.",
+    "expected": "Ein fester Basis-Pfad, stabile ID, steigende Revision. Veraltetes CAS scheitert. Die Button-Zusammenfassung zeigt gespeicherte Werte; ungespeicherte Werte werden nicht aktiv."
+  },
+  {
+    "id": "T07",
+    "title": "Autosave und unvollständige Identität",
+    "method": "Integration mit deterministischer Uhr",
+    "procedure": "Tippe zunächst keinen Namen, später Name/Typ/Untertyp. Erzeuge valide Antworten, mache dann ein Pflichtfeld ungültig und schließe nach Flush. Prüfe kanonische Dateien und Draft-Journal.",
+    "expected": "Keine leeren/undefined-Ordner. Rohzustände bleiben lokal erhalten. Valide Generationen werden nicht durch leere Texte ersetzt. Gespeicherter Draft und aktuelle Ausgabe sind getrennt gekennzeichnet."
+  },
+  {
+    "id": "T08",
+    "title": "Crash-sichere Publikation",
+    "method": "Rust-Fault-Injection auf temporären Vaults",
+    "procedure": "Unterbreche Schreiben nach jedem dokumentierten Journal-/Publish-Schritt. Simuliere vollen Datenträger und Rename-Fehler. Starte Recovery, prüfe anschließend Profilsatz bzw. PNG-Set.",
+    "expected": "Entweder eine vollständige alte oder neue lesbare Generation. Keine falsche Erfolgsmeldung, kein gemischtes Set als fertig. Fremde/geänderte Dateien werden nicht überschrieben."
+  },
+  {
+    "id": "T09",
+    "title": "Writer und externe Konflikte",
+    "method": "Native Integration",
+    "procedure": "Öffne denselben Vault mit zwei Instanzen. Ändere zusätzlich eine JSON oder generierte MD extern zwischen Lesen und Speichern. Versuche CAS mit alter Revision.",
+    "expected": "Zweiter Writer bleibt read-only oder erhält einen klaren Lockfehler. Externe Änderungen lösen Konflikte aus; kein stiller Last-writer-wins-Verlust. Recovery-Lock nicht blind löschen."
+  },
+  {
+    "id": "T10",
+    "title": "Namen und Umbenennung",
+    "method": "Property-/Dateisystemtests",
+    "procedure": "Prüfe Kleif, Umlaute, kombinierte Unicode-Zeichen, Groß-/Kleinschreibung, lange Namen, abschließende Punkte, Gerätenamen und unerlaubte Pfadtrennzeichen. Ändere Name sowie Typ/Untertyp eines bestehenden Profils.",
+    "expected": "Sichere vorhersehbare Pfade, stabile IDs, keine Kollision/Überschreibung. Alle selbst verwalteten Dateinamen und Referenzen wandern konsistent. Unbekannte Nachbardateien bleiben bestehen."
+  },
+  {
+    "id": "T11",
+    "title": "Legacy-Übernahme",
+    "method": "Konvertertest plus native Integration",
+    "procedure": "Verwende V1-/V2-Fixtures mit mehreren Basisprofilen, Kategorie-Overrides, Drafts, fehlenden Namen, gleichen Namen und beschädigten Einträgen. Führe Preview, bestätigte Migration, Abbruch und Wiederholung aus.",
+    "expected": "Preview bleibt schreibfrei. Inkompatible Basen erfordern sichtbare Zuordnung/Entscheidung. Quelle bleibt unverändert, Ziel wiederlesbar und Wiederholung idempotent. Keine erfolgreiche Gesamtmeldung bei ungelösten Einträgen."
+  },
+  {
+    "id": "T12",
+    "title": "Dateimanager",
+    "method": "Native Windows-/macOS-/Linux-Prüfung",
+    "procedure": "Öffne aus Ausgabe die aktuelle MD, aus Profil die JSON und den Zielordner. Prüfe ungültiges/fremdes Ziel. Auf Windows dokumentiere Fensterzahl und ausgewählte Datei vor/nach Aktion.",
+    "expected": "Richtiges Ziel im System-Dateimanager, keine fremden Pfade. Eine neue Explorer-Fensterinstanz ist nur bestanden, wenn nativ beobachtet; Plugin-Mocks beweisen das nicht."
+  },
+  {
+    "id": "T13",
+    "title": "Pfad- und Dateisicherheit",
+    "method": "Rust-Sicherheits-/Decoder-Tests",
+    "procedure": "Prüfe Traversal, absolute Pfade, manipulierte Manifestpfade, Symlinks/Junctions und Austausch von Elternpfaden. Füttere zu große Bildheader, kaputte PNGs und unbekannte Schema-Versionen.",
+    "expected": "Kein Zugriff außerhalb der Sitzung, begrenzte Allokation und typisierte Fehler. Daten unbekannter Versionen werden nicht mit Defaults überschrieben. Keine globale CSP-/Capability-Abschaltung."
+  },
+  {
+    "id": "T14",
+    "title": "Scan, Watcher und externe Änderungen",
+    "method": "Integration",
+    "procedure": "Lege/lösche/benenne Profile im Dateimanager um, füge eine kaputte JSON und doppelte Profil-ID hinzu. Starte ohne Index und aktualisiere manuell. Wechsle danach den Vault.",
+    "expected": "Index kann rekonstruiert werden, Fehler einzelner Dateien sind isoliert. Doppelte IDs werden als Konflikt erkannt. Alte Watcher verändern den neuen Vault nicht."
+  },
+  {
+    "id": "T15",
+    "title": "Typen und Ablage",
+    "method": "Daten-/Browserintegration",
+    "procedure": "Erzeuge für jeden der neun Typen mindestens ein Profil mit einem geforderten Untertyp. Prüfe Typ-IDs, sichere Ordnerlabels, Icons, Anzahl und Namen.",
+    "expected": "Alle Typen und Beispiele erreichbar. Vorhandene zusätzliche Untertypen werden nicht unbegründet entfernt. Dashboard zählt ein Profil und nicht dessen vier oder mehr MD-Dateien."
+  },
+  {
+    "id": "T16",
+    "title": "Wizard-Roundtrip",
+    "method": "Komponenten-/Browser-/Native-Roundtrip",
+    "procedure": "Durchlaufe jede Kategorie anhand des P28-Frageninventars. Gehe zurück, wechsle Seiten, ändere Typ mit inkompatiblen Antworten, lade neu und starte die App neu.",
+    "expected": "Name oben, echte einzelne Katalogseiten, kein Basis-Schritt. Alle vorgesehenen Fragen erreichbar. Werte und stabile Step-ID bleiben erhalten; inkompatible Daten werden nicht still umgedeutet."
+  },
+  {
+    "id": "T17",
+    "title": "Dashboard-Popup und Laden",
+    "method": "Browserintegration mit echtem Repository-Adaptertest",
+    "procedure": "Öffne eine Kategorie mit mehreren Untertypen und gleichartigen Namen. Suche, lade ein bestimmtes Profil, prüfe Antworten, Kategorie und Schritt. Wiederhole mit kaputtem Profil.",
+    "expected": "Geladen wird der vollständige Dateizustand der gewählten ID. Popup schließt korrekt. Fehler ändern die bestehende Sitzung nicht. Kein bloßes Einfügen des fertigen Prompttexts."
+  },
+  {
+    "id": "T18",
+    "title": "Ausgaben und entfernte Aktionen",
+    "method": "Generator-/UI-Integration",
+    "procedure": "Vergleiche jede registrierte Stil-/Sprachkombination mit dem unveränderten fachlichen Generatorinventar. Prüfe alle vier Dateitypen, Hashes und UI-Inhalt. Suche produktive Export-/Copy-/JSON-Export-/Handoff-Buttons.",
+    "expected": "Varianten bleiben vollständig und konsistent, Dateien entstehen automatisch. Keine verbotenen Aktionsbuttons/Settings-Fallbacks. Normaler Text bleibt auswählbar."
+  },
+  {
+    "id": "T19",
+    "title": "Basisrevision und Regenerierung",
+    "method": "Integration mit Fehlerunterbrechung",
+    "procedure": "Ändere eine Basis mit mehreren fertigen und unvollständigen Profilen. Unterbreche die Regenerierung eines Profils, starte neu und lasse fortsetzen.",
+    "expected": "Betroffene Ausgaben werden erkennbar stale. Nur erfolgreich publizierte neue Basisrevisionen sind fresh. Unvollständige Profile bleiben Entwürfe; andere Vaults unverändert."
+  },
+  {
+    "id": "T20",
+    "title": "Tatsächlicher Rückbau",
+    "method": "Import-/Command-Graph plus Regression",
+    "procedure": "Prüfe produktive Router, Imports und native Handler auf alte Projekt-/Area-/Motion-/NPC-/Godot-Funktionen. Öffne eine Kopie eines alten Vaults und vergleiche Dateihashes.",
+    "expected": "Nicht nur Menüs, sondern auch produktive alte Fachcommands/-abhängigkeiten entfernt. Neue Cutout-Willkommen-Seite funktioniert. Alte Nutzerdateien und unabhängiges Tooling unverändert."
+  },
+  {
+    "id": "T21",
+    "title": "Gemeinsame Datei-Toolbar",
+    "method": "Komponenten-/Native-Integration",
+    "procedure": "Nutze dieselbe Toolbar in beiden Bildmodulen. Navigiere mit Klick und Tastatur durch kleine/große Verzeichnisse, wähle Bild und Manifestordner, schalte Dateien/View um.",
+    "expected": "Gemeinsamer Implementierungskern, begrenztes Listing, korrekte sitzungsgebundene Auswahl. Keine Verwechslung technischer Masken-/Quellordner mit Originalen. Registerwechsel verliert keinen Editorzustand."
+  },
+  {
+    "id": "T22",
+    "title": "Manuelle Masken und Koordinaten",
+    "method": "Canvas-/Domänentests",
+    "procedure": "Prüfe sechs Gruppen und drei Untereinträge, Flyout am linken Rand, Quelle mit asymmetrischer Geometrie, Zoom/DPI/Resize, Pinsel bis zum Bildrand und Wiederöffnung.",
+    "expected": "Feste anatomische Seiten/Datei-IDs. Masken in Quellpixeln, aktive/bestätigte Anzeige korrekt und zugänglich. Undo/Redo und bestätigte Zustände bleiben konsistent."
+  },
+  {
+    "id": "T23",
+    "title": "Assistierte Auswahl und Überlappung",
+    "method": "Algorithmusfixtures plus manuelle Qualitätsabnahme",
+    "procedure": "Nutze transparente und opake Bilder, mehrere Farben, gleiche Arm-/Torso-Farbe, dünne Konturen und eine Hand mit Anschlusszugabe. Korrigiere positiv/negativ; breche Jobs ab und editiere während einer Antwort.",
+    "expected": "Sichtbarer Hintergrund wird in eindeutigen Fällen entfernt. Schwierige Grenzen sind korrigierbar. Anschlusszugaben bleiben erhalten, Nachbarmasken unverändert und veraltete Resultate werden verworfen. Laufzeit/Qualität ehrlich protokolliert."
+  },
+  {
+    "id": "T24",
+    "title": "PNG-Set und Manifest",
+    "method": "Native Pixel-/Dateisystemtests",
+    "procedure": "Erzeuge alle Standardteile, optionale Varianten und not_present-Fälle. Prüfe RGB/Alpha, Bounding-Box, Pivotformel, Hashes, Wiedererzeugen mit entferntem Extra und unveränderte Original-/Fremddateien.",
+    "expected": "Exakte Dateinamen, keine Leer-PNGs, vollständige Manifestgeneration. PNG-Ausschnitte erhalten Quellpixel. Recovery lässt keinen halbfertigen Satz als fertig erscheinen. Schnittprojekt wiederöffnbar."
+  },
+  {
+    "id": "T25",
+    "title": "Zusammensetzung, View und Szene",
+    "method": "Canvas-/Native-Roundtrip",
+    "procedure": "Klicke einen korrekten Teileordner, prüfe Originalpositionen, nicht mittige Pivots und Zeichenfolge. Ändere Ebenen, Sichtbarkeit, Sperre und Transformationen. Starte neu und ersetze danach das Teilemanifest.",
+    "expected": "Autoanordnung stimmt mit Metadaten überein. Szene bleibt gespeichert und nicht destruktiv. Neue Generation verlangt kontrollierten Abgleich. Ohne Manifest keine erfundenen Crop-Offsets. Halbtransparente Überlappung folgt dokumentiertem Source-over."
+  },
+  {
+    "id": "T26",
+    "title": "Barrierefreie Kernbedienung",
+    "method": "Automatisierte Prüfung plus manueller Tastaturdurchlauf",
+    "procedure": "Durchlaufe Header, Modals, Wizard, Dateibaum, Teilwahl, Canvas-Werkzeugwechsel und View ohne Maus. Prüfe sichtbaren Fokus, Namen, 200 % Zoom und alternative Masken-/Statuskennzeichnung.",
+    "expected": "Kernaktionen sind erreichbar und verständlich, kein Fokusverlust hinter Dialogen, keine ausschließlich farbige Bedeutungsübertragung. Physisches Zeichnen per Pointer ist von der Tastaturbedienung der übrigen UI getrennt dokumentiert."
+  },
+  {
+    "id": "T27",
+    "title": "Offline und vollständiger Desktop-Roundtrip",
+    "method": "Native End-to-End-/Build-Abnahme",
+    "procedure": "Führe den gesamten neuen Workflow mit gesperrtem Netz aus: Vault, Basis, Prompt, Cutout, Sprite, Close, Reopen. Erstelle verfügbare native Testpakete über das Repository-Tooling.",
+    "expected": "Kein Cloud-/Modellabruf. Echte Dateien und Änderungen überleben Neustart. Native Pakete/Plattformen werden nur mit realen Log-/Testnachweisen als bestanden bezeichnet."
+  }
+]
