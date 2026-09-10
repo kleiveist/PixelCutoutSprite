@@ -42,6 +42,8 @@ function fakeRepository(initial: PromptVaultIndex) {
   let index = initial;
   const repository: VaultPromptRepository = {
     scan: vi.fn(async () => index),
+    readGeneration: vi.fn(),
+    revealPath: vi.fn(),
     saveBaseProfile: vi.fn(async (value, expectedSha256) => {
       if (index.baseProfile && expectedSha256 !== index.baseProfile.sha256)
         throw new Error("write conflict");

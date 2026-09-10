@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { PromptGeneratorRoot } from "../../app";
+import { LegacyPromptTestRoot } from "../../test/LegacyPromptTestRoot";
 import { parseWizardDraft, type ProfileLibrary, type WizardDraft } from "../../schemas";
 import { createV2StorageAdapter, type OutputWorkspaceAdapter } from "../../services";
 import { MemoryStorage } from "../../test/memoryStorage";
@@ -59,7 +59,7 @@ function setupWorkspace(
   };
 
   render(
-    <PromptGeneratorRoot
+    <LegacyPromptTestRoot
       view="output"
       onNavigate={() => undefined}
       storageAdapter={storageAdapter}
@@ -71,7 +71,7 @@ function setupWorkspace(
   return { onHandoff, outputAdapter };
 }
 
-describe("review output Cutout handoff", () => {
+describe("isolated legacy review output Cutout handoff", () => {
   it("keeps copy/export available but disables handoff without a writable area", async () => {
     setupWorkspace({
       available: false,

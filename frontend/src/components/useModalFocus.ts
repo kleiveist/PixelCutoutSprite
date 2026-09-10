@@ -30,7 +30,7 @@ function focusableChildren(container: HTMLElement | null): HTMLElement[] {
     (element) =>
       element.matches(FOCUSABLE_SELECTOR) &&
       !element.hidden &&
-      element.getAttribute("aria-hidden") !== "true",
+      !element.closest("[hidden], [inert], [aria-hidden='true']"),
   );
 }
 
@@ -53,7 +53,16 @@ export function useModalFocus<T extends HTMLElement>({
 
     return () => {
       const previous = previousFocus.current;
-      if (previous?.isConnected) previous.focus();
+      if (!previous?.isConnected) return;
+      if (previous.closest("[inert]")) {
+        // Shared modals restore the background in their effect cleanup. Browsers
+        // refuse focus while that background is still inert; restore it afterwards.
+        queueMicrotask(() => {
+          if (previous.isConnected && !previous.closest("[inert]")) previous.focus();
+        });
+      } else {
+        previous.focus();
+      }
     };
   }, [initialFocus, open]);
 

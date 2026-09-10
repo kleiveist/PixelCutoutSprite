@@ -162,7 +162,7 @@ export function PromptGeneratorRoot({
   const session = activeVault?.session;
   const baseHash = vaultPrompt?.index?.baseProfile?.sha256 ?? "no-base";
   const hydrationKey =
-    session && vaultPrompt?.status === "ready" && vaultPrompt.index
+    session && vaultPrompt?.index
       ? `${session.sessionId}:${session.generation}:${baseHash}`
       : "provided";
   if (hydratedStorage.current?.key !== hydrationKey) {

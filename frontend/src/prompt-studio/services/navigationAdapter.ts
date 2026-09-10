@@ -1,4 +1,4 @@
-import type { PromptView } from "../domain/navigation";
+import { isPromptView, type PromptView } from "../domain/navigation";
 
 export interface PromptNavigationAdapter {
   readView(): PromptView;
@@ -14,10 +14,11 @@ export function createIntegratedPromptNavigationAdapter(
   initialView: PromptView,
   onNavigate: (view: PromptView) => void,
 ): IntegratedPromptNavigationAdapter {
-  let activeView = initialView;
+  let activeView = isPromptView(initialView) ? initialView : "dashboard";
   const listeners = new Set<() => void>();
 
   const update = (view: PromptView, notifyHost: boolean) => {
+    if (!isPromptView(view)) return;
     if (view === activeView) return;
     activeView = view;
     if (notifyHost) onNavigate(view);

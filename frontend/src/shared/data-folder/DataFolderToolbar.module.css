@@ -1,0 +1,192 @@
+.workspace {
+  display: grid;
+  grid-template-columns: clamp(230px, 23vw, 310px) minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.workspace[data-docked="false"] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.content {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+.dock {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid var(--line);
+  background: var(--surface-raised);
+}
+.toolbar {
+  padding: 12px;
+  min-width: 0;
+  color: var(--ink);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.toolbar h2 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+.toolbar [hidden] {
+  display: none !important;
+}
+.toolbar button,
+.toolbar input,
+.toolbar select,
+.drawerTrigger button {
+  font: inherit;
+  color: inherit;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  padding: 7px;
+}
+.toolbar button {
+  cursor: pointer;
+}
+.toolbar button:disabled,
+.toolbar [aria-disabled="true"] {
+  opacity: 0.65;
+}
+.toolbar [role="tablist"] {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.toolbar [role="tab"] {
+  flex: 1;
+}
+.toolbar [aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  border-color: var(--accent);
+}
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+.breadcrumbs button {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.search label {
+  grid-column: 1 / -1;
+}
+.filter {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 8px 0;
+}
+.tree,
+.group {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.group {
+  margin: 2px 0 4px 10px;
+  padding-left: 5px;
+  border-left: 1px solid var(--line);
+}
+.toolbar .entry {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  text-align: left;
+  width: 100%;
+  margin: 2px 0;
+}
+.entryText {
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.entryText small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.thumbnail {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+}
+.thumbnail img {
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 10px;
+}
+.pager span {
+  flex: 1;
+}
+.selection {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.receipt {
+  display: grid;
+  gap: 4px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-soft);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.drawerTrigger {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.drawer:global(.modal-panel) {
+  width: min(390px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 16px;
+}
+.drawer :global(.modal-content) {
+  min-height: 0;
+  overflow: auto;
+}
+.drawer :global(.dialog-heading) {
+  flex-shrink: 0;
+  margin-bottom: 10px;
+}
+.drawer .toolbar {
+  padding: 4px;
+}
+@media (max-width: 799px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -38,7 +38,7 @@ test("renders one shared shell and retains independent module navigation", async
   await expect(
     page.getByRole("heading", { name: "Sprites aus geprüften Teilen zusammensetzen." }),
   ).toBeVisible();
-  await expect(page.getByText(/Noch nicht funktionsbereit/)).toBeVisible();
+  await expect(page.getByText(/Dateiauswahl verfügbar.*noch kein Zusammenbau/)).toBeVisible();
 
   await openStudio(page, "cutout");
   await expect(page.getByRole("heading", { name: "Areas" })).toBeVisible();

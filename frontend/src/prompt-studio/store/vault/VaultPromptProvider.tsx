@@ -28,6 +28,7 @@ import {
   createVaultPromptRepository,
   generateVaultPromptSnapshot,
   projectWizardToVault,
+  hydrateWizardVaultDocument,
   VaultPromptAutosave,
   VaultPromptRegenerationQueue,
   type PromptVaultIndex,
@@ -36,6 +37,7 @@ import {
   type VaultAutosaveState,
   type VaultPromptRepository,
   type PromptVaultMigrationBundle,
+  type StoredPromptGeneration,
 } from "../../services";
 import type { WizardRawCoreFormValues } from "../wizard";
 import { useActiveVault } from "../../../shared/vault";
@@ -48,6 +50,10 @@ export interface VaultPromptContextValue {
   readonly regeneration: RegenerationState;
   readonly autosave: VaultAutosaveState;
   reload(): Promise<void>;
+  prepareProfile(profileId: string): Promise<void>;
+  readGeneration(profileId: string, expectedSha256: string): Promise<StoredPromptGeneration>;
+  revealPath(relativePath: string): Promise<void>;
+  flush(): Promise<void>;
   saveBaseProfile(value: VaultBaseProfile): Promise<StoredVaultDocument<VaultBaseProfile>>;
   applyMigration(bundle: PromptVaultMigrationBundle): Promise<void>;
   queueWizardState(draft: WizardDraft, rawValues: WizardRawCoreFormValues | null): void;
@@ -71,6 +77,8 @@ const IDLE_REGENERATION: RegenerationState = {
 function message(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
+
+const currentTimestamp = () => new Date().toISOString();
 
 export function resolveStoredVaultProfile(
   profile: VaultPromptProfile,
@@ -119,7 +127,7 @@ export function resolveStoredVaultProfile(
 export function VaultPromptProvider({
   children,
   repositoryFactory = createVaultPromptRepository,
-  now = () => new Date().toISOString(),
+  now = currentTimestamp,
 }: VaultPromptProviderProps) {
   const { activeVault, saveQueue, session } = useActiveVault();
   const [status, setStatus] = useState<VaultPromptContextValue["status"]>("no_vault");
@@ -134,6 +142,8 @@ export function VaultPromptProvider({
     () => (session ? repositoryFactory(session, saveQueue) : null),
     [repositoryFactory, saveQueue, session],
   );
+  const currentRepository = useRef(repository);
+  currentRepository.current = repository;
 
   const publishIndex = useCallback((next: PromptVaultIndex | null): void => {
     indexRef.current = next;
@@ -146,7 +156,7 @@ export function VaultPromptProvider({
       stored: StoredVaultDocument<VaultPromptDraft | VaultPromptProfile>,
     ): Promise<StoredVaultDocument<VaultPromptDraft | VaultPromptProfile> | void> => {
       const current = indexRef.current;
-      if (!current) return stored;
+      if (!current || currentRepository.current !== repository) return stored;
       if (kind === "draft" && stored.value && typeof stored.value === "object") {
         const draft = stored as StoredVaultDocument<VaultPromptDraft>;
         const next = {
@@ -185,6 +195,7 @@ export function VaultPromptProvider({
           snapshot.outputs,
           profile.sha256,
         );
+        if (currentRepository.current !== repository) return profile;
         const profileReceipt = receipts.find(
           (receipt) => receipt.revision === snapshot.profile.revision,
         );
@@ -195,10 +206,11 @@ export function VaultPromptProvider({
           sha256: profileReceipt.sha256,
           revision: snapshot.profile.revision,
         };
+        const latest = indexRef.current ?? next;
         const generatedIndex = {
-          ...next,
+          ...latest,
           profiles: [
-            ...next.profiles.filter(({ value }) => value.id !== generated.value.id),
+            ...latest.profiles.filter(({ value }) => value.id !== generated.value.id),
             generated,
           ],
         };
@@ -206,6 +218,7 @@ export function VaultPromptProvider({
         setRegeneration({ status: "complete", total: 1, completed: 1, failures: [] });
         return generated;
       } catch (reason) {
+        if (currentRepository.current !== repository) return profile;
         setRegeneration({
           status: "error",
           total: 1,
@@ -253,6 +266,7 @@ export function VaultPromptProvider({
     setStatus("loading");
     setError(null);
     try {
+      await repository.flush();
       const loaded = await repository.scan();
       if (loadGeneration.current !== generation) return;
       autosave?.seed(loaded.drafts, loaded.profiles);
@@ -260,18 +274,59 @@ export function VaultPromptProvider({
       setStatus("ready");
     } catch (reason) {
       if (loadGeneration.current !== generation) return;
-      publishIndex(null);
       setError(message(reason));
       setStatus("error");
     }
   }, [autosave, publishIndex, repository]);
 
+  const flush = useCallback(async () => {
+    if (!repository) throw new Error("Kein Vault ist aktiv.");
+    await repository.flush();
+    if (currentRepository.current !== repository)
+      throw new Error("Der Vault wurde inzwischen gewechselt.");
+  }, [repository]);
+
+  const prepareProfile = useCallback(
+    async (profileId: string) => {
+      if (!repository) throw new Error("Kein Vault ist aktiv.");
+      await flush();
+      const loaded = await repository.scan();
+      if (currentRepository.current !== repository)
+        throw new Error("Der Vault wurde inzwischen gewechselt.");
+      const matches = loaded.profiles.filter(({ value }) => value.id === profileId);
+      if (matches.length !== 1)
+        throw new Error("Das Profil fehlt, ist beschädigt oder seine ID ist mehrfach vorhanden.");
+      // Preflight the full answer/position hydration before replacing the active wizard session.
+      hydrateWizardVaultDocument(matches[0]!.value, loaded);
+      autosave?.seed(loaded.drafts, loaded.profiles);
+      publishIndex(loaded);
+    },
+    [autosave, flush, publishIndex, repository],
+  );
+
+  const readGeneration = useCallback(
+    async (profileId: string, expectedSha256: string) => {
+      if (!repository) throw new Error("Kein Vault ist aktiv.");
+      return repository.readGeneration(profileId, expectedSha256);
+    },
+    [repository],
+  );
+
+  const revealPath = useCallback(
+    async (relativePath: string) => {
+      if (!repository) throw new Error("Kein Vault ist aktiv.");
+      return repository.revealPath(relativePath);
+    },
+    [repository],
+  );
+
   useEffect(() => {
+    publishIndex(null);
     void reload();
     return () => {
       loadGeneration.current += 1;
     };
-  }, [reload]);
+  }, [publishIndex, reload]);
 
   const saveBaseProfile = useCallback(
     async (value: VaultBaseProfile): Promise<StoredVaultDocument<VaultBaseProfile>> => {
@@ -353,6 +408,10 @@ export function VaultPromptProvider({
       regeneration,
       autosave: autosaveState,
       reload,
+      prepareProfile,
+      readGeneration,
+      revealPath,
+      flush,
       saveBaseProfile,
       applyMigration,
       queueWizardState,
@@ -366,6 +425,10 @@ export function VaultPromptProvider({
       queueWizardState,
       regeneration,
       reload,
+      prepareProfile,
+      readGeneration,
+      revealPath,
+      flush,
       saveBaseProfile,
       status,
     ],

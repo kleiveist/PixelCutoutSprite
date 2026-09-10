@@ -147,8 +147,8 @@ const subtypeLabels: Readonly<Partial<Record<AssetSubtype, string>>> = {
   promoArtwork: "Promo-Artwork",
 };
 
-export function formatSubtypeLabel(subtype: AssetSubtype): string {
-  const knownLabel = subtypeLabels[subtype];
+export function formatSubtypeLabel(subtype: string): string {
+  const knownLabel = subtypeLabels[subtype as AssetSubtype];
   if (knownLabel) return knownLabel;
 
   const words = subtype.replace(/([a-z])([A-Z])/g, "$1 $2");

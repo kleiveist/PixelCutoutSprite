@@ -85,7 +85,8 @@ function renderSettings(
   const adapter = createV2StorageAdapter(storage);
   const rendered = render(
     <App
-      navigationAdapter={new MemoryNavigation({ status: "valid", view: "settings" })}
+      legacySettings
+      navigationAdapter={new MemoryNavigation({ status: "valid", view: "dashboard" })}
       outputAdapter={output.adapter}
       startupMigration={startupMigration}
       storageAdapter={adapter}

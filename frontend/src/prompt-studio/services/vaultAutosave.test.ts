@@ -24,6 +24,8 @@ function draft(revision = 1, name = "Zwischenstand"): VaultPromptDraft {
 function repository(saveDraft: VaultPromptRepository["saveDraft"]): VaultPromptRepository {
   return {
     scan: vi.fn(async () => ({ baseProfile: null, profiles: [], drafts: [], issues: [] })),
+    readGeneration: vi.fn(),
+    revealPath: vi.fn(),
     saveBaseProfile: vi.fn(),
     saveDraft,
     saveProfile: vi.fn(),

@@ -9,6 +9,7 @@ mod prompt_generator;
 mod prompt_vault;
 mod settings;
 mod vault;
+mod workspace;
 
 pub use area::*;
 pub use assets::*;
@@ -21,3 +22,4 @@ pub use prompt_generator::*;
 pub use prompt_vault::*;
 pub use settings::*;
 pub use vault::*;
+pub use workspace::*;

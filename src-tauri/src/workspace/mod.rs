@@ -9,6 +9,8 @@ use sha2::{Digest, Sha256};
 
 use crate::storage::{validate_managed_relative, StorageError, VaultRoot};
 
+pub mod data_folder;
+
 pub const WORKSPACE_ADMIN_DIR: &str = ".PixelStudio";
 pub const PROMPT_VAULT_DIR: &str = ".PixelPrompt";
 const WORKSPACE_KIND: &str = "pixelStudioVault";

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde_json::Value;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, Runtime, State};
 
 use crate::application::VaultService;
 use crate::domain::{
@@ -17,7 +17,9 @@ use super::outfit::locked_area_session;
 const MAX_IMPORT_BYTES: u64 = 10 * 1024 * 1024;
 
 #[tauri::command]
-pub fn read_legacy_prompt_workspace(app: AppHandle) -> Result<PromptWorkspaceSnapshot, String> {
+pub fn read_legacy_prompt_workspace<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<PromptWorkspaceSnapshot, String> {
     let root = app
         .path()
         .app_data_dir()
@@ -46,8 +48,8 @@ pub fn read_legacy_prompt_workspace(app: AppHandle) -> Result<PromptWorkspaceSna
         if metadata.len() > kind.maximum_bytes() as u64 {
             return Err(format!("legacy {} exceeds its size limit", kind.filename()));
         }
-        let bytes = fs::read(&path)
-            .map_err(|error| format!("read legacy {}: {error}", kind.filename()))?;
+        let bytes =
+            fs::read(&path).map_err(|error| format!("read legacy {}: {error}", kind.filename()))?;
         let value: Value = serde_json::from_slice(&bytes)
             .map_err(|error| format!("parse legacy {}: {error}", kind.filename()))?;
         kind.validate(&value)?;

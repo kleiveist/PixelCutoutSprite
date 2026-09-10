@@ -35,6 +35,7 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     builder
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(application::VaultService::default()))
+        .manage(commands::WorkspaceReadBudget::default())
         .manage(Mutex::new(animation::PreviewCache::new(256 * 1024 * 1024)))
         .manage(application::ExportJobRegistry::default())
         .manage(application::AssetImportJobRegistry::default())
@@ -138,6 +139,11 @@ fn compose<R: Runtime>(builder: Builder<R>) -> Builder<R> {
             commands::save_prompt_output,
             commands::handoff_prompt_to_area,
             commands::scan_prompt_vault,
+            commands::read_prompt_vault_generation,
+            commands::reveal_workspace_path,
+            commands::list_workspace_entries,
+            commands::inspect_workspace_entry,
+            commands::read_workspace_thumbnail,
             commands::save_vault_base_profile,
             commands::save_prompt_vault_draft,
             commands::save_prompt_vault_profile,
@@ -168,8 +174,7 @@ fn parse_native_acceptance_window_size(value: &str) -> Result<(f64, f64), String
         .map_err(|_| "acceptance window height is not an integer".to_owned())?;
     if !(480..=3840).contains(&width) || !(360..=2160).contains(&height) {
         return Err(
-            "acceptance window must stay within 480..=3840 by 360..=2160 logical pixels"
-                .to_owned(),
+            "acceptance window must stay within 480..=3840 by 360..=2160 logical pixels".to_owned(),
         );
     }
     Ok((f64::from(width), f64::from(height)))

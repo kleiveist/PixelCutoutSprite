@@ -19,11 +19,11 @@ export const PROMPT_STUDIO_VIEW_DEFINITIONS: Readonly<Record<AppView, AppViewDef
   },
   profiles: {
     label: "Profile",
-    title: "Produktionsprofile sicher organisieren.",
-    eyebrow: "Profilbibliothek",
+    title: "Ein Basisprofil für deinen Vault.",
+    eyebrow: "Vault-Profil",
     description:
-      "Assetprofile erhalten hier eine kategorisierte, verlässliche Arbeitsfläche auf ihrer gültigen Profilkette.",
-    nextStep: "Suche, Filter, Compatibility-Gruppen und Profilaktionen sind aktiv.",
+      "Die gemeinsame Basis bestimmt die Produktionsregeln aller Assets im aktiven Vault.",
+    nextStep: "Basisprofil anlegen oder bearbeiten.",
   },
   wizard: {
     label: "Wizard",
@@ -31,7 +31,7 @@ export const PROMPT_STUDIO_VIEW_DEFINITIONS: Readonly<Record<AppView, AppViewDef
     eyebrow: "Geführter Abfragekatalog",
     description:
       "Die wiederaufnehmbare Wizard Engine validiert jeden Schritt und sichert gültige Änderungen lokal.",
-    nextStep: "Kategorie, Untertyp, Basisprofil und passende Fachschritte sind vollständig aktiv.",
+    nextStep: "Name, Kategorie und die passenden Katalogseiten ausfüllen.",
   },
   output: {
     label: "Ausgabe",
@@ -39,17 +39,7 @@ export const PROMPT_STUDIO_VIEW_DEFINITIONS: Readonly<Record<AppView, AppViewDef
     eyebrow: "Output Workspace",
     description:
       "Hauptprompt, Negativprompt, technische Spezifikation und kombinierte Ausgabe bekommen hier ihren festen Platz.",
-    nextStep:
-      "Sprach- und Stilpakete lassen sich kopieren, als Markdown oder zusammen mit dem Profil als JSON exportieren.",
-  },
-  settings: {
-    label: "Einstellungen",
-    title: "Das Studio passend konfigurieren.",
-    eyebrow: "Einstellungen & Datentransfer",
-    description:
-      "Darstellung und Workspace-Daten bleiben lokal, kontrollierbar und als validiertes V2-JSON übertragbar.",
-    nextStep:
-      "Getrennte Studio-Startziele, V1-Migrationsstatus sowie vollständiger JSON-Export und -Import sind aktiv.",
+    nextStep: "Sprach- und Stilpakete werden automatisch als Markdown im Vault gespeichert.",
   },
 };
 

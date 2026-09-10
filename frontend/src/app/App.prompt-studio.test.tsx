@@ -44,15 +44,15 @@ describe("integrated PixelPromptStudio", () => {
     expect(screen.queryByRole("navigation", { name: "Studio sections" })).not.toBeInTheDocument();
     expect(
       within(generator).getByRole("heading", {
-        name: "Pixelart-Produktion beginnt mit der richtigen Asset-Art.",
+        name: "Deine Assets im Vault",
       }),
     ).toBeVisible();
 
     const destinations = [
       ["Profile", "Kein Vault geöffnet"],
       ["Wizard", "Neue Assets geführt aufsetzen."],
-      ["Ausgabe", "Prompt-Pakete produktionsbereit ausgeben."],
-      ["Dashboard", "Pixelart-Produktion beginnt mit der richtigen Asset-Art."],
+      ["Ausgabe", "Gespeicherte Prompt-Ausgaben"],
+      ["Dashboard", "Deine Assets im Vault"],
     ] as const;
 
     for (const [label, heading] of destinations) {
@@ -92,12 +92,10 @@ describe("integrated PixelPromptStudio", () => {
     const { flushPromptStorage } = renderIntegratedApp();
 
     fireEvent.click(screen.getByRole("button", { name: "PixelPromptStudio Generator öffnen" }));
-    const generator = await screen.findByRole("region", {
+    await screen.findByRole("region", {
       name: "PixelPromptStudio Generator",
     });
-    fireEvent.click(
-      within(generator).getByRole("button", { name: /Figur als neues Asset erstellen/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Wizard" }));
 
     const projectName = await screen.findByRole("textbox", { name: /Projektname/i });
     fireEvent.change(projectName, { target: { value: "Waldgeist" } });

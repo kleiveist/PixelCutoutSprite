@@ -70,7 +70,8 @@ describe("App vault recovery", () => {
     expect(
       await screen.findByRole("heading", { name: /Interrupted file operations/ }),
     ).toBeInTheDocument();
-    expect(vaultApi.heartbeat).toHaveBeenCalledTimes(1);
+    // The recovery heading can render before the passive heartbeat effect has run.
+    await waitFor(() => expect(vaultApi.heartbeat).toHaveBeenCalledTimes(1));
     expect(projectsApi.dashboard).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Areas" }));

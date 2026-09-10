@@ -4,6 +4,10 @@
   gap: var(--space-6);
 }
 
+.fileReference {
+  overflow-wrap: anywhere;
+}
+
 .hero {
   min-width: 0;
   display: flex;

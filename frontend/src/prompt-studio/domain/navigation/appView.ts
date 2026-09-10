@@ -3,7 +3,6 @@ export const PROMPT_VIEW_IDS = Object.freeze([
   "profiles",
   "wizard",
   "output",
-  "settings",
 ] as const);
 
 export type PromptView = (typeof PROMPT_VIEW_IDS)[number];

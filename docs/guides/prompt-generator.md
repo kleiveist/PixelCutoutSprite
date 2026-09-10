@@ -4,82 +4,75 @@
 
 # PixelPromptStudio Generator verwenden
 
-PixelPromptStudio ist direkt in PixelCutoutSprite Studio eingebaut. Es öffnet keine Webseite,
-kein iframe und kein zweites Programm. Der grüne Studiobutton im gemeinsamen Header wechselt zum
-Generator; der Cutout-Button kehrt in den zuvor geöffneten Vault-, Projekt-, Area- und
-Editor-Kontext zurück.
+Stand: P35, 2026-09-10. PixelPromptStudio arbeitet direkt mit den Dateien des geöffneten Vaults.
+Der Studiobutton im gemeinsamen Header wechselt zwischen Generator und Cutout-Bereich.
 
 ## Einen Prompt erstellen
 
-1. Wähle im Header **PixelPromptStudio / GENERATOR**.
-2. Starte auf dem Dashboard mit **Neues Asset** oder wähle direkt eine der neun Kategorien.
-3. Lege Kategorie, Untertyp und Basisprofil fest. Der Wizard zeigt anschließend nur die für das
-   Asset gültigen Fragen, beispielsweise Richtungen und Animationsframes für Figuren oder
-   Tile-/Footprint-Werte für Weltobjekte.
-4. Prüfe vor dem nächsten Schritt die sichtbaren Validierungshinweise. Gültige Änderungen werden
-   als aktiver Entwurf gespeichert und können über Dashboard oder Wizard fortgesetzt werden.
-5. Öffne **Ausgabe**. Dort stehen Hauptprompt, Negativprompt, technische Spezifikation und die
-   kombinierte Ausgabe in den angebotenen Sprach- und Stilvarianten bereit.
+1. Öffne einen schreibbaren Vault und wähle im Header **PixelPromptStudio**.
+2. Lege unter **Profile → Basisprofil anlegen** die gemeinsame Weltbasis an. Pro Vault gibt es
+   genau ein Basisprofil; im Wizard ist es schreibgeschützter Kontext.
+3. Wähle auf dem Dashboard **Neues Asset** oder öffne eine der neun Kategorie-Karten und wähle
+   **Neues Asset in dieser Kategorie**. Auch leere Kategorien sind nutzbar.
+4. Vergib den Assetnamen und wähle Kategorie und Untertyp. Bearbeite die passenden Wizard-Seiten
+   mit **Weiter** und **Zurück**. Antworten und Position werden automatisch gesichert; auch
+   unvollständige Eingaben bleiben als Entwurf erhalten.
+5. Bestätige die abschließende Review-Seite. Für ein fertiges Profil werden die Markdown-Ausgaben
+   automatisch im Vault erzeugt. Warte bei laufender Speicherung oder Generierung auf den Status.
+6. Öffne **Ausgabe**. Wähle Profil, Stil, Sprache und Ausgabeteil. Die Ansicht liest die tatsächlich
+   gespeicherten Dateien, nicht einen unabhängig neu berechneten Vorschautext.
 
-Kopieren bleibt vollständig lokal. **MD exportieren** und **JSON exportieren** öffnen in der
-Desktop-App den nativen Speicherdialog. Ein abgebrochener Dialog verändert keine bestehende
-Datei.
+Es gibt zwei Stile (Classic/Dark), zwei Sprachen (Deutsch/Englisch) und vier Ausgabeteile
+(Hauptprompt, Negativprompt, technische Spezifikation, kombinierte Ausgabe): insgesamt 16
+Markdown-Dateien pro vollständig generiertem Profil. Dafür ist keine Exporthandlung nötig.
+Normale Textauswahl bleibt möglich; Export-, Download-, Kopier- und Area-Übergabe-Buttons gibt es
+auf den produktiven Prompt-Seiten nicht mehr.
 
-## Profile verwalten und übernehmen
+## Gespeicherte Profile wieder öffnen
 
-Unter **Profile** lassen sich Basis-, Kategorie- und Assetprofile auswählen, duplizieren,
-favorisieren und kontrolliert löschen. Die Einstellungen bieten einen vollständigen validierten
-V2-Workspace-Export und -Import.
+Die neun Dashboard-Karten zeigen die Anzahl der Profil-JSONs und bis zu drei Profilnamen aus dem
+aktuellen Vault. Markdown-Dateien erhöhen diese Zählung nicht.
 
-Bestehende PixelForgeStudio-V2-Exporte können über **Einstellungen → Workspace importieren**
-eingelesen werden. Das Paket wird vor der Übernahme vollständig mit den Prompt-Schemas geprüft;
-ID-Konflikte benötigen eine ausdrückliche Auswahl. Eine automatische Browser-Migration findet
-nur einmal statt, wenn dieselbe WebView-Origin tatsächlich alte V1-/V2-Schlüssel enthält und der
-native Prompt-Speicher noch leer ist.
+Ein Kartenklick öffnet das gemeinsame Kategorie-Popup. Die Namen sind nach Untertyp gruppiert;
+die Suche berücksichtigt Namen und Untertypen. Zu jedem Profil stehen Änderungsdatum und Status.
+**Laden** sichert zunächst die aktive Sitzung und lädt dann Antworten, unvollständige Rohwerte
+und Wizard-Position. Erst bei Erfolg schließt das Popup und wechselt zum Wizard. Bei einem Fehler
+bleibt der bisherige Arbeitsstand erhalten.
 
-## Lokale Speicherung und Recovery
+Das Popup lässt sich mit Escape, dem Schließen-Button oder einem Klick auf den Hintergrund
+schließen. Während einer laufenden Lade-/Dateimanager-Aktion ist das Schließen gesperrt.
+**Aktualisieren** wartet auf ausstehende Schreibvorgänge und scannt den Vault erneut. Beschädigte
+Einzeldateien werden mit ihrem Pfad gemeldet; lesbare Profile bleiben verfügbar.
 
-Die Desktop-App speichert unabhängig von einer geöffneten Vault im App-Datenverzeichnis:
+## Dateien im Dateimanager anzeigen
 
-```text
-prompt-studio/
-├── settings.json
-├── profiles.json
-├── draft.json
-└── migration-backup.json
-```
+Im Kategorie-Popup lassen sich Profil-JSON und Profilordner anzeigen. Unter **Ausgabe** kommt die
+aktuell ausgewählte Markdown-Datei hinzu. Der angezeigte relative Pfad gehört genau zur gewählten
+Stil-/Sprach-/Teil-Kombination.
 
-Die Dateien werden zunächst als geprüfte temporäre Datei geschrieben und danach atomar ersetzt.
-Bleibt ein gültiger Schreibstand nach einem Abbruch liegen, wird er beim nächsten Lesen
-wiederhergestellt; bei einem beschädigten Zwischenstand wird die gültige Vorgängerversion
-bevorzugt. Der Generator funktioniert offline. Browser-LocalStorage ist nur der Fallback für die
-Browserentwicklung und Tests.
+Die Desktop-App übergibt nur geprüfte bestehende Ziele aus dem aktiven Vault an den
+System-Dateimanager. Fehlende Dateien, Pfade außerhalb des Vaults und Symlinks werden abgewiesen.
+Windows verwendet Explorer, macOS Finder und Linux den System-Dateimanager. Ob Windows dabei
+eine zusätzliche Fensterinstanz öffnet, ist noch manuell zu prüfen; das wird nicht garantiert.
 
-Wenn ein Entwurf gerade ungesicherte oder ungültige Wizard-Eingaben enthält, blockiert der
-Studiowechsel. Korrigiere den markierten Schritt beziehungsweise warte auf das Autosave und
-wechsle danach erneut. Ein Fehler beim nativen Flush lässt den Generator ebenfalls geöffnet und
-zeigt den Grund in der gemeinsamen Statusleiste.
+## Speicherung, Fehler und bestehende Daten
 
-## Prompt an eine Cutout-Area übergeben
+Das Basisprofil liegt unter `.PixelPrompt/basisprofil.json`, unvollständige Draft-Journale unter
+`.PixelPrompt/.drafts/`. Profil-JSON und zugehörige Markdown-Dateien liegen gemeinsam unter
+`.PixelPrompt/<Kategorie>/<Untertyp>/<Profilordner>/`. Die Profil-JSON enthält unter anderem
+Antworten, Wizard-Position und das Manifest der generierten Ausgaben samt Prüfsummen.
 
-In der Ausgabe erscheint **In PixelCutoutSprite übernehmen**. Die Aktion ist nur aktiv, wenn
+Die Statusanzeige unterscheidet Entwurf, laufende Aktualisierung, veraltete Ausgabe und Fehler.
+Eine veraltete, aber unveränderte Datei kann als letzter gespeicherter Stand angezeigt werden;
+sie wird nicht als aktuell ausgegeben. Fehlende oder veränderte Markdown-Dateien führen beim
+Lesen beziehungsweise **Aktualisieren** zu einem Fehler. Nach einer externen Reparatur erneut
+aktualisieren. Beschädigte Dateien werden nicht automatisch mit Standardwerten überschrieben.
 
-- eine Vault geöffnet ist,
-- eine Area gewählt ist,
-- die Vault schreibbar ist und
-- keine Vault-Recovery offen ist.
+Für alte AppData-/Browserbestände gibt es unter **Profile → Legacy-Daten prüfen und übernehmen**
+eine gesonderte Vorschau und ausdrückliche Übernahme. Eine produktive Prompt-Einstellungen-Seite
+oder eine zweite zentrale Profilbibliothek gibt es nicht mehr. Alte Daten werden nicht allein
+durch das Öffnen des Dashboards übernommen.
 
-Ohne Vault oder in einer Read-only-Vault bleiben Kopieren und Datei-Export verfügbar; nur die
-Übergabe ist deaktiviert. Bei Erfolg legt PixelCutoutSprite eine versionierte JSON-Referenz unter
-dem Ordner `prompt-references/` der gewählten Area ab. Der Datensatz enthält Kategorie,
-Hauptprompt, Negativprompt, technische Spezifikation, Profilreferenzen und Zeitstempel. Andere
-Vault-Daten werden nicht migriert oder verändert. Der vorherige Cutout-Kontext bleibt erhalten.
-
-## Datensicherheit
-
-- Importpfade müssen echte reguläre JSON-Dateien sein und sind auf 10 MiB begrenzt.
-- Markdown-/JSON-Ausgaben werden nur an den explizit im nativen Dialog gewählten absoluten Pfad
-  geschrieben; JSON wird vor dem Schreiben geparst.
-- Symlinks und nicht reguläre Zieldateien werden abgelehnt.
-- Prompt-Arbeitsdaten sind größenbegrenzt; die Frontend-Schemas prüfen ihren vollständigen Inhalt.
-- Eine bestehende Vault bleibt ohne die ausdrückliche Übergabeaktion unverändert.
+In schreibgeschützten Vaults sind Lesen und Dateianzeige möglich, nicht das Anlegen oder Ändern
+von Profilen. Meldet die Anwendung einen Speicher- oder Flush-Fehler, behebe diesen vor dem
+Vault-/Studiowechsel. Der Generator benötigt für die lokale Arbeit keine Netzwerkverbindung.

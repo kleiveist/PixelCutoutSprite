@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -8,12 +9,15 @@ use sha2::{Digest, Sha256};
 
 use crate::storage::{StorageError, VaultRoot};
 use crate::workspace::{
-    validate_workspace_relative, ManagedFileWrite, WorkspaceWriter, WriteExpectation,
-    WriteReceipt, PROMPT_VAULT_DIR,
+    validate_workspace_relative, ManagedFileWrite, WorkspaceWriter, WriteExpectation, WriteReceipt,
+    PROMPT_VAULT_DIR,
 };
 
 const BASE_PROFILE_PATH: &str = ".PixelPrompt/basisprofil.json";
 const MAX_SCAN_DEPTH: u8 = 8;
+
+#[cfg(test)]
+mod tests_p35;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,11 +45,20 @@ pub struct PromptVaultIndex {
     pub issues: Vec<PromptVaultIssue>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GeneratedOutputWrite {
     pub relative_path: String,
     pub contents: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredPromptGeneration {
+    pub profile: StoredPromptDocument,
+    pub outputs: Vec<GeneratedOutputWrite>,
+    pub fresh: bool,
+    pub base_revision: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,8 +98,9 @@ impl PromptVaultRepository {
 
     pub fn scan(&self) -> Result<PromptVaultIndex, StorageError> {
         let prompt = self.root.resolve(Path::new(PROMPT_VAULT_DIR))?;
-        let metadata = fs::symlink_metadata(prompt.as_path())
-            .map_err(|error| StorageError::io("inspect prompt vault", Path::new(PROMPT_VAULT_DIR), error))?;
+        let metadata = fs::symlink_metadata(prompt.as_path()).map_err(|error| {
+            StorageError::io("inspect prompt vault", Path::new(PROMPT_VAULT_DIR), error)
+        })?;
         if metadata.file_type().is_symlink() || !metadata.is_dir() {
             return Err(StorageError::UnsafePath {
                 path: PROMPT_VAULT_DIR.to_owned(),
@@ -96,9 +110,99 @@ impl PromptVaultRepository {
         let mut index = PromptVaultIndex::default();
         self.scan_directory(Path::new(PROMPT_VAULT_DIR), 0, &mut index)?;
         detect_duplicate_profile_ids(&mut index);
-        index.profiles.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
-        index.drafts.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+        index
+            .profiles
+            .sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+        index
+            .drafts
+            .sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
         Ok(index)
+    }
+
+    /// Read one committed generation; never mix regenerated UI text with older Markdown.
+    pub fn read_generation(
+        &self,
+        profile_id: &str,
+        expected_sha256: &str,
+    ) -> Result<StoredPromptGeneration, StorageError> {
+        validate_id(profile_id)?;
+        validate_sha256(expected_sha256)?;
+        let profile = self.load_profile_by_id(profile_id)?.ok_or_else(|| {
+            StorageError::InvalidVault("profile is missing or invalid".to_owned())
+        })?;
+        if profile.sha256 != expected_sha256 {
+            return Err(StorageError::WriteConflict);
+        }
+        validate_prompt_profile(&profile.value)?;
+        let directory = Path::new(&profile.relative_path).parent().unwrap();
+        let manifest = output_manifest(&profile.value)?;
+        let mut outputs = Vec::with_capacity(manifest.len());
+        let mut total = 0;
+        for entry in manifest {
+            let relative = Path::new(&entry.relative_path);
+            validate_output_path(&profile.value, directory, relative, &entry)?;
+            let resolved = self.root.resolve(relative)?;
+            let metadata = fs::symlink_metadata(resolved.as_path())
+                .map_err(|error| StorageError::io("inspect prompt output", relative, error))?;
+            if !metadata.is_file() || metadata.file_type().is_symlink() {
+                return Err(StorageError::InvalidVault(
+                    "prompt output must be a regular file".to_owned(),
+                ));
+            }
+            let mut bytes = Vec::new();
+            fs::File::open(resolved.as_path())
+                .and_then(|file| file.take(16 * 1024 * 1024 + 1).read_to_end(&mut bytes))
+                .map_err(|error| StorageError::io("read prompt output", relative, error))?;
+            total += bytes.len();
+            if bytes.len() > 16 * 1024 * 1024 || total > 64 * 1024 * 1024 {
+                return Err(StorageError::InvalidVault(
+                    "prompt generation exceeds its read limit".to_owned(),
+                ));
+            }
+            if digest(&bytes) != entry.sha256 {
+                return Err(StorageError::WriteConflict);
+            }
+            let contents = String::from_utf8(bytes).map_err(|_| {
+                StorageError::InvalidVault("prompt output must be UTF-8".to_owned())
+            })?;
+            outputs.push(GeneratedOutputWrite {
+                relative_path: entry.relative_path,
+                contents,
+            });
+        }
+        let writer = WorkspaceWriter::new(self.root.clone());
+        let (_, receipt) = writer.read_json(Path::new(&profile.relative_path))?;
+        if receipt.sha256 != profile.sha256 {
+            return Err(StorageError::WriteConflict);
+        }
+        let base = writer
+            .read_json(Path::new(BASE_PROFILE_PATH))
+            .ok()
+            .map(|(value, _)| value);
+        let base_revision = base.as_ref().map(revision);
+        let fresh = profile
+            .value
+            .pointer("/outputs/status")
+            .and_then(Value::as_str)
+            == Some("fresh")
+            && !outputs.is_empty()
+            && profile
+                .value
+                .pointer("/outputs/generatedFrom/draftRevision")
+                == profile.value.get("draftRevision")
+            && profile
+                .value
+                .pointer("/outputs/generatedFrom/baseRevision")
+                .and_then(Value::as_u64)
+                == base_revision
+            && base.as_ref().and_then(|value| value.get("id"))
+                == profile.value.get("baseProfileId");
+        Ok(StoredPromptGeneration {
+            profile,
+            outputs,
+            fresh,
+            base_revision,
+        })
     }
 
     pub fn save_base_profile(
@@ -112,7 +216,11 @@ impl PromptVaultRepository {
         let target = Path::new(BASE_PROFILE_PATH);
         let exists = self.root.resolve(target)?.as_path().exists();
         let expectation = WriteExpectation {
-            expected_revision: if exists { revision(&value).checked_sub(1) } else { None },
+            expected_revision: if exists {
+                revision(&value).checked_sub(1)
+            } else {
+                None
+            },
             expected_sha256,
             create_only: !exists,
         };
@@ -134,7 +242,11 @@ impl PromptVaultRepository {
             .join(format!("{draft_id}.json"));
         let exists = self.root.resolve(&relative)?.as_path().exists();
         let expectation = WriteExpectation {
-            expected_revision: if exists { revision(&value).checked_sub(1) } else { None },
+            expected_revision: if exists {
+                revision(&value).checked_sub(1)
+            } else {
+                None
+            },
             expected_sha256,
             create_only: !exists,
         };
@@ -263,31 +375,33 @@ impl PromptVaultRepository {
             &relative,
             &profile,
             &WriteExpectation {
-                expected_revision: if exists { revision(&profile).checked_sub(1) } else { None },
+                expected_revision: if exists {
+                    revision(&profile).checked_sub(1)
+                } else {
+                    None
+                },
                 expected_sha256,
                 create_only: !exists,
             },
         )
     }
 
-    pub fn remove_draft(
-        &self,
-        draft_id: &str,
-        expected_sha256: &str,
-    ) -> Result<(), StorageError> {
+    pub fn remove_draft(&self, draft_id: &str, expected_sha256: &str) -> Result<(), StorageError> {
         validate_id(draft_id)?;
         validate_sha256(expected_sha256)?;
         let relative = Path::new(PROMPT_VAULT_DIR)
             .join(".drafts")
             .join(format!("{draft_id}.json"));
         let resolved = self.root.resolve(&relative)?;
-        let bytes = fs::read(resolved.as_path())
-            .map_err(|error| StorageError::io("read prompt draft before removal", &relative, error))?;
+        let bytes = fs::read(resolved.as_path()).map_err(|error| {
+            StorageError::io("read prompt draft before removal", &relative, error)
+        })?;
         if digest(&bytes) != expected_sha256 {
             return Err(StorageError::WriteConflict);
         }
-        let metadata = fs::symlink_metadata(resolved.as_path())
-            .map_err(|error| StorageError::io("inspect prompt draft before removal", &relative, error))?;
+        let metadata = fs::symlink_metadata(resolved.as_path()).map_err(|error| {
+            StorageError::io("inspect prompt draft before removal", &relative, error)
+        })?;
         if metadata.file_type().is_symlink() || !metadata.is_file() {
             return Err(StorageError::UnsafePath {
                 path: portable(&relative),
@@ -370,7 +484,11 @@ impl PromptVaultRepository {
     ) -> Result<(), StorageError> {
         let target_key = portable(target).to_lowercase();
         let index = self.scan()?;
-        if index.issues.iter().any(|issue| issue.code == "duplicate_profile_id") {
+        if index
+            .issues
+            .iter()
+            .any(|issue| issue.code == "duplicate_profile_id")
+        {
             return Err(StorageError::WriteConflict);
         }
         for profile in index.profiles {
@@ -461,21 +579,33 @@ impl PromptVaultRepository {
         entries.sort_by_key(fs::DirEntry::file_name);
         for entry in entries {
             let child = relative.join(entry.file_name());
-            validate_workspace_relative(&child)?;
-            let kind = entry.file_type().map_err(|error| {
-                StorageError::io("inspect prompt vault entry", &child, error)
-            })?;
-            if kind.is_symlink() {
-                return Err(StorageError::UnsafePath {
-                    path: portable(&child),
-                    reason: "symbolic links are forbidden in .PixelPrompt".to_owned(),
-                });
-            }
-            if kind.is_dir() {
-                self.scan_directory(&child, depth + 1, index)?;
+            if let Err(error) = validate_workspace_relative(&child) {
+                index
+                    .issues
+                    .push(issue("unsafe_path", &child, &error.to_string()));
                 continue;
             }
-            if !kind.is_file() || child.extension().and_then(|value| value.to_str()) != Some("json") {
+            let kind = entry
+                .file_type()
+                .map_err(|error| StorageError::io("inspect prompt vault entry", &child, error))?;
+            if kind.is_symlink() {
+                index.issues.push(issue(
+                    "unsafe_path",
+                    &child,
+                    "Symbolic links are forbidden in .PixelPrompt.",
+                ));
+                continue;
+            }
+            if kind.is_dir() {
+                if let Err(error) = self.scan_directory(&child, depth + 1, index) {
+                    index
+                        .issues
+                        .push(issue("unreadable_directory", &child, &error.to_string()));
+                }
+                continue;
+            }
+            if !kind.is_file() || child.extension().and_then(|value| value.to_str()) != Some("json")
+            {
                 continue;
             }
             let role = json_role(&child);
@@ -485,7 +615,8 @@ impl PromptVaultRepository {
                     .and_then(|value| value.to_str())
                     .is_some_and(|name| name.eq_ignore_ascii_case("basisprofil.json"))
                 {
-                    if let Ok((value, _)) = WorkspaceWriter::new(self.root.clone()).read_json(&child)
+                    if let Ok((value, _)) =
+                        WorkspaceWriter::new(self.root.clone()).read_json(&child)
                     {
                         if value.get("kind").and_then(Value::as_str) == Some("vaultBaseProfile") {
                             index.issues.push(issue(
@@ -506,8 +637,17 @@ impl PromptVaultRepository {
                         JsonRole::Profile => "vaultPromptProfile",
                         JsonRole::Foreign => unreachable!(),
                     };
-                    let id_field = if role == JsonRole::Draft { "draftId" } else { "id" };
-                    match validate_v3_document(&value, expected_kind, id_field) {
+                    let id_field = if role == JsonRole::Draft {
+                        "draftId"
+                    } else {
+                        "id"
+                    };
+                    let validation = if role == JsonRole::Profile {
+                        validate_prompt_profile(&value)
+                    } else {
+                        validate_v3_document(&value, expected_kind, id_field)
+                    };
+                    match validation {
                         Ok(()) => {
                             let document = StoredPromptDocument {
                                 relative_path: portable(&child),
@@ -529,18 +669,18 @@ impl PromptVaultRepository {
                                 JsonRole::Foreign => unreachable!(),
                             }
                         }
-                        Err(error) => index.issues.push(issue(
-                            "invalid_document",
-                            &child,
-                            &error.to_string(),
-                        )),
+                        Err(error) => {
+                            index
+                                .issues
+                                .push(issue("invalid_document", &child, &error.to_string()))
+                        }
                     }
                 }
-                Err(error) => index.issues.push(issue(
-                    "unreadable_document",
-                    &child,
-                    &error.to_string(),
-                )),
+                Err(error) => {
+                    index
+                        .issues
+                        .push(issue("unreadable_document", &child, &error.to_string()))
+                }
             }
         }
         Ok(())
@@ -563,10 +703,7 @@ fn json_role(path: &Path) -> JsonRole {
         .components()
         .filter_map(|component| component.as_os_str().to_str())
         .collect::<Vec<_>>();
-    if components.len() == 3
-        && components[0] == PROMPT_VAULT_DIR
-        && components[1] == ".drafts"
-    {
+    if components.len() == 3 && components[0] == PROMPT_VAULT_DIR && components[1] == ".drafts" {
         return JsonRole::Draft;
     }
     if components.len() == 5
@@ -595,7 +732,9 @@ fn output_manifest(profile: &Value) -> Result<Vec<OutputManifestEntry>, StorageE
     let files = profile
         .pointer("/outputs/files")
         .and_then(Value::as_array)
-        .ok_or_else(|| StorageError::InvalidVault("profile outputs.files must be an array".to_owned()))?;
+        .ok_or_else(|| {
+            StorageError::InvalidVault("profile outputs.files must be an array".to_owned())
+        })?;
     let mut keys = HashSet::new();
     files
         .iter()
@@ -701,7 +840,10 @@ fn validate_migration_bundle(
     Ok(documents)
 }
 
-fn json_file_write(relative_path: PathBuf, value: &Value) -> Result<ManagedFileWrite, StorageError> {
+fn json_file_write(
+    relative_path: PathBuf,
+    value: &Value,
+) -> Result<ManagedFileWrite, StorageError> {
     let bytes = serde_json::to_vec_pretty(value)
         .map_err(|error| StorageError::InvalidVault(error.to_string()))?;
     Ok(ManagedFileWrite {
@@ -737,14 +879,19 @@ fn validate_output_path(
     output: &OutputManifestEntry,
 ) -> Result<(), StorageError> {
     validate_workspace_relative(relative)?;
-    if relative.parent() != Some(directory) || relative.extension().and_then(|value| value.to_str()) != Some("md") {
+    if relative.parent() != Some(directory)
+        || relative.extension().and_then(|value| value.to_str()) != Some("md")
+    {
         return Err(StorageError::UnsafePath {
             path: portable(relative),
             reason: "prompt output must stay in its profile directory".to_owned(),
         });
     }
     if !matches!(output.style.as_str(), "classic" | "dark")
-        || !matches!(output.part.as_str(), "main" | "negative" | "technical" | "combined")
+        || !matches!(
+            output.part.as_str(),
+            "main" | "negative" | "technical" | "combined"
+        )
         || !valid_language(&output.language)
     {
         return Err(StorageError::InvalidVault(
@@ -775,7 +922,9 @@ fn validate_prompt_profile(value: &Value) -> Result<(), StorageError> {
     output_manifest(value)?;
     let status = string_field(value, "status")?;
     if !matches!(status.as_str(), "incomplete" | "ready") {
-        return Err(StorageError::InvalidVault("invalid prompt profile status".to_owned()));
+        return Err(StorageError::InvalidVault(
+            "invalid prompt profile status".to_owned(),
+        ));
     }
     if status == "ready" && value.get("baseProfileId").and_then(Value::as_str).is_none() {
         return Err(StorageError::InvalidVault(
@@ -811,22 +960,139 @@ fn category_folder(category: &str) -> Result<&'static str, StorageError> {
         "tileset" => Ok("Tileset"),
         "item" => Ok("Item"),
         "artwork" => Ok("Artwork"),
-        _ => Err(StorageError::InvalidVault("unknown prompt category".to_owned())),
+        _ => Err(StorageError::InvalidVault(
+            "unknown prompt category".to_owned(),
+        )),
     }
 }
 
 fn subtype_folder(category: &str, subtype: &str) -> Result<String, StorageError> {
     let supported: &[&str] = match category {
-        "character" => &["hero", "npc", "merchant", "villager", "artisan", "guard", "scholar", "religiousFigure", "enemy", "boss", "animal", "creature"],
-        "movingObject" => &["cart", "rollingObject", "floatingObject", "floatingCrystal", "slidingObject", "mechanicalConstruct", "boat", "platform", "magicObject", "nonHumanoidUnit"],
-        "staticObject" => &["furniture", "container", "barrel", "crate", "chest", "door", "well", "sign", "pillar", "altar", "decoration", "workTool", "interactiveObject"],
-        "texture" => &["wood", "stone", "snow", "ice", "earth", "sand", "grass", "moss", "metal", "fabric", "leather", "brick", "paving", "clay", "ceramic", "customMaterial"],
-        "nature" => &["tree", "deciduousTree", "conifer", "witheredTree", "magicTree", "bush", "grassTuft", "mushroom", "root", "treeStump", "vine"],
-        "building" => &["house", "hut", "shop", "workshop", "inn", "tower", "gate", "temple", "ruin", "fortification", "dungeonModule"],
-        "tileset" => &["groundTile", "wallTile", "roofPart", "transition", "corner", "edge", "autotile", "decal", "animatedTile"],
-        "item" => &["sword", "potion", "weapon", "tool", "clothing", "armorPiece", "bag", "jewelry", "consumable", "keyItem", "questItem", "collectible"],
-        "artwork" => &["concept", "characterConcept", "environmentConcept", "buildingConcept", "materialStudy", "scene", "promoArtwork", "moodPainting"],
-        _ => return Err(StorageError::InvalidVault("unknown prompt category".to_owned())),
+        "character" => &[
+            "hero",
+            "npc",
+            "merchant",
+            "villager",
+            "artisan",
+            "guard",
+            "scholar",
+            "religiousFigure",
+            "enemy",
+            "boss",
+            "animal",
+            "creature",
+        ],
+        "movingObject" => &[
+            "cart",
+            "rollingObject",
+            "floatingObject",
+            "floatingCrystal",
+            "slidingObject",
+            "mechanicalConstruct",
+            "boat",
+            "platform",
+            "magicObject",
+            "nonHumanoidUnit",
+        ],
+        "staticObject" => &[
+            "furniture",
+            "container",
+            "barrel",
+            "crate",
+            "chest",
+            "door",
+            "well",
+            "sign",
+            "pillar",
+            "altar",
+            "decoration",
+            "workTool",
+            "interactiveObject",
+        ],
+        "texture" => &[
+            "wood",
+            "stone",
+            "snow",
+            "ice",
+            "earth",
+            "sand",
+            "grass",
+            "moss",
+            "metal",
+            "fabric",
+            "leather",
+            "brick",
+            "paving",
+            "clay",
+            "ceramic",
+            "customMaterial",
+        ],
+        "nature" => &[
+            "tree",
+            "deciduousTree",
+            "conifer",
+            "witheredTree",
+            "magicTree",
+            "bush",
+            "grassTuft",
+            "mushroom",
+            "root",
+            "treeStump",
+            "vine",
+        ],
+        "building" => &[
+            "house",
+            "hut",
+            "shop",
+            "workshop",
+            "inn",
+            "tower",
+            "gate",
+            "temple",
+            "ruin",
+            "fortification",
+            "dungeonModule",
+        ],
+        "tileset" => &[
+            "groundTile",
+            "wallTile",
+            "roofPart",
+            "transition",
+            "corner",
+            "edge",
+            "autotile",
+            "decal",
+            "animatedTile",
+        ],
+        "item" => &[
+            "sword",
+            "potion",
+            "weapon",
+            "tool",
+            "clothing",
+            "armorPiece",
+            "bag",
+            "jewelry",
+            "consumable",
+            "keyItem",
+            "questItem",
+            "collectible",
+        ],
+        "artwork" => &[
+            "concept",
+            "characterConcept",
+            "environmentConcept",
+            "buildingConcept",
+            "materialStudy",
+            "scene",
+            "promoArtwork",
+            "moodPainting",
+        ],
+        _ => {
+            return Err(StorageError::InvalidVault(
+                "unknown prompt category".to_owned(),
+            ))
+        }
     };
     if !supported.contains(&subtype) {
         return Err(StorageError::InvalidVault(
@@ -872,7 +1138,10 @@ fn validate_v3_document(value: &Value, kind: &str, id_field: &str) -> Result<(),
     })?;
     if object.get("schemaVersion").and_then(Value::as_u64) != Some(3) {
         return Err(StorageError::FutureSchemaProtected {
-            found: object.get("schemaVersion").and_then(Value::as_u64).unwrap_or(0),
+            found: object
+                .get("schemaVersion")
+                .and_then(Value::as_u64)
+                .unwrap_or(0),
             supported: 3,
         });
     }
@@ -900,7 +1169,9 @@ fn validate_id(value: &str) -> Result<(), StorageError> {
     if valid {
         Ok(())
     } else {
-        Err(StorageError::InvalidVault("invalid stable prompt ID".to_owned()))
+        Err(StorageError::InvalidVault(
+            "invalid stable prompt ID".to_owned(),
+        ))
     }
 }
 
@@ -919,7 +1190,10 @@ fn validate_single_segment(value: &str) -> Result<(), StorageError> {
     validate_workspace_relative(path)
 }
 
-fn require_object<'a>(value: &'a Value, field: &str) -> Result<&'a serde_json::Map<String, Value>, StorageError> {
+fn require_object<'a>(
+    value: &'a Value,
+    field: &str,
+) -> Result<&'a serde_json::Map<String, Value>, StorageError> {
     value.get(field).and_then(Value::as_object).ok_or_else(|| {
         StorageError::InvalidVault(format!("prompt document {field} must be an object"))
     })
@@ -948,10 +1222,16 @@ fn valid_language(value: &str) -> bool {
 }
 
 fn validate_sha256(value: &str) -> Result<(), StorageError> {
-    if value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()) {
+    if value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    {
         Ok(())
     } else {
-        Err(StorageError::InvalidVault("invalid SHA-256 digest".to_owned()))
+        Err(StorageError::InvalidVault(
+            "invalid SHA-256 digest".to_owned(),
+        ))
     }
 }
 
@@ -1074,14 +1354,18 @@ mod tests {
             "outputSelection": {"styles": ["classic"], "languages": ["de"]},
             "outputs": {"status": "none", "generatedFrom": null, "files": []}
         });
-        repository.save_profile_without_outputs(profile.clone(), None).unwrap();
+        repository
+            .save_profile_without_outputs(profile.clone(), None)
+            .unwrap();
         assert!(directory
             .path()
             .join(".PixelPrompt/Charakter/Held/Kleif/Kleif-profile.json")
             .is_file());
         let mut collision = profile;
         collision["id"] = Value::String("profile-other".to_owned());
-        assert!(repository.save_profile_without_outputs(collision, None).is_err());
+        assert!(repository
+            .save_profile_without_outputs(collision, None)
+            .is_err());
     }
 
     #[test]

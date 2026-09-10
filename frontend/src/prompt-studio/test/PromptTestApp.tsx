@@ -1,6 +1,6 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 
-import { PromptGeneratorRoot } from "../app";
+import { LegacyPromptTestRoot } from "./LegacyPromptTestRoot";
 import type {
   LegacyV1StorageMigrationResult,
   OutputWorkspaceAdapter,
@@ -22,9 +22,10 @@ export interface PromptTestAppProps {
   readonly createDraftId?: () => string;
   readonly createProfileId?: () => string;
   readonly createBaseProfileId?: () => string;
+  readonly legacySettings?: boolean;
 }
 
-/** Mirrors the real host-controlled Prompt mount without recreating PixelForge's outer shell. */
+/** Isolated retained V2 editors; the production Vault mount has separate P35 tests. */
 export function PromptTestApp({
   navigationAdapter,
   storageAdapter,
@@ -34,6 +35,7 @@ export function PromptTestApp({
   createDraftId,
   createProfileId,
   createBaseProfileId,
+  legacySettings,
 }: PromptTestAppProps) {
   const view = useSyncExternalStore(
     navigationAdapter.subscribe,
@@ -48,11 +50,12 @@ export function PromptTestApp({
 
   return (
     <main ref={mainRef} tabIndex={-1} aria-labelledby={`${view}-view-title`}>
-      <PromptGeneratorRoot
+      <LegacyPromptTestRoot
         view={view}
         onNavigate={navigationAdapter.pushView}
         storageAdapter={storageAdapter}
         outputAdapter={outputAdapter}
+        {...(legacySettings ? { legacySettings } : {})}
         {...(startupMigration ? { startupMigration } : {})}
         {...(now ? { now } : {})}
         {...(createDraftId ? { createDraftId } : {})}

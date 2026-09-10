@@ -7,8 +7,29 @@ use crate::application::VaultService;
 use crate::domain::ObjectId;
 use crate::prompt_vault::{
     GeneratedOutputWrite, PromptVaultIndex, PromptVaultMigrationBundle, PromptVaultRepository,
+    StoredPromptGeneration,
 };
 use crate::workspace::WriteReceipt;
+
+#[tauri::command]
+pub fn read_prompt_vault_generation(
+    session_id: String,
+    session_generation: u64,
+    profile_id: String,
+    expected_sha256: String,
+    service: State<'_, Mutex<VaultService>>,
+) -> Result<StoredPromptGeneration, String> {
+    let id = parse_id(&session_id)?;
+    let service = service
+        .lock()
+        .map_err(|_| "vault service lock is poisoned".to_owned())?;
+    let root = service
+        .session_root_at_generation(id, session_generation, false)
+        .map_err(|error| error.to_string())?;
+    PromptVaultRepository::new(root)
+        .read_generation(&profile_id, &expected_sha256)
+        .map_err(|error| error.to_string())
+}
 
 #[tauri::command]
 pub fn scan_prompt_vault(
@@ -57,12 +78,12 @@ pub fn save_prompt_vault_draft(
 pub fn save_prompt_vault_profile(
     session_id: String,
     session_generation: u64,
-    profile: Value,
+    value: Value,
     expected_sha256: Option<String>,
     service: State<'_, Mutex<VaultService>>,
 ) -> Result<WriteReceipt, String> {
     repository(&service, &session_id, session_generation, true)?
-        .save_profile_without_outputs(profile, expected_sha256)
+        .save_profile_without_outputs(value, expected_sha256)
         .map_err(|error| error.to_string())
 }
 

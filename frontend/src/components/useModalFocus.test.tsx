@@ -30,6 +30,9 @@ function Harness({ canDismiss = true }: { canDismiss?: boolean }) {
             Disabled
           </button>
           <button type="button">Apply</button>
+          <div hidden>
+            <button type="button">Hidden View control</button>
+          </div>
         </div>
       )}
     </>

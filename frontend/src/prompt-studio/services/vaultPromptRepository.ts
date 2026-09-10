@@ -1,4 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { revealWorkspacePath } from "../../api/prompt-studio-client";
 
 import {
   VaultBaseProfileSchema,
@@ -36,8 +37,17 @@ export interface GeneratedOutputWrite {
   readonly contents: string;
 }
 
+export interface StoredPromptGeneration {
+  readonly profile: StoredVaultDocument<VaultPromptProfile>;
+  readonly outputs: readonly GeneratedOutputWrite[];
+  readonly fresh: boolean;
+  readonly baseRevision: number | null;
+}
+
 export interface VaultPromptRepository {
   scan(): Promise<PromptVaultIndex>;
+  readGeneration(profileId: string, expectedSha256: string): Promise<StoredPromptGeneration>;
+  revealPath(relativePath: string): Promise<void>;
   saveBaseProfile(
     value: VaultBaseProfile,
     expectedSha256?: string,
@@ -116,26 +126,95 @@ export class NativeVaultPromptRepository implements VaultPromptRepository {
 
   async scan(): Promise<PromptVaultIndex> {
     this.assertNative();
-    try {
-      const result = await invoke<NativePromptVaultIndex>("scan_prompt_vault", {
-        sessionId: this.session.sessionId,
-        sessionGeneration: this.session.generation,
-      });
-      return {
-        baseProfile: result.baseProfile
-          ? parseDocument(result.baseProfile, (value) => VaultBaseProfileSchema.parse(value))
-          : null,
-        profiles: result.profiles.map((document) =>
-          parseDocument(document, (value) => VaultPromptProfileEnvelopeSchema.parse(value)),
-        ),
-        drafts: result.drafts.map((document) =>
-          parseDocument(document, (value) => VaultPromptDraftSchema.parse(value)),
-        ),
-        issues: result.issues,
-      };
-    } catch (reason) {
-      throw classifyRepositoryError(reason);
-    }
+    return this.queue.enqueue(this.session, async ({ assertCurrent }) => {
+      assertCurrent();
+      try {
+        const result = await invoke<NativePromptVaultIndex>("scan_prompt_vault", {
+          sessionId: this.session.sessionId,
+          sessionGeneration: this.session.generation,
+        });
+        assertCurrent();
+        const issues = [...result.issues];
+        const parseOne = <Value>(
+          document: NativeStoredDocument,
+          parse: (value: unknown) => Value,
+        ) => {
+          try {
+            return parseDocument(document, parse);
+          } catch {
+            issues.push({
+              code: "invalid_document",
+              relativePath: document.relativePath,
+              message: "Das Dokument entspricht nicht dem vollständigen V3-Schema.",
+            });
+            return null;
+          }
+        };
+        const baseProfile = result.baseProfile
+          ? parseOne(result.baseProfile, (value) => VaultBaseProfileSchema.parse(value))
+          : null;
+        const profiles = result.profiles.flatMap((document) => {
+          const valid = parseOne(document, (value) =>
+            VaultPromptProfileEnvelopeSchema.parse(value),
+          );
+          return valid ? [valid] : [];
+        });
+        const drafts = result.drafts.flatMap((document) => {
+          const valid = parseOne(document, (value) => VaultPromptDraftSchema.parse(value));
+          return valid ? [valid] : [];
+        });
+        return { baseProfile, profiles, drafts, issues };
+      } catch (reason) {
+        throw classifyRepositoryError(reason);
+      }
+    });
+  }
+
+  readGeneration(profileId: string, expectedSha256: string): Promise<StoredPromptGeneration> {
+    this.assertNative();
+    return this.queue.enqueue(this.session, async ({ assertCurrent }) => {
+      assertCurrent();
+      try {
+        const result = await invoke<StoredPromptGeneration>("read_prompt_vault_generation", {
+          sessionId: this.session.sessionId,
+          sessionGeneration: this.session.generation,
+          profileId,
+          expectedSha256,
+        });
+        assertCurrent();
+        const profile = parseDocument(result.profile, (value) =>
+          VaultPromptProfileEnvelopeSchema.parse(value),
+        );
+        if (profile.sha256 !== expectedSha256 || profile.value.id !== profileId) {
+          throw new RepositoryError(
+            "write_conflict",
+            "Die Ausgabe gehört zu einem anderen Profilstand.",
+          );
+        }
+        if (
+          result.outputs.length !== profile.value.outputs.files.length ||
+          profile.value.outputs.files.some(
+            (file) =>
+              result.outputs.filter((output) => output.relativePath === file.relativePath)
+                .length !== 1,
+          )
+        ) {
+          throw new RepositoryError("invalid_data", "Die Ausgabedateien sind unvollständig.");
+        }
+        return { ...result, profile };
+      } catch (reason) {
+        throw classifyRepositoryError(reason);
+      }
+    });
+  }
+
+  revealPath(relativePath: string): Promise<void> {
+    this.assertNative();
+    return this.queue.enqueue(this.session, async ({ assertCurrent }) => {
+      assertCurrent();
+      await revealWorkspacePath(this.session, relativePath);
+      assertCurrent();
+    });
   }
 
   saveBaseProfile(value: VaultBaseProfile, expectedSha256?: string) {

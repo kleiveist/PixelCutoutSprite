@@ -8,6 +8,8 @@
 ## Inhalt
 
 ### Seiten
+- [P36 — Gemeinsame DataFolderToolbar und Dateinavigation](P36-gemeinsame_datafoldertoolbar.md)
+- [P35 — Dashboard, Profil-Popups, Ausgabe und Dateimanager](P35-dashboard_popups_ausgabe_explorer.md)
 - [P34 — Wizard-Katalog seitenweise](P34-wizard_katalog_seitenweise.md)
 - [P19 — Desktop-Usability und Leistung](desktop-usability-and-performance.md)
 - [P21 — Beispiel-Vault und Nutzeranleitung](example-vault-and-user-guide.md)

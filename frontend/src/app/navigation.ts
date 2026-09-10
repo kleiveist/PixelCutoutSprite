@@ -1,6 +1,6 @@
 export type StudioMode = "cutout" | "prompt" | "sprite";
 
-export type PromptView = "dashboard" | "profiles" | "wizard" | "output" | "settings";
+export type PromptView = "dashboard" | "profiles" | "wizard" | "output";
 
 export const promptNavigationItems = [
   { id: "dashboard", label: "Dashboard" },
