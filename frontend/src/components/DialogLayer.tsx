@@ -20,25 +20,7 @@ export function DialogLayer({ open, onClose }: DialogLayerProps) {
           <dt>
             <kbd>Ctrl</kbd> + <kbd>S</kbd>
           </dt>
-          <dd>Save current work</dd>
-        </div>
-        <div>
-          <dt>
-            <kbd>Ctrl</kbd> + <kbd>Z</kbd>
-          </dt>
-          <dd>Undo last editor command</dd>
-        </div>
-        <div>
-          <dt>
-            <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd>
-          </dt>
-          <dd>Redo command</dd>
-        </div>
-        <div>
-          <dt>
-            <kbd>Space</kbd>
-          </dt>
-          <dd>Toggle preview playback</dd>
+          <dd>Ausstehende Vault-Änderungen speichern</dd>
         </div>
         <div>
           <dt>

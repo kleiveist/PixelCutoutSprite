@@ -253,6 +253,10 @@ export function hydrateWizardVaultDocument(
     : "wizard/category";
   const draft = parseWizardDraft({
     ...seed,
+    // Dashboard loads may intentionally get a new working-draft ID. Even when
+    // the file embeds an original wizard draft, edits still belong to this
+    // canonical profile, not to a newly created same-name copy.
+    ...(document.kind === "vaultPromptProfile" ? { sourceAssetProfileId: document.id } : {}),
     route,
     currentStep,
     catalogVersion:

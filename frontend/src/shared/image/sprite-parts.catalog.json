@@ -1,0 +1,192 @@
+{
+  "version": 1,
+  "sideConvention": "anatomical",
+  "groupOrder": ["body", "arm_r", "arm_l", "leg_r", "leg_l", "extras"],
+  "groups": [
+    {
+      "id": "body",
+      "label": "Körper",
+      "slots": [["head"], ["torso"], ["pelvis"]]
+    },
+    {
+      "id": "arm_r",
+      "label": "Rechter Arm",
+      "slots": [["upper_arm_r"], ["forearm_r"], ["hand_r"]]
+    },
+    {
+      "id": "arm_l",
+      "label": "Linker Arm",
+      "slots": [["upper_arm_l"], ["forearm_l"], ["hand_l"]]
+    },
+    {
+      "id": "leg_r",
+      "label": "Rechtes Bein",
+      "slots": [["thigh_r"], ["shin_r"], ["foot_r"]]
+    },
+    {
+      "id": "leg_l",
+      "label": "Linkes Bein",
+      "slots": [["thigh_l"], ["shin_l"], ["foot_l"]]
+    },
+    {
+      "id": "extras",
+      "label": "Extras",
+      "slots": [["cape"], ["belt_accessory", "sword"], ["hair"]]
+    }
+  ],
+  "parts": [
+    {
+      "group": "body",
+      "partId": "head",
+      "label": "Kopf",
+      "file": "01_head.png",
+      "required": true,
+      "parentId": null
+    },
+    {
+      "group": "body",
+      "partId": "torso",
+      "label": "Torso",
+      "file": "02_torso.png",
+      "required": true,
+      "parentId": "pelvis"
+    },
+    {
+      "group": "body",
+      "partId": "pelvis",
+      "label": "Becken",
+      "file": "03_pelvis.png",
+      "required": true,
+      "parentId": null
+    },
+    {
+      "group": "arm_l",
+      "partId": "upper_arm_l",
+      "label": "Oberarm links",
+      "file": "04_upper_arm_l.png",
+      "required": true,
+      "parentId": "torso"
+    },
+    {
+      "group": "arm_l",
+      "partId": "forearm_l",
+      "label": "Unterarm links",
+      "file": "05_forearm_l.png",
+      "required": true,
+      "parentId": "upper_arm_l"
+    },
+    {
+      "group": "arm_l",
+      "partId": "hand_l",
+      "label": "Hand links",
+      "file": "06_hand_l.png",
+      "required": true,
+      "parentId": "forearm_l"
+    },
+    {
+      "group": "arm_r",
+      "partId": "upper_arm_r",
+      "label": "Oberarm rechts",
+      "file": "07_upper_arm_r.png",
+      "required": true,
+      "parentId": "torso"
+    },
+    {
+      "group": "arm_r",
+      "partId": "forearm_r",
+      "label": "Unterarm rechts",
+      "file": "08_forearm_r.png",
+      "required": true,
+      "parentId": "upper_arm_r"
+    },
+    {
+      "group": "arm_r",
+      "partId": "hand_r",
+      "label": "Hand rechts",
+      "file": "09_hand_r.png",
+      "required": true,
+      "parentId": "forearm_r"
+    },
+    {
+      "group": "leg_r",
+      "partId": "thigh_r",
+      "label": "Oberschenkel rechts",
+      "file": "10_thigh_r.png",
+      "required": true,
+      "parentId": "pelvis"
+    },
+    {
+      "group": "leg_r",
+      "partId": "shin_r",
+      "label": "Unterschenkel rechts",
+      "file": "11_shin_r.png",
+      "required": true,
+      "parentId": "thigh_r"
+    },
+    {
+      "group": "leg_r",
+      "partId": "foot_r",
+      "label": "Fuß rechts",
+      "file": "12_foot_r.png",
+      "required": true,
+      "parentId": "shin_r"
+    },
+    {
+      "group": "leg_l",
+      "partId": "thigh_l",
+      "label": "Oberschenkel links",
+      "file": "13_thigh_l.png",
+      "required": true,
+      "parentId": "pelvis"
+    },
+    {
+      "group": "leg_l",
+      "partId": "shin_l",
+      "label": "Unterschenkel links",
+      "file": "14_shin_l.png",
+      "required": true,
+      "parentId": "thigh_l"
+    },
+    {
+      "group": "leg_l",
+      "partId": "foot_l",
+      "label": "Fuß links",
+      "file": "15_foot_l.png",
+      "required": true,
+      "parentId": "shin_l"
+    },
+    {
+      "group": "extras",
+      "partId": "cape",
+      "label": "Cape",
+      "file": "16_cape.png",
+      "required": false,
+      "parentId": "torso"
+    },
+    {
+      "group": "extras",
+      "partId": "belt_accessory",
+      "label": "Gürtel-Accessoire",
+      "file": "17_belt_accessory.png",
+      "required": false,
+      "parentId": "pelvis"
+    },
+    {
+      "group": "extras",
+      "partId": "sword",
+      "label": "Schwert-Zubehör",
+      "file": "17_sword.png",
+      "required": false,
+      "parentId": "hand_r"
+    },
+    {
+      "group": "extras",
+      "partId": "hair",
+      "label": "Haare",
+      "file": "18_hair.png",
+      "required": false,
+      "parentId": "head"
+    }
+  ],
+  "exclusiveChoices": [["belt_accessory", "sword"]]
+}

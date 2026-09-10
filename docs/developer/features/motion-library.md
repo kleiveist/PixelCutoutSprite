@@ -4,6 +4,10 @@
 
 # Motion library and release routing
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](../acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 P06 adds the first complete area-level animation workflow. A template is a stable, mutable
 catalog object, `draft.json` is its recoverable working copy, and every file under `revisions/`
 is an immutable released `MotionRevision`. Editing after release leaves the old release valid and

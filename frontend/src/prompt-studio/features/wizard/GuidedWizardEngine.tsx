@@ -404,7 +404,9 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
       setIsDirty(false);
       setSaveStatus({ kind: "saved" });
       onDraftSaved(candidate);
-      reset(values);
+      // A save acknowledges the snapshot, it must not unregister the live
+      // fields while the user is typing or replace a newer DOM input value.
+      reset(values, { keepValues: true });
       return true;
     },
     [cancelAutosave, context, flow, now, onDraftSaved, reset, storageAdapter],
@@ -511,9 +513,12 @@ export function GuidedWizardEngine<Values extends FieldValues, StepId extends st
 
     return () => {
       subscription.unsubscribe();
-      cancelAutosave();
     };
-  }, [applyFormChange, cancelAutosave, getValues, watch]);
+  }, [applyFormChange, getValues, watch]);
+
+  // Callback/context refreshes re-subscribe the watcher, but are not a close
+  // or navigation action and must not silently drop an already queued save.
+  useEffect(() => cancelAutosave, [cancelAutosave]);
 
   useEffect(() => {
     if (currentStepId !== activeStep.id) {

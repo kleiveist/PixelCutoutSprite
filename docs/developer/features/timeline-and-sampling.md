@@ -4,6 +4,10 @@
 
 # Timeline and deterministic sampling
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](../acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 P09 turns the single-pose editor into a complete data-backed animation workspace. The timeline
 shows the selected direction's typed tracks and keyframes, supports scrubbing, playback, frame
 steps, range selection, copy/paste, duplication, movement, deletion and interpolation changes.

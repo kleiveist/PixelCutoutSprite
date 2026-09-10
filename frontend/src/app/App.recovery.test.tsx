@@ -1,13 +1,13 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ProjectClient } from "../api/project-client";
+import { testDataFolderClient } from "./appTestFixtures";
 import type {
   OpenVault,
   RecoveryCandidate,
   VaultClient,
   VaultInspection,
-} from "../api/vault-client";
+} from "../shared/vault/vault-client";
 import { App } from "./App";
 
 const first: RecoveryCandidate = {
@@ -36,7 +36,7 @@ const second: RecoveryCandidate = {
 };
 
 describe("App vault recovery", () => {
-  it("keeps two candidates exclusive to one session and mounts projects only after both resolve", async () => {
+  it("keeps two candidates exclusive to one session and mounts Welcome only after both resolve", async () => {
     const vault: OpenVault = {
       session_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       vault_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
@@ -63,8 +63,8 @@ describe("App vault recovery", () => {
         indexed_objects: 3,
       });
     const vaultApi = createVaultClient(vault, recover);
-    const projectsApi = createProjectClient();
-    const view = render(<App vaultApi={vaultApi} projectsApi={projectsApi} />);
+    const dataFolderApi = testDataFolderClient();
+    const view = render(<App vaultApi={vaultApi} dataFolderApi={dataFolderApi} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Choose vault/ }));
     expect(
@@ -72,9 +72,9 @@ describe("App vault recovery", () => {
     ).toBeInTheDocument();
     // The recovery heading can render before the passive heartbeat effect has run.
     await waitFor(() => expect(vaultApi.heartbeat).toHaveBeenCalledTimes(1));
-    expect(projectsApi.dashboard).not.toHaveBeenCalled();
+    expect(dataFolderApi.list).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Areas" }));
+    fireEvent.click(screen.getByRole("button", { name: "PixelPromptStudio Generator öffnen" }));
     expect(
       screen.getByRole("heading", { name: /Interrupted file operations/ }),
     ).toBeInTheDocument();
@@ -86,12 +86,14 @@ describe("App vault recovery", () => {
     expect(screen.getByText(second.transaction_id)).toBeInTheDocument();
     expect(vaultApi.close).not.toHaveBeenCalled();
     expect(vaultApi.heartbeat).toHaveBeenCalledTimes(1);
-    expect(projectsApi.dashboard).not.toHaveBeenCalled();
+    expect(dataFolderApi.list).not.toHaveBeenCalled();
 
     const secondItem = screen.getByText(second.transaction_id).closest("li");
     fireEvent.click(within(secondItem!).getByRole("button", { name: "Resume" }));
-    expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
-    expect(projectsApi.dashboard).toHaveBeenCalledWith(vault.session_id);
+    expect(
+      await screen.findByRole("heading", { name: "Willkommen im Cutout-Studio" }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(dataFolderApi.list).toHaveBeenCalled());
     expect(recover).toHaveBeenNthCalledWith(1, vault.session_id, first.transaction_id, "resume");
     expect(recover).toHaveBeenNthCalledWith(2, vault.session_id, second.transaction_id, "resume");
     expect(vaultApi.close).not.toHaveBeenCalled();
@@ -118,7 +120,7 @@ describe("App vault recovery", () => {
       message: "writer lock ownership changed",
     });
 
-    render(<App vaultApi={vaultApi} projectsApi={createProjectClient()} />);
+    render(<App vaultApi={vaultApi} dataFolderApi={testDataFolderClient()} />);
     fireEvent.click(screen.getByRole("button", { name: /Choose vault/ }));
 
     await waitFor(() =>
@@ -144,10 +146,10 @@ describe("App vault recovery", () => {
     };
     const vaultApi = createVaultClient(vault, vi.fn());
 
-    render(<App vaultApi={vaultApi} projectsApi={createProjectClient()} />);
+    render(<App vaultApi={vaultApi} dataFolderApi={testDataFolderClient()} />);
     fireEvent.click(screen.getByRole("button", { name: /Choose vault/ }));
 
-    expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
+    await screen.findByRole("region", { name: "Cutout-Arbeitsbereich" });
     expect(vaultApi.heartbeat).not.toHaveBeenCalled();
   });
 
@@ -170,13 +172,13 @@ describe("App vault recovery", () => {
       recovery_writable: true,
       indexed_objects: 2,
     });
-    const projectsApi = createProjectClient();
-    vi.mocked(projectsApi.dashboard).mockRejectedValueOnce({
+    const dataFolderApi = testDataFolderClient();
+    vi.mocked(dataFolderApi.list).mockRejectedValueOnce({
       code: "recovery_required",
       message: "interrupted transaction requires recovery",
     });
 
-    render(<App vaultApi={vaultApi} projectsApi={projectsApi} />);
+    render(<App vaultApi={vaultApi} dataFolderApi={dataFolderApi} />);
     fireEvent.click(screen.getByRole("button", { name: /Choose vault/ }));
 
     expect(
@@ -184,7 +186,7 @@ describe("App vault recovery", () => {
     ).toBeInTheDocument();
     expect(vaultApi.listRecovery).toHaveBeenCalledWith(vault.session_id);
     expect(screen.getByText(first.transaction_id)).toBeInTheDocument();
-    expect(screen.getByRole("contentinfo")).toHaveTextContent("need explicit recovery");
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("require recovery");
   });
 });
 
@@ -198,7 +200,6 @@ function createVaultClient(vault: OpenVault, recover: VaultClient["recover"]): V
       writer_present: false,
       lock_recovery: null,
     })),
-    generateExample: vi.fn(),
     initialize: vi.fn(async () => vault),
     open: vi.fn(async () => vault),
     close: vi.fn(async () => undefined),
@@ -213,29 +214,4 @@ function createVaultClient(vault: OpenVault, recover: VaultClient["recover"]): V
     recoverOrphanedLock: vi.fn(async () => undefined),
     heartbeat: vi.fn(async () => undefined),
   };
-}
-
-function createProjectClient(): ProjectClient {
-  return {
-    dashboard: vi.fn(async () => ({
-      projects: [],
-      labels: [],
-      writable: true,
-      view: {
-        schema_version: 1,
-        kind: "project_view",
-        revision: 1,
-        search: "",
-        label_ids: [],
-        label_match: "any",
-        status: "any",
-        sort: "updated_desc",
-        updated_at: "2026-09-05T12:00:00Z",
-      },
-    })),
-    create: vi.fn(),
-    updateView: vi.fn(),
-    rename: vi.fn(),
-    setStatus: vi.fn(),
-  } as unknown as ProjectClient;
 }

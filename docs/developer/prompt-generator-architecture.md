@@ -1,136 +1,89 @@
+# Gemeinsame Studio- und Prompt-Architektur
+
 <!-- PYGINDEX:NAVIGATION START -->
-[Back to overview](index.md)
+[Übergeordnete Übersicht](index.md)
 <!-- PYGINDEX:NAVIGATION END -->
 
-# PixelPromptStudio integration architecture
+Stand: P43 · 10. September 2026.
 
-## Runtime boundary
-
-PixelPromptStudio is an embedded React module in the existing Tauri window. `StudioMode` sits
-above the established Cutout route; the two state machines do not share route values:
+## Produktiver Aufbau
 
 ```text
 App
-├── AppHeader
-├── StudioMode: cutout
-│   └── WorkspaceRoute + vault/project/area/editor selections
-└── StudioMode: prompt
-    └── PromptView: dashboard | profiles | wizard | output | settings
+└── GlobalSettingsProvider → ActiveVaultProvider / SaveQueue
+    └── DataFolderProvider → VaultPromptProvider
+        ├── AppHeader + eine ModuleNavigationRow
+        ├── exklusiver RecoveryPanel bei offenen alten Journalen
+        ├── Cutout: DataFolderWorkspace → CutoutStudio / CutoutController / MaskCanvas
+        ├── Prompt: PromptGeneratorRoot → vier PromptView-Ziele
+        └── Sprite: SpriteStudio / SpriteController → DataFolderWorkspace / View / Canvas
 ```
 
-Only the active studio subtree is mounted. The host keeps the Cutout route, Vault, project, Area
-and editor-selection identifiers outside that conditional subtree, while the Prompt providers
-rehydrate their validated settings, profiles and Draft when mounted. The last `PromptView` is host
-state as well. This preserves both navigation contexts without retaining hidden editor trees or
-paying the Prompt initialization cost during a Cutout-only launch.
+Nur das aktive Modul ist sichtbar/montiert. Sitzung, Generation, SaveQueue und getrennte
+Bild-/Set-Auswahlen bleiben oberhalb der Module. Es gibt keine `WorkspaceRoute`,
+Projekt-/Area-Auswahl oder alten Editorcontroller mehr. Gemeinsame Vault- und Recovery-Komponenten
+liegen unter `frontend/src/shared/vault/`; die generische Fehlerklassifikation liegt unter
+`shared/storage/nativeErrors.ts`.
+Vault-Client/DTOs gehören ebenfalls `shared/vault`, StudioMode der gemeinsamen Navigation
+und der Modal-Fokus-Hook `shared/dialogs`; Shared importiert keine App-/API-/UI-Schicht.
 
-`frontend/src/prompt-studio/` is the only imported PixelForge-derived namespace. Its
-`PROVENANCE.md` records the upstream revisions and MIT notice. A static import-boundary test
-rejects application-shell and Animation Studio imports. Prompt barrels deliberately export only
-prompt schemas, domains, and services.
+## Speicherung und Lebenszyklus
 
-## Navigation and provider graph
+Die produktive Prompt-Persistenz verwendet `VaultPromptRepository`,
+`VaultPromptAutosave` und die sitzungsgebundene `SaveQueue`.
+Rust prüft Session-ID/Generation, Schreibrecht, Pfade, Revisionen und Prüfsummen.
+Basis, Drafts, Profile und Markdown-Generationen liegen unter `.PixelPrompt/`.
+Neue gemeinsame Metadaten liegen unter `.PixelStudio/`.
 
-The integrated `PromptNavigationAdapter` is an external-store adapter over React host state. It
-does not read or mutate `window.history`, URLs, or Cutout routes.
+Der V2-Wizard erhält eine validierte In-Memory-Kompatibilitätssicht. Sie ist kein
+AppData-/LocalStorage-Fallback. Der alte native AppData-Schreibadapter sowie native
+Paketimport-/Download-Commands wurden entfernt. `read_legacy_prompt_workspace` bleibt
+als begrenzte, nicht reparierende Read-only-Quelle für die ausdrücklich bestätigte Migration.
 
-```text
-PromptGeneratorRoot
-└── SettingsProvider
-    └── ProfileLibraryProvider
-        └── NavigationProvider
-            └── WizardSessionProvider
-                ├── PromptStudioNavigation
-                └── PromptStudioShell
-```
+Studio-/Vault-Wechsel warten auf den Flush. Ein Fehler hält den bisherigen Kontext fest.
+Ein erfolglos aktivierter neuer Vault wird geschlossen. Native Close-Requests sichern
+zuerst die Queue und schließen anschließend die Vault-Sitzung.
+Fehler aus Datei- und Prompt-Clients können einen neuen Journalfund an den gemeinsamen
+Recovery-Dialog melden; verspätete Antworten einer anderen Sitzung werden ignoriert.
 
-`PromptGeneratorRoot` reports Wizard dirtiness to `App`. Leaving Cutout reuses the established
-recovery, import, export, release, NPC mutation and editor-navigation guards. Leaving Prompt is
-allowed only after the Wizard is clean and the native storage queue has flushed successfully.
+## Entfernte Verbindung
 
-## Persistence adapters
+Kein `PromptHandoff`, Area-Handoff-Client oder registrierter Handoff-Command bleibt übrig.
+Vorhandene `prompt-references/` sind normale alte Nutzerdateien. Die Verbindung der Module
+ist die gemeinsame Dateistruktur. P38–P42 ergänzen die beiden neuen Bildeditoren auf diesem Rahmen.
 
-The prompt feature code retains its synchronous validated V2 adapter contract. Production wraps
-that contract in a memory mirror backed by an ordered asynchronous Tauri write queue:
+## Native Grenze
 
-```text
-Prompt providers
-  → V2 Zod adapter / in-memory mirror
-  → ordered flush queue
-  → Tauri commands
-  → PromptWorkspaceStorage
-  → appDataDir/prompt-studio/*.json
-```
+Produktiv bleiben Vault-/Recovery-, globale Settings-, Workspace-Dateilese- und
+Prompt-Vault-, Cutout-/Auswahlhilfe-/Generierungs- und Sprite-Commands.
+`src-tauri/src/lib.rs` ist die einzige Handler-Komposition.
+Die früheren Animations-/Render-/Export-/Asset-Import-Registries und Fachservices fehlen.
+`JsonStore<T: StoredJson>` braucht keinen Dispatcher alter Fachmodelle.
 
-The browser adapter remains available only when `isTauri()` is false. Production initialization
-hydrates the mirror before rendering the app. Mutations enter the queue only after full Zod
-validation; `flushPromptStorage` surfaces delayed native failures before a studio switch.
+`cutout/` besitzt normalisierte Quellbilder, RLE-Masken, lokale Segmentierungsjobs und
+kanonische PNG-Generationen. `sprite/` validiert vollständige Sets und Szenen-CAS, ohne PNGs
+bei einer Transformation zu ändern. Der gemeinsame `WorkspaceWriter` publiziert Dateisätze
+mit Prepared-/Applying-/Committed-Journal; Manifest bzw. Szene stehen am Ende der Veröffentlichung.
+P43 ergänzt create-only Publikation nach dem Backup und bewahrende Recovery bei Fremddaten.
 
-Native commands are registered in `src-tauri/src/lib.rs`:
+Die frontendseitige Fensterfreigabe wartet auf alle SaveQueue-Owner. Nur das Hauptfenster
+besitzt `core:window:allow-destroy`, damit es danach geschlossen werden kann. Die zusätzliche,
+auf `main` begrenzte `core:webview:allow-set-webview-zoom` erlaubt Tauri-Oberflächenzoom per
+Tastatur. Es gibt keine zusätzliche Shell-/Dateisystem-/Remote-Capability und keine globale
+CSP-Abschaltung.
 
-| Command                  | Boundary                                                                 |
-| ------------------------ | ------------------------------------------------------------------------ |
-| `read_prompt_workspace`  | Read and recover the four fixed app-data namespaces                      |
-| `write_prompt_workspace` | Validate kind/shape/size and atomically replace one namespace            |
-| `remove_prompt_draft`    | Remove draft plus interrupted-write artifacts                            |
-| `read_prompt_package`    | Read a bounded, regular UTF-8 JSON file selected by the user             |
-| `save_prompt_output`     | Atomically save bounded Markdown or parsed JSON to the selected path     |
-| `handoff_prompt_to_area` | Validate the DTO and writable Area context, then retain a JSON reference |
+Passive alte Dokumentdiscriminators und Scope-Regeln dienen ausschließlich dazu, bestehende
+Transaktionsjournale sicher zu prüfen. Sie sind keine CRUD- oder Editor-API.
+Der Handler-Negativtest verwendet die echte `compose`-Funktion mit Tauri-Testtransport,
+einschließlich positiver Identitätskontrolle und 72 abgewiesener alter Commands.
 
-Writes use a same-directory `.pending` file, flush its bytes, validate the staged representation,
-and rename it into place. The Windows replacement fallback preserves `.previous`; startup
-recovery publishes a valid pending file or restores a valid previous file when the pending bytes
-are damaged. The fixed app-data root, selected import file, direct output parent and output target
-are checked for symlinks or unexpected file types before use.
+## Bundle und Nachweise
 
-## Cutout handoff
+Die bestehende WebKit-sichere Gruppierung der Prompt-Domain-/Feature-/Store-Module bleibt
+erhalten; keine erzwungene zyklische Chunk-Aufteilung wurde eingeführt.
+Ein einzelner Header, gemeinsame Dialoge und scoped Prompt-CSS bleiben erhalten.
 
-The prompt UI knows only `PromptHandoff` and availability, not Vault or editor services. `App`
-derives availability from its current Vault/Area state. The Rust command then independently
-requires a known read-write session, resolves the Area by stable ID, rejects unsupported category
-or malformed timestamp/size fields, and writes:
-
-```text
-<area-folder>/prompt-references/prompt--<uuid>.json
-```
-
-The schema-version-1 DTO contains category, main/negative/technical text, profile references and
-creation time. It is intentionally outside managed `.area` domain JSON, so no existing Area
-schema or Vault index is silently migrated.
-
-## Styling and layout
-
-PixelForge global `:root`, `html`, `body` and `#root` rules are not imported. Prompt design tokens
-are rooted at `.prompt-generator-root`, including the dark-theme override. The module owns an
-internal scrolling viewport; the host `.prompt-workspace` spans both Cutout grid columns. A
-boundary test and Playwright measurements cover the single header, 196 × 46 px buttons, green
-active accent, focus state, full-width prompt layout, internal overflow and restored navigation.
-
-## Production bundle boundary
-
-Vite groups Prompt domain, features and store into one deliberate production chunk. Do not add a
-`maxSize` split to this group without repeating the native WebKitGTK custom-protocol gate. Such a
-forced split previously produced a cyclic schema/domain module graph: Chromium happened to
-initialize its enum exports first, while WebKitGTK passed an uninitialized export to Zod and
-stopped at `Object.values`. The accepted build trades a 575.08 kB uncompressed (154.24 kB gzip)
-Prompt chunk for deterministic cross-engine initialization. React, form/schema dependencies and
-other vendors remain separate cacheable chunks.
-
-## Verification surface
-
-- Ported prompt tests cover schemas, all nine categories, profile resolution/library, Wizard
-  routing/lifecycle/recovery, storage/migration, prompt modules/output, settings data and editors.
-- Host tests cover header semantics, state restoration, failed native flush and handoff
-  availability/DTO shape.
-- Rust unit tests cover workspace validation, atomic writes, interrupted-write recovery, symlink
-  refusal, import corruption, output formats and handoff validation; the composition test covers
-  command registration.
-- Five Playwright system scenarios cover the shared shell, navigation/style isolation, a real
-  PixelForge V2 transfer, profile-backed Wizard/output/export/reload and no-Vault/read-only/
-  writable Handoff behavior at 1440 × 900.
-- A visible Tauri/WebKitGTK custom-protocol run covers both studios, native draft publication and
-  process-restart recovery. The final Linux DEB repeats the visible offline path and the bounded
-  installer-payload smoke.
-
-Exact commands, package digest and host limits are recorded in the
-[P27 integration acceptance](acceptance/prompt-studio-integration.md).
+Tests und native Abgrenzungen:
+[P43-Abnahme](acceptance/P43-gesamtabnahme_haertung_dokumentation.md) und
+[P37-Rückbau](acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+Die [P27-Architekturabnahme](acceptance/prompt-studio-integration.md) ist historisch.

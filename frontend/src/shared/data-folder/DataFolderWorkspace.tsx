@@ -74,18 +74,22 @@ export function DataFolderWorkspace({
             <strong>
               {selection.kind === "image"
                 ? "Letzte geprüfte Bildauswahl"
-                : "Letztes geprüftes Teile-Set"}
+                : selection.kind === "legacy_set"
+                  ? "Legacy-Teile ohne Positionsmetadaten"
+                  : "Letztes geprüftes Teile-Set"}
             </strong>
             <code>{selection.relativePath}</code>
             <span>
               {selection.kind === "image"
                 ? `${selection.width} × ${selection.height} px`
-                : `${selection.partCount} Teile · ${selection.generationId}${selection.complete ? "" : " · mit ausdrücklich ausgelassenen Teilen"}`}
+                : selection.kind === "legacy_set"
+                  ? `${selection.partCount} bekannte PNG-Teile · manuell ausrichten`
+                  : `${selection.partCount} Teile · ${selection.generationId}${selection.complete ? "" : " · mit ausdrücklich ausgelassenen Teilen"}`}
             </span>
             <small>
               {module === "cutout"
-                ? "Die Auswahl ist vorbereitet. Der neue Maskeneditor folgt in P38."
-                : "Die Auswahl ist vorbereitet. Der Zusammenbau folgt in P41."}
+                ? "Die Bilddaten werden im Cutout-Maskeneditor geöffnet; Originaldateien bleiben unverändert."
+                : "Der Sprite-Loader prüft Dateien und vorhandene Szene; fehlerhafte Sets ersetzen die letzte gültige Ansicht nicht."}
             </small>
           </section>
         ) : null}

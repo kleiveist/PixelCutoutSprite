@@ -1,5 +1,9 @@
 # PixelStudio · Nachweisindex P28–P33
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 Stand: 2026-09-09
 Ausgangs-HEAD: `9efa821bc21b0099dc2f0d51895e472fc02b737f` (`main`)
 

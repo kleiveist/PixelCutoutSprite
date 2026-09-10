@@ -1,4 +1,25 @@
-# Unreleased — PixelPromptStudio integration
+# Unreleased — Vault, Cutout und Sprite (P37–P43)
+
+Datum: 10. September 2026.
+
+- Alte Projekt-/Area-/Motion-/Dummy-/Outfit-/NPC-/Export-Fachbasis und 69 native Commands entfernt.
+- Neue Cutout-Willkommen-Seite mit gemeinsamer Navigation, Vault- und geprüfter Bildauswahl.
+- Vault-Locks, sichere Dateioperationen, Recovery und Prompt-Vault-Autosave erhalten.
+- Alter Area-Handoff und nicht mehr verwendete native Prompt-AppData-/Exportadapter entfernt.
+- Bestehende Nutzerdateien bleiben unverändert; keine automatische Projektmigration oder Quarantäne beim Öffnen.
+- P37-Negativtests, Hashnachweis und aktualisierte CI-/Testzuordnung ergänzt.
+- Neue manuelle Masken mit per-Teil Undo/Redo, Überlappungsschutz und lokaler, abbrechbarer Auswahlhilfe.
+- Hashgeprüfte PNG-Teile, kanonisches Schnittprojekt, Snapshot und Positionsmanifest; keine Leer-PNGs.
+- Sprite-Autoload, Originalanordnung, View-Ebenen, Transformationen, Szenen-Autosave und ausdrücklicher Generationsabgleich.
+- P43: explizite Snapshot-Fortsetzung bei fehlender/geänderter Quelle, Resize-Abbruch, ressourcenschonender Szenen-Autosave und gehärtete Dateisatz-Recovery.
+- P43-Abschlusskorrekturen: native Close-/Zoom-Berechtigungen, verlustfreie Begründung beim schnellen Teilwechsel und stabile Profil-ID bei Weiterbearbeitung aus dem Dashboard.
+- Native Close-/Flush-Berechtigung gezielt für das Hauptfenster ergänzt; CSP und Datei-/Shell-Berechtigungen nicht geöffnet.
+
+[Nachweise und Grenzen](docs/developer/acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+[P43-Prüfstand und offene Plattformnachweise](docs/developer/acceptance/P43-gesamtabnahme_haertung_dokumentation.md).
+Keine Veröffentlichung, kein Tag, keine Signierung und kein Push.
+
+# Historisch — PixelPromptStudio integration (P23–P27)
 
 Date: 6 September 2026
 

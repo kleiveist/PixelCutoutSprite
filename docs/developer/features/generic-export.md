@@ -4,6 +4,10 @@
 
 # Deterministischer PNG-/JSON-Export
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](../acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 P16 verbindet die in P07–P15 aufgebauten Quellen mit einem erreichbaren Desktop-Export. Der
 Arbeitsbereich ist sowohl über die Hauptnavigation als auch aus einem ausgewählten NPC heraus
 erreichbar. Die Oberfläche übermittelt ausschließlich stabile Bereichs-, Figuren- und Binding-IDs;

@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { useModalFocus } from "../../components/useModalFocus";
+import { useModalFocus } from "./useModalFocus";
 
 export interface ModalProps {
   readonly open: boolean;

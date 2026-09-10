@@ -1,0 +1,28 @@
+{
+  "phase": "P42",
+  "date": "2026-09-10",
+  "baseCommit": "f85e24d41197fe74dd64a9d8e2670c382b3f65b8",
+  "workingTree": "uncommitted P37 through P42; no push or release",
+  "implementationGate": "passed",
+  "overallNativeGuiAcceptance": "bootstrap renders real Tauri WebView; full native roundtrip remains P43",
+  "environment": "Linux Docker, Node 24.19.0, npm 11.17.0, Rust 1.97.1",
+  "sourceInventorySha256": "321086ed8557ac5e3ee15d30da96ea364fea158892ff0294e649267b976008bb",
+  "checks": [
+    {"command": "npm --prefix frontend run test", "exitCode": 0, "files": 140, "tests": 738, "log": "p42-frontend-final.log", "sha256": "76a19c3b8f58d2cf92c53bc46e7350b993656310877306e62d24438a6b27fd7f"},
+    {"command": "npm --prefix frontend run test:e2e -- --output=/tmp/p38-p43-validation.Xozjjs/p42-browser-final", "exitCode": 0, "tests": 19, "log": "p42-browser-final.log", "sha256": "c4e23506aa5557c609e4adffb0656773280fec9ad519f631f6c09b3d02c6f295", "scope": "Production browser frontend with controlled IPC, not native GUI"},
+    {"command": "npm --prefix frontend run typecheck", "exitCode": 0},
+    {"command": "npm --prefix frontend run lint", "exitCode": 0},
+    {"command": "npm --prefix frontend run format:check", "exitCode": 0},
+    {"command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features", "exitCode": 0, "tests": 126, "log": "p42-native-final.log", "sha256": "a925f7cb084eccb109c602ae92ec15c21375d784e329adc6764f7c5db86aa768"},
+    {"command": "cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings", "exitCode": 0},
+    {"command": "cargo fmt --manifest-path src-tauri/Cargo.toml --check", "exitCode": 0},
+    {"command": "python -m pytest -q -p no:cacheprovider tests/source/test_studio_final_architecture.py tests/source/test_studio_distribution_policy.py tools/tests/test_tauri_control.py tools/tests/test_control_help.py tools/tests/test_configuration.py tools/tests/test_control_test_reporting.py", "exitCode": 0, "tests": 108, "log": "p42-source.log", "sha256": "daad8bcc9050b0dc71e56096a7408a6e8f122406b4128b0423d6f84df23f659b"},
+    {"command": "python tools/control.py quality architecture", "exitCode": 0, "typescriptSources": 405, "log": "p42-architecture.log", "sha256": "c21909116264adb3d7a82eb18feb578acc8c3d536ed8309347711ec229955ac9"}
+  ],
+  "newNativeSceneTests": 7,
+  "newFrontendSceneTests": 9,
+  "newBrowserSceneTests": 3,
+  "persistence": ["<set>/sprite.scene.json", "<set>/.scene/basis.json"],
+  "history": {"maxSnapshots": 48, "serializedUtf16EstimateBytes": 1048576, "includesPixelBuffers": false},
+  "artifactsDirectoryEphemeral": "/tmp/p38-p43-validation.Xozjjs"
+}

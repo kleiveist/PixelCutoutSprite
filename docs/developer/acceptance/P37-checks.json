@@ -1,0 +1,244 @@
+{
+  "phase": "P37",
+  "recorded_at_utc": "2026-09-10T16:21:07.621Z",
+  "base_commit": "f85e24d41197fe74dd64a9d8e2670c382b3f65b8",
+  "state": "uncommitted working tree; no release or remote CI run",
+  "environment": {
+    "os": "Linux x86_64 / Debian 12 container",
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "rust": "1.97.1",
+    "python": "3.11.2"
+  },
+  "scope": {
+    "frontend_tests": 695,
+    "frontend_test_files": 133,
+    "browser_tests": 9,
+    "native_tests_excluding_duplicate_child_helper": 78,
+    "python_contract_tests": 108,
+    "forbidden_native_commands": 72,
+    "commands_removed_in_P37": 69,
+    "legacy_original_files_verified_by_sha256": 19,
+    "native_gui_accepted": false,
+    "windows_macos_accepted": false,
+    "zoom_evidence": "CSS viewport/DPR layout equivalent only; not OS zoom acceptance"
+  },
+  "tooling": {
+    "files_checked": 388,
+    "changed": 0,
+    "inventory_sha256": "3b2659faeb9c2ae90f244fde722217468c5cefe51cc768ade0195e7676046620",
+    "algorithm": "sorted path + NUL + raw SHA-256(file), concatenated and hashed with SHA-256"
+  },
+  "source": {
+    "files_hashed": 485,
+    "sha256": "640e183862c5ec9b80de56a1fde836006d04a009c4cf4f6610483a03dc8b8369",
+    "algorithm": "same as tooling; product source/tests/lockfiles/capabilities and changed source/CI policies; excludes documentation and generated artifacts"
+  },
+  "native_binary_sha256": "85f13d738ce429fc2dcfc54fbaa10d4b1d00f9a899151ed2be0792aff721a505",
+  "local_logs_root": "/tmp/p37-validation.qSyRWN/",
+  "logs_persist_beyond_container": false,
+  "runs": [
+    {
+      "id": "frontend",
+      "command": "npm --prefix frontend test -- --run",
+      "status": "passed",
+      "local_log": "p37-frontend-last.log",
+      "log_sha256": "3891df443410a32bb7afb1af2c65a629f4e4361c9440f1baa7cdb120f50cc436",
+      "output_excerpt": [
+        " Test Files  133 passed (133)",
+        "      Tests  695 passed (695)",
+        "   Duration  101.62s (tests 69%, environment 20%, import 6%, setup 4%, transform 2%)"
+      ]
+    },
+    {
+      "id": "typecheck",
+      "command": "npm --prefix frontend run typecheck",
+      "status": "passed",
+      "local_log": "p37-typecheck-final.log",
+      "log_sha256": "6429f885338292882c6bfafadd48369800656877300f1ffb8ed289ad6c15dfac",
+      "output_excerpt": [
+        "> pixel-cutout-sprite-studio@0.1.0 typecheck",
+        "> tsc -b --pretty false"
+      ]
+    },
+    {
+      "id": "eslint",
+      "command": "npm --prefix frontend run lint",
+      "status": "passed",
+      "local_log": "p37-lint-final.log",
+      "log_sha256": "89e24634563a39114939782b94c51658053a9f6f2652356b7f14e5d41bf55a16",
+      "output_excerpt": [
+        "> pixel-cutout-sprite-studio@0.1.0 lint",
+        "> eslint ."
+      ]
+    },
+    {
+      "id": "prettier",
+      "command": "npm --prefix frontend run format:check",
+      "status": "passed",
+      "local_log": "p37-format-check-final.log",
+      "log_sha256": "12c0a3c7f7b791e64d40b4e6a91115e90715d1602f9263602632b03b5ae695ea",
+      "output_excerpt": [
+        "All matched files use Prettier code style!"
+      ]
+    },
+    {
+      "id": "build_and_browser",
+      "command": "npm --prefix frontend run test:e2e -- --output=<temporary directory>",
+      "status": "passed",
+      "local_log": "p37-e2e-last.log",
+      "log_sha256": "3f23baf6e5550c23a86614b64872791b5b7ceb552be35fb9a00a1a034eab130f",
+      "output_excerpt": [
+        "✓ 348 modules transformed.",
+        "✓ built in 387ms",
+        "  9 passed (12.3s)"
+      ]
+    },
+    {
+      "id": "rustfmt",
+      "command": "cargo fmt --all --manifest-path src-tauri/Cargo.toml -- --check",
+      "status": "passed",
+      "local_log": "p37-rustfmt-final.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "output_excerpt": []
+    },
+    {
+      "id": "clippy",
+      "command": "cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings",
+      "status": "passed",
+      "local_log": "p37-clippy-final.log",
+      "log_sha256": "dd626c08ffcae00270b69e0d953dad81d3c5af3f62ffab4a79a4269340eabcf4",
+      "output_excerpt": [
+        "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.25s"
+      ]
+    },
+    {
+      "id": "rust",
+      "command": "cargo test --locked --manifest-path src-tauri/Cargo.toml --all-targets --all-features",
+      "status": "passed",
+      "local_log": "p37-native-last.log",
+      "log_sha256": "54973e8c0a088b11dbfd94583f5442b3b5554c3cd58d26227b93fc45b22c4ee6",
+      "output_excerpt": [
+        "test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.96s",
+        "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.02s",
+        "test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s",
+        "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s"
+      ]
+    },
+    {
+      "id": "native_build",
+      "command": "cargo build --locked --manifest-path src-tauri/Cargo.toml",
+      "status": "passed",
+      "local_log": "p37-native-build-last.log",
+      "log_sha256": "3b92a08f04a3973f1d6b278da747441544d37599d2c9e64c27ecd3f6a1b30b72",
+      "output_excerpt": [
+        "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.36s"
+      ]
+    },
+    {
+      "id": "control_tauri",
+      "command": "python tools/control.py tauri test --cargo",
+      "status": "passed",
+      "local_log": "p37-control-tauri-final.log",
+      "log_sha256": "7b6aabee0e9efe038c7035f9cc6896aa4b2af641a5b8b460e2e30fc3daffabbf",
+      "output_excerpt": [
+        "✅ Cargo check passed",
+        "✅ Rust tests passed",
+        "✅ Tauri tests completed"
+      ]
+    },
+    {
+      "id": "python_contracts",
+      "command": "python -m pytest -q -p no:cacheprovider tests/source/test_studio_final_architecture.py tests/source/test_studio_distribution_policy.py tools/tests/test_tauri_control.py tools/tests/test_control_help.py tools/tests/test_configuration.py tools/tests/test_control_test_reporting.py",
+      "status": "passed",
+      "local_log": "p37-tooling-tests-final.log",
+      "log_sha256": "afdef3a2a1c9cf7b45e2ccee809e499677694818c066378a955e215d920413c7",
+      "output_excerpt": [
+        "108 passed in 0.83s"
+      ]
+    },
+    {
+      "id": "architecture",
+      "command": "python tools/control.py quality architecture",
+      "status": "passed",
+      "local_log": "p37-architecture-final.log",
+      "log_sha256": "b59174f97c6099a9542dca075f6a073e896ba8843c4602516163619436f8f1c4",
+      "output_excerpt": [
+        "Errors: 0",
+        "Suppressed findings: 0",
+        "TypeScript AST: PASS — parsed 372 source files",
+        "Architecture: PASS",
+        "Quality gate: PASS"
+      ]
+    },
+    {
+      "id": "python_lint",
+      "command": "ruff check tests/source/test_studio_final_architecture.py tests/source/test_studio_distribution_policy.py",
+      "status": "passed",
+      "local_log": "p37-python-lint.log",
+      "log_sha256": "5b196eb3a6acb50d3fa398d04ca284985cc1ffec870e940264b00780bfd2c971",
+      "output_excerpt": [
+        "All checks passed!"
+      ]
+    },
+    {
+      "id": "diff_whitespace",
+      "command": "git diff --check",
+      "status": "passed",
+      "local_log": "p37-diff-check.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "output_excerpt": []
+    },
+    {
+      "id": "native_gui",
+      "command": "Actual current debug binary under isolated Xvfb :93, DBus, extracted GTK/WebKit and PRoot; software compositing; 15-second upper bound",
+      "status": "blocked",
+      "local_log": "p37-native-gui-final.log",
+      "log_sha256": "33d25210a167a8ab1a58dc352aaee9ad9610bbd3d83bb90cd09d53214f9e2f17",
+      "output_excerpt": [
+        "** (pixel-cutout-sprite-studio:44294): ERROR **: 16:17:54.259: readPIDFromPeer: Unexpected short read from PID socket. (This usually means the auxiliary process crashed immediately. Investigate that instead!)"
+      ]
+    },
+    {
+      "id": "docs",
+      "command": "python tools/control.py docs check --docs-dir docs",
+      "status": "failed_existing_marker_contract",
+      "local_log": "p37-docs-final.log",
+      "log_sha256": "e639db577a57dfe5eeac85c137f4c09dd42aacf21e3d5f66c9408fca8c4ac3bb",
+      "output_excerpt": [
+        "❌ /workspace/docs/-PixelStudio_Implementierungsplan_2026-09-09/START_HERE.md: expected exactly one '<!-- AUTO-GENERATED:backlink START -->' and one '<!-- AUTO-GENERATED:backlink END -->' marker (found 0 and 0)",
+        "❌ /workspace/docs/-PixelStudio_Implementierungsplan_2026-09-09/beispiele/VaultProjekt1/.PixelPrompt/Charakter/Held/Kleif/Kleif-classic-de-combined.md: expected exactly one '<!-- AUTO-GENERATED:backlink START -->' and one '<!-- AUTO-GENERATED:backlink END -->' marker (found 0 and 0)"
+      ]
+    },
+    {
+      "id": "tooling_docs",
+      "command": "python tools/control.py docs check",
+      "status": "failed_existing_marker_contract",
+      "local_log": "p37-tooling-docs.log",
+      "log_sha256": "fb63c061812ffa61f80bea691195c194cd1e85677b1352558f462b2a7645cae1",
+      "output_excerpt": [
+        "❌ /workspace/docs/toolingdocs/acceptance/acceptance.md: expected exactly one '<!-- AUTO-GENERATED:backlink START -->' and one '<!-- AUTO-GENERATED:backlink END -->' marker (found 0 and 0)",
+        "❌ /workspace/docs/toolingdocs/acceptance/copy-matrix.md: expected exactly one '<!-- AUTO-GENERATED:backlink START -->' and one '<!-- AUTO-GENERATED:backlink END -->' marker (found 0 and 0)"
+      ]
+    },
+    {
+      "id": "baseline_docs",
+      "command": "python <original HEAD snapshot>/tools/control.py docs check --docs-dir docs",
+      "status": "failed_existing_marker_contract",
+      "local_log": "baseline-docs.log",
+      "log_sha256": "8d5a1d7fb4683aff52bf8d7bb11e7809dc6adab1470a92afaea1b8518a856937",
+      "output_excerpt": [
+        "❌ /tmp/p37-validation.qSyRWN/baseline/docs/-PixelStudio_Implementierungsplan_2026-09-09/START_HERE.md: expected exactly one '<!-- AUTO-GENERATED:backlink START -->' and one '<!-- AUTO-GENERATED:backlink END -->' marker (found 0 and 0)",
+        "❌ /tmp/p37-validation.qSyRWN/baseline/docs/-PixelStudio_Implementierungsplan_2026-09-09/beispiele/VaultProjekt1/.PixelPrompt/Charakter/Held/Kleif/Kleif-classic-de-combined.md: expected exactly one '<!-- AUTO-GENERATED:backlink START -->' and one '<!-- AUTO-GENERATED:backlink END -->' marker (found 0 and 0)"
+      ]
+    }
+  ],
+  "documentation_review": {
+    "changed_markdown_files": 45,
+    "local_link_targets_checked": 271,
+    "missing_targets": 0,
+    "global_navigation_checker_passed": false
+  }
+}

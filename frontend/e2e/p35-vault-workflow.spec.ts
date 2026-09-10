@@ -47,22 +47,13 @@ test("P35 category popup preserves answers, dismisses correctly and fits small w
                 };
               case "scan_prompt_vault":
                 return index;
-              case "get_project_dashboard":
+              case "list_workspace_entries":
                 return {
-                  projects: [],
-                  labels: [],
-                  writable: true,
-                  view: {
-                    schema_version: 1,
-                    kind: "project_view",
-                    revision: 1,
-                    updated_at: "2026-09-10T12:00:00.000Z",
-                    search: "",
-                    label_ids: [],
-                    label_match: "any",
-                    status: "any",
-                    sort: "updated_desc",
-                  },
+                  relativePath: "",
+                  entries: [],
+                  nextCursor: null,
+                  totalMatches: 0,
+                  skippedEntries: 0,
                 };
               case "plugin:event|listen":
                 return 1;

@@ -1,5 +1,9 @@
 # P28 · Vollständiges Wizard- und Ausgabeinventar
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 Quelle der Wahrheit ist die ausführbare Zuordnung
 [`questionnaireInventory.ts`](../../../frontend/src/prompt-studio/domain/catalog/questionnaireInventory.ts).
 Der Test [`v3Catalog.test.ts`](../../../frontend/src/prompt-studio/domain/catalog/v3Catalog.test.ts)

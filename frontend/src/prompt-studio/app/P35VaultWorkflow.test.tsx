@@ -115,7 +115,6 @@ function Harness({
             view={view}
             onNavigate={setView}
             storageAdapter={storage}
-            outputAdapter={{ copyText: vi.fn(), downloadTextFile: vi.fn() }}
             onOpenBaseProfile={() => undefined}
             now={now}
             createDraftId={() => "draft_loaded"}

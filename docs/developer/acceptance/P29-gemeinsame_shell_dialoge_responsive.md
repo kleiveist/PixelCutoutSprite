@@ -1,5 +1,9 @@
 # P29 · Gemeinsame Shell, Dialoge und Responsive-Grundlage
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 Datum: 2026-09-09
 Status: Frontend umgesetzt; Browser- und native Laufzeitprüfung umgebungsbedingt offen
 Anforderungen: R-G01, R-G02, R-G03, R-G04, R-G05, R-G06, R-G08, R-S01
@@ -29,7 +33,7 @@ Anforderungen: R-G01, R-G02, R-G03, R-G04, R-G05, R-G06, R-G08, R-S01
 | --- | --- |
 | [`App.prompt-studio.test.tsx`](../../../frontend/src/app/App.prompt-studio.test.tsx) | ein Header/eine Modulzeile, vier Prompt-Views, Kontext-Rückkehr und Flush-Sperre |
 | [`Modal.test.tsx`](../../../frontend/src/shared/dialogs/Modal.test.tsx) | X, Escape, Backdrop, Innenklick, Drag, Inertheit und Fokus-Rückgabe |
-| [`useModalFocus.test.tsx`](../../../frontend/src/components/useModalFocus.test.tsx) | Tab/Shift+Tab und nicht schließbarer Zustand |
+| [`useModalFocus.test.tsx`](https://github.com/kleiveist/PixelCutoutSprite/blob/f85e24d41197fe74dd64a9d8e2670c382b3f65b8/frontend/src/components/useModalFocus.test.tsx) | Tab/Shift+Tab und nicht schließbarer Zustand |
 | [`prompt-studio-integration.spec.ts`](../../../frontend/e2e/prompt-studio-integration.spec.ts) | drei Module sowie Layout bei 720×450 und 480×360 definiert |
 | `npm --prefix frontend run build` | Exit 0 |
 | `npm --prefix frontend run test:e2e` | Exit 1 vor Testbeginn: Playwright-Chromium fehlt |

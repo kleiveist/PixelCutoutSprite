@@ -1,0 +1,635 @@
+{
+  "phase": "P43",
+  "date": "2026-09-10T21:11:54.105Z",
+  "baseCommit": "f85e24d41197fe74dd64a9d8e2670c382b3f65b8",
+  "workingTree": "Uncommitted P37–P43; no remote writes, signing or publication",
+  "phaseAssessment": "Implementation and acceptance report delivered with explicitly open requirements",
+  "unrestrictedReleaseAccepted": false,
+  "openItems": [
+    "W1 Windows native/Explorer new-window proof",
+    "M1 macOS native/Finder proof",
+    "H1 complete directory-handle-anchored filesystem race hardening",
+    "H2 recovery-only missing-source discovery limitation",
+    "U1 normal Linux WebKit sandbox/physical desktop proof",
+    "D1 existing independent tooling-docs index mismatch"
+  ],
+  "environment": {
+    "os": "Debian 12 Linux x86_64 Docker",
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "rust": "1.97.1",
+    "python": "3.11.2",
+    "nativeGui": "Real Tauri release WebKitGTK + AT-SPI/X11/Xvfb, software rendering; process-local temporary WebKit path/sandbox workaround"
+  },
+  "tooling": {
+    "files": 388,
+    "changed": 0,
+    "sha256": "3b2659faeb9c2ae90f244fde722217468c5cefe51cc768ade0195e7676046620",
+    "algorithm": "SHA256 of sorted path + NUL + raw SHA256(file), concatenated"
+  },
+  "sourceInventory": {
+    "files": 553,
+    "sha256": "8fcfee5ceeea24d27c6e6d43f77e67efb065822bffe2cf9b18aa7a9ce4cdb2e7",
+    "algorithm": "Same as tooling; frontend/src+e2e, native src+tests+capabilities, tests/source; ts/tsx/css/json/rs/py/c; excludes docs and build outputs"
+  },
+  "productMetadata": [
+    {
+      "path": "src-tauri/Cargo.toml",
+      "sha256": "9d8ef798fa2b66a33bbd29594e1d31e04d0e2b7500f8a7625798aa864d77e9ab"
+    },
+    {
+      "path": "src-tauri/Cargo.lock",
+      "sha256": "36d0cb67ea3a77c480954aff6d00475bff14d736cd9a235a6949e85469ace4db"
+    },
+    {
+      "path": "src-tauri/tauri.conf.json",
+      "sha256": "b596f84cd00f4c6296f9a358fd4ace61cfe76e1747072bb16ec9423f6414ae10"
+    },
+    {
+      "path": "frontend/package-lock.json",
+      "sha256": "12b286fc618100575138ce0bd8a3a935a1645ebe922228c68f5d52c8f458b3d5"
+    }
+  ],
+  "checks": [
+    {
+      "id": "F",
+      "command": "npm --prefix frontend run test -- --reporter=verbose",
+      "exitCode": 0,
+      "tests": 741,
+      "files": 140,
+      "log": "p43-vitest-final5.log",
+      "sha256": "aa6ce6b036ea922d1a33fc5397912111a8d060394a274fb47d2c110bb6fbc94b"
+    },
+    {
+      "id": "B",
+      "command": "npm --prefix frontend run test:e2e -- --output=/tmp/p38-p43-validation.Xozjjs/p43-browser-final5",
+      "exitCode": 0,
+      "tests": 21,
+      "scope": "Production frontend with explicit IPC fixtures, not native I/O",
+      "log": "p43-browser-final5.log",
+      "sha256": "251a351b3ea0f15199691ebe727e877b1eb71bb628eb1280619275df8888e329"
+    },
+    {
+      "id": "N",
+      "command": "CARGO_BUILD_JOBS=1 cargo test --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features",
+      "exitCode": 0,
+      "tests": 134,
+      "lib": 103,
+      "composition": 1,
+      "recovery": 18,
+      "vault": 12,
+      "log": "p43-native-final3.log",
+      "sha256": "f845aa574154d9b8b3058ed0af2592b18eb4f82f347d5dab137f08d68dfc6ed9"
+    },
+    {
+      "command": "npm --prefix frontend run typecheck",
+      "exitCode": 0,
+      "log": "p43-typecheck-final5.log",
+      "sha256": "6429f885338292882c6bfafadd48369800656877300f1ffb8ed289ad6c15dfac"
+    },
+    {
+      "command": "npm --prefix frontend run lint",
+      "exitCode": 0,
+      "log": "p43-lint-final5.log",
+      "sha256": "89e24634563a39114939782b94c51658053a9f6f2652356b7f14e5d41bf55a16"
+    },
+    {
+      "command": "npm --prefix frontend run format:check",
+      "exitCode": 0,
+      "log": "p43-format-final5.log",
+      "sha256": "12c0a3c7f7b791e64d40b4e6a91115e90715d1602f9263602632b03b5ae695ea"
+    },
+    {
+      "command": "CARGO_BUILD_JOBS=1 cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings",
+      "exitCode": 0,
+      "log": "p43-clippy-final3.log",
+      "sha256": "727fb82139b39f960a295c4b0e1a36b77664b0a970a1c17e7eb6f37a02b44c73"
+    },
+    {
+      "command": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
+      "exitCode": 0,
+      "log": "p43-cargofmt-final3.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "S",
+      "command": "python -m pytest -v -p no:cacheprovider tests/source/test_studio_final_architecture.py tests/source/test_studio_distribution_policy.py tests/source/test_repository_product_policy.py tools/tests/test_tauri_control.py tools/tests/test_control_help.py tools/tests/test_configuration.py tools/tests/test_control_test_reporting.py",
+      "exitCode": 0,
+      "passed": 110,
+      "skipped": 2,
+      "skipNames": [
+        "test_container_baseline_is_non_root_and_profiled",
+        "test_production_locks_match_container_python_runtime"
+      ],
+      "log": "p43-source-final3.log",
+      "sha256": "3d804f62d7c55fccde679346428e6051585bdff5990feea93ae353b72038abb1"
+    },
+    {
+      "id": "A",
+      "command": "python tools/control.py quality architecture",
+      "exitCode": 0,
+      "typescriptFiles": 406,
+      "log": "p43-architecture-final5.log",
+      "sha256": "3d0727d176baa017fc440444d18a6bcf2f08a984b88ed5fad41776217634ef58"
+    },
+    {
+      "command": "python tools/control.py test --suite frontend",
+      "exitCode": 0,
+      "log": "p43-frontend-final.log",
+      "sha256": "893740e0e252cc0272f7ba6e691cca06f6c79acae90eed3b729730ec0de72290",
+      "note": "Existing entrypoint executed before the two final UI regressions; final full F run above covers current state"
+    },
+    {
+      "command": "python tools/control.py tauri test --cargo",
+      "exitCode": 0,
+      "log": "p43-tauri-entrypoint.log",
+      "sha256": "7b6aabee0e9efe038c7035f9cc6896aa4b2af641a5b8b460e2e30fc3daffabbf",
+      "note": "Existing entrypoint plus final all-target/all-feature N run"
+    },
+    {
+      "id": "L",
+      "command": "CARGO_BUILD_JOBS=1 CARGO_TARGET_DIR=/workspace/.tooling-state/p43/target python tools/control.py tauri build --target linux --bundles deb --no-clean",
+      "exitCode": 0,
+      "log": "p43-native-deb-build-final5.log",
+      "sha256": "04bb665bf5365a9d873692ee58a2fa1a082d8642a01034dbf7316afcd68b3b81"
+    },
+    {
+      "command": "CARGO_TARGET_DIR=/workspace/.tooling-state/p43/target python tools/control.py tauri smoke --target linux",
+      "exitCode": 0,
+      "log": "p43-deb-smoke-final5.log",
+      "sha256": "83f7594cba2fb6132dad34bfd72b74f20680e2ceccd00cac0b4802aa8c738b87",
+      "scope": "3-second startup of extracted installer payload, not the native roundtrip"
+    },
+    {
+      "id": "G",
+      "command": "python3 src-tauri/tests/native_desktop_roundtrip.py --executable /workspace/.tooling-state/p43/target/release/pixel-cutout-sprite-studio --offline-launcher /tmp/p42-native-gui.Fmdl9A/native-offline --desktop-checks --evidence /tmp/p38-p43-validation.Xozjjs/p43-native-release-final5",
+      "exitCode": 0,
+      "log": "p43-native-release-final5.log",
+      "sha256": "8a80ae0ce9557a4d382d62251c927fbfa01abfe4517204e495efe0e431a1f05e"
+    },
+    {
+      "command": "ruff check src-tauri/tests/native_desktop_support.py src-tauri/tests/native_desktop_roundtrip.py src-tauri/tests/native_fixture_image.py",
+      "exitCode": 0,
+      "log": "p43-python-helper-lint-final.log",
+      "sha256": "5b196eb3a6acb50d3fa398d04ca284985cc1ffec870e940264b00780bfd2c971"
+    },
+    {
+      "command": "python tools/control.py docs check",
+      "exitCode": 1,
+      "issues": 82,
+      "assessment": "Existing independent tooling-docs marker baseline, not repaired or suppressed",
+      "log": "p43-tooling-docs.log",
+      "sha256": "fb63c061812ffa61f80bea691195c194cd1e85677b1352558f462b2a7645cae1"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "R-G01",
+      "evidence": "T01, T02",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-G02",
+      "evidence": "T02",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-G03",
+      "evidence": "T01, T03",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-G04",
+      "evidence": "T03",
+      "assessment": "Linux/Browser geprüft; andere Plattformen offen"
+    },
+    {
+      "id": "R-G05",
+      "evidence": "T01, T24, T27",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-G06",
+      "evidence": "T02, T03, T26",
+      "assessment": "geprüfte Kernbedienung; Zertifizierung nicht behauptet"
+    },
+    {
+      "id": "R-G07",
+      "evidence": "T27",
+      "assessment": "Linux offline geprüft"
+    },
+    {
+      "id": "R-G08",
+      "evidence": "T01, A",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-D01",
+      "evidence": "T04, T05",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-D02",
+      "evidence": "T05",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-D03",
+      "evidence": "T06",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-D04",
+      "evidence": "T07, T16",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-D05",
+      "evidence": "T08, T09",
+      "assessment": "geprüfte Fehlerfenster; H1 beachten"
+    },
+    {
+      "id": "R-D06",
+      "evidence": "T10",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-D07",
+      "evidence": "T11",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-D08",
+      "evidence": "T12",
+      "assessment": "teilweise: Windows-Neufenster und Finder offen"
+    },
+    {
+      "id": "R-D09",
+      "evidence": "T13",
+      "assessment": "geprüfte Fälle; vollständige Race-Härtung H1 offen"
+    },
+    {
+      "id": "R-D10",
+      "evidence": "T14",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-P01",
+      "evidence": "T15",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-P02",
+      "evidence": "T07, T15",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-P03",
+      "evidence": "T06",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-P04",
+      "evidence": "T16",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-P05",
+      "evidence": "T16",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-P06",
+      "evidence": "T16",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-P07",
+      "evidence": "T17",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-P08",
+      "evidence": "T17",
+      "assessment": "geprüft, inklusive stabiler Weiterbearbeitungs-ID"
+    },
+    {
+      "id": "R-P09",
+      "evidence": "T18",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-P10",
+      "evidence": "T18",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-P11",
+      "evidence": "T16, T17",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-P12",
+      "evidence": "T19",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-C01",
+      "evidence": "T20",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-C02",
+      "evidence": "T20",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-C03",
+      "evidence": "T21",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-C04",
+      "evidence": "T21, T22",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-C05",
+      "evidence": "T22",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-C06",
+      "evidence": "T23",
+      "assessment": "synthetische Fälle geprüft; manuell korrigierbare Heuristik"
+    },
+    {
+      "id": "R-C07",
+      "evidence": "T22, T26",
+      "assessment": "geprüft, zusätzlich beschriftete Kanalzahlen"
+    },
+    {
+      "id": "R-C08",
+      "evidence": "T23, T27",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-C09",
+      "evidence": "T24",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-C10",
+      "evidence": "T10, T24",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-C11",
+      "evidence": "T22, T24",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-C12",
+      "evidence": "T23",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-C13",
+      "evidence": "T24, T27",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-C14",
+      "evidence": "T24",
+      "assessment": "geprüft; Recovery-only-Quellverlust siehe H2"
+    },
+    {
+      "id": "R-S01",
+      "evidence": "T01, T25",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-S02",
+      "evidence": "T21, T25",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-S03",
+      "evidence": "T25",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-S04",
+      "evidence": "T25",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-S05",
+      "evidence": "T05, T25",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-S06",
+      "evidence": "T24, T25",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-S07",
+      "evidence": "T25",
+      "assessment": "geprüft"
+    },
+    {
+      "id": "R-S08",
+      "evidence": "T25",
+      "assessment": "geprüft"
+    }
+  ],
+  "nativeRoundtrip": {
+    "status": "passed",
+    "fixture": "/tmp/p38-p43-validation.Xozjjs/p43-native-release-final5/p43-native-roundtrip-c1dnq7vk",
+    "platform": "Linux",
+    "executableSha256": "d057e14e48156d36f3d510816f50dab74acece10bdc67b7a66f660da8704c859",
+    "offline": "seccomp rejects IPv4/IPv6 socket creation; Unix IPC allowed",
+    "prompt": {
+      "pages": [
+        "Identität und Varianten",
+        "Körper und Ausdruck",
+        "Kleidung",
+        "Ausrüstung und Material",
+        "Figurenpalette",
+        "NPC-Kontext",
+        "Richtungen",
+        "Bewegung und Animation",
+        "Prüfung"
+      ],
+      "markdownFiles": 16,
+      "profile": ".PixelPrompt/Charakter/NPC/P43 Kleif/P43 Kleif-profile.json"
+    },
+    "originalPngSha256": "7269dc017fd9d65854d832c4d25a0ed27dbef18a9bd9e0ca785d211ee1522584",
+    "sceneAfterRestart": {
+      "schemaVersion": 1,
+      "kind": "spriteScene",
+      "id": "scene-c33c84f6930aa2208b6d306619dd70d4",
+      "revision": 4,
+      "setId": "cutout-cfd6c2f6613cee1c2cdeb01f5f533bda",
+      "generationId": "gen-094f74f8-3a11-4f4f-ac8f-22988316ed91",
+      "blendMode": "source-over",
+      "pixelSnap": false,
+      "layers": [
+        {
+          "partId": "torso",
+          "position": {
+            "x": 14,
+            "y": 20
+          },
+          "pivot": {
+            "x": 7,
+            "y": 10
+          },
+          "rotationDeg": 0,
+          "scale": {
+            "x": 1,
+            "y": 1
+          },
+          "zIndex": 20,
+          "visible": false,
+          "locked": true
+        },
+        {
+          "partId": "head",
+          "position": {
+            "x": 42.25,
+            "y": -5.5
+          },
+          "pivot": {
+            "x": 0.25,
+            "y": 0.75
+          },
+          "rotationDeg": 90,
+          "scale": {
+            "x": 1.5,
+            "y": 2
+          },
+          "zIndex": 10,
+          "visible": true,
+          "locked": false
+        }
+      ],
+      "createdAt": "2026-09-10T21:09:57.530Z",
+      "updatedAt": "2026-09-10T21:10:02.416Z"
+    },
+    "desktop": {
+      "minimum": [
+        480,
+        360
+      ],
+      "sizes": [
+        [
+          480,
+          360
+        ],
+        [
+          960,
+          540
+        ]
+      ],
+      "zoomInputHeight": [
+        22,
+        43
+      ],
+      "fileManager": {
+        "json": [
+          "P43 Kleif - Thunar",
+          "\"P43 Kleif-profile.json\"  |  7.4 KiB (7590 bytes)  |  JSON document"
+        ],
+        "folder": [
+          "NPC - Thunar",
+          "\"P43 Kleif\"  |  folder"
+        ],
+        "markdown": [
+          "P43 Kleif - Thunar",
+          "\"P43 Kleif-classic-de-combined.md\"  |  3.5 KiB (3596 bytes)  |  Markdown document"
+        ]
+      }
+    },
+    "unchangedSourceAndParts": {
+      "Held.png": "7269dc017fd9d65854d832c4d25a0ed27dbef18a9bd9e0ca785d211ee1522584",
+      "Held/sprite.parts.json": "160f94fcf708e10820b080bc0567e2e591814594d93dccb2ddf747a4a30ce6e3",
+      "Held/01_head.png": "ce9e25d4af42b7ac853a179faf812c4bf6a2fa2c6329136e39d1540ae38cb5d7",
+      "Held/02_torso.png": "fe09066071e7d9258d13d5af76536a62e89a677c87c1429f59f1ce2dea52ae59"
+    },
+    "maskPixels": {
+      "head": 144,
+      "torso": 280,
+      "overlap": 45
+    },
+    "nativeExits": [
+      0,
+      0
+    ]
+  },
+  "nativeStartSmoke": {
+    "artifact": ".tooling-state/p43/target/release/bundle/deb/PixelCutoutSprite Studio_0.1.0_amd64.deb",
+    "isolated_user_state": true,
+    "observed_seconds": 3.033,
+    "platform": "linux",
+    "schema_version": 1,
+    "source": "linux-deb-payload",
+    "startup_seconds": 3,
+    "status": "PASS",
+    "stop": "terminated"
+  },
+  "artifact": {
+    "path": ".tooling-state/p43/target/release/bundle/deb/PixelCutoutSprite Studio_0.1.0_amd64.deb",
+    "bytes": 5684472,
+    "sha256": "7d79d7b914ae5c188a064a1edc356c6a1a520467977ac7f246a1741aeadcc236",
+    "binaryPath": ".tooling-state/p43/target/release/pixel-cutout-sprite-studio",
+    "binarySha256": "d057e14e48156d36f3d510816f50dab74acece10bdc67b7a66f660da8704c859",
+    "signed": false,
+    "published": false
+  },
+  "screenshots": [
+    {
+      "log": "p43-native-release-final5/p43-native-200-percent.png",
+      "sha256": "91959cbc0e7d9d3caa557d7df2158266b220bc07134155a04b4b57ef390d2510"
+    },
+    {
+      "log": "p43-native-release-final5/p43-native-filemanager-folder.png",
+      "sha256": "0048c7e72a2f4ca903abe54e912e9c50d2cd17c0f93a8ef4d51645247081c279"
+    },
+    {
+      "log": "p43-native-release-final5/p43-native-filemanager-json.png",
+      "sha256": "c98887aaeca007f624e2d26ab4125ff93aa8283ba34245a3ea698e3bad85372b"
+    },
+    {
+      "log": "p43-native-release-final5/p43-native-filemanager-md.png",
+      "sha256": "6293f672db9040a366824635feaf193d5a9eff041030225695b22a9937ec33a3"
+    },
+    {
+      "log": "p43-native-release-final5/p43-native-generated.png",
+      "sha256": "edcc017a900645a253ad2e5aa4a36b5fa467a1ad115ca515a991e4b4a36cff2a"
+    },
+    {
+      "log": "p43-native-release-final5/p43-native-invalid-close.png",
+      "sha256": "554338218512e758986611d95eb03641737d60f67f498d96a645b112a11bc818"
+    },
+    {
+      "log": "p43-native-release-final5/p43-native-prompt-loaded.png",
+      "sha256": "9302bbd6c2c555e8a9f5e98adcb7e9b4467d18ada7fe50f0945fb7f64d37accc"
+    },
+    {
+      "log": "p43-native-release-final5/p43-native-scene-reopened.png",
+      "sha256": "f18583995dbba77c30d3b95038217c5bfbd01bd05a2cae46bf5b766a5c3ec697"
+    },
+    {
+      "log": "p43-native-release-final5/p43-native-settings-480.png",
+      "sha256": "3be92fc826529a33c2a04fa8dae40b9d14a187a05844d6d518afa1889925976f"
+    },
+    {
+      "log": "p43-native-release-final5/p43-native-settings-960.png",
+      "sha256": "5d88abba4c4807a1e651e184c0146d40c2566653895dc5dd511fdfb807ed9e18"
+    }
+  ],
+  "evidenceRootEphemeral": "/tmp/p38-p43-validation.Xozjjs",
+  "evidenceArchive": ".dist/desktop/linux/P43-evidence.tar.gz"
+}

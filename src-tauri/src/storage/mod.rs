@@ -1,23 +1,21 @@
+mod atomic_file;
 mod device_settings;
 mod error;
 mod global_settings;
-mod index;
 mod json_store;
 mod layout;
 mod lock;
-mod prompt_workspace;
 mod safe_path;
 mod save_state;
 mod transaction;
 
+pub use atomic_file::*;
 pub use device_settings::*;
 pub use error::*;
 pub use global_settings::*;
-pub use index::*;
 pub use json_store::*;
 pub use layout::*;
 pub use lock::*;
-pub use prompt_workspace::*;
 pub use safe_path::*;
 pub use save_state::*;
 pub use transaction::*;

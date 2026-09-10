@@ -145,6 +145,32 @@ describe("vault wizard bridge", () => {
       languages: ["en", "de"],
     });
 
+    // P43: a fresh editing-session ID must not create a same-name profile copy.
+    const loadedIndex: PromptVaultIndex = {
+      ...index(),
+      profiles: [
+        {
+          value: projected.value,
+          relativePath: ".PixelPrompt/Textur/Holz/Eichenboden/Eichenboden-profile.json",
+          revision: projected.value.revision,
+          sha256: "b".repeat(64),
+        },
+      ],
+    };
+    const working = hydrateWizardVaultDocument(projected.value, loadedIndex, {
+      draftId: "draft_fresh_dashboard_session",
+    });
+    const edited = projectWizardToVault(
+      working.draft,
+      { ...working.rawValues, projectName: "Eichenboden geändert" },
+      loadedIndex,
+      () => timestamp,
+    );
+    expect(edited.kind).toBe("profile");
+    if (edited.kind !== "profile") throw new Error("Expected an edited canonical profile");
+    expect(edited.value.id).toBe(projected.value.id);
+    expect(edited.value.name).toBe("Eichenboden geändert");
+
     const hydrated = createVaultCompatibilityStorage({
       ...index(),
       profiles: [

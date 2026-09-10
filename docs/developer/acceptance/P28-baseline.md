@@ -1,5 +1,9 @@
 # P28 · Baseline
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 Datum: 2026-09-09
 Branch/HEAD: `main` / `9efa821bc21b0099dc2f0d51895e472fc02b737f`
 Umgebung: Linux x86_64, Node `22.23.2`, npm `10.9.8`, Python `3.11.2`

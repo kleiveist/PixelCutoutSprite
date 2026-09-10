@@ -4,6 +4,10 @@
 
 # JSON contract version 1
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](../acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 PixelCutoutSprite Studio stores its editable sources as ordinary UTF-8 JSON files and imported
 PNG files. Rust types under `src-tauri/src/domain/` are authoritative. Matching TypeScript DTOs
 under `frontend/src/domain/` describe the desktop IPC payloads; they do not bypass Rust

@@ -4,6 +4,10 @@
 
 # P22 — Gesamtabnahme
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 **Stand:** 6. September 2026
 
 **Ergebnis:** P22 ist abgeschlossen. Der vollständige lokale Produktionsweg von einer leeren

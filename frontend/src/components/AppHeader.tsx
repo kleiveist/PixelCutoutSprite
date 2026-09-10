@@ -1,4 +1,4 @@
-import type { StudioMode } from "../app/navigation";
+import type { StudioMode } from "../shared/navigation";
 import { ForgeMarkIcon as PixelPromptStudioIcon } from "../prompt-studio/components/icons/ForgeMarkIcon";
 
 interface AppHeaderProps {

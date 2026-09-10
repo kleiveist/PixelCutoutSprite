@@ -1,24 +1,13 @@
 import { describe, expect, it } from "vitest";
-
-import { isWorkspaceRoute, navigationItems, routeBreadcrumbs, routeDetails } from "./navigation";
-
-describe("workspace navigation", () => {
-  it("keeps every route unique and resolvable", () => {
-    const routes = navigationItems.map((item) => item.route);
-
-    expect(new Set(routes).size).toBe(routes.length);
-    expect(routes.every(isWorkspaceRoute)).toBe(true);
-    expect(routeDetails("dummy-editor").label).toBe("Dummy editor");
-    expect(routeDetails("characters")).toMatchObject({ label: "NPCs", available: true });
-    expect(routeDetails("export")).toMatchObject({
-      label: "Export",
-      available: true,
-      description: expect.stringMatching(/godot/i),
-    });
-  });
-
-  it("builds concise breadcrumbs", () => {
-    expect(routeBreadcrumbs("welcome")).toEqual(["Workspace"]);
-    expect(routeBreadcrumbs("animations")).toEqual(["Workspace", "Animations"]);
+import * as navigation from "./navigation";
+describe("P37 module navigation", () => {
+  it("exports only the four current prompt destinations, no legacy Cutout route table", () => {
+    expect(Object.keys(navigation)).toEqual(["promptNavigationItems"]);
+    expect(navigation.promptNavigationItems.map((item) => item.id)).toEqual([
+      "dashboard",
+      "profiles",
+      "wizard",
+      "output",
+    ]);
   });
 });

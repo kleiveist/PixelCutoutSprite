@@ -1,14 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createV2StorageAdapter, type OutputWorkspaceAdapter } from "../prompt-studio/services";
+import { createV2StorageAdapter } from "../prompt-studio/services";
 import { MemoryStorage } from "../prompt-studio/test/memoryStorage";
 import { App } from "./App";
-
-const outputAdapter: OutputWorkspaceAdapter = {
-  copyText: vi.fn(async () => undefined),
-  downloadTextFile: vi.fn(async () => undefined),
-};
 
 function renderIntegratedApp(flushPromptStorage = vi.fn(async () => undefined)) {
   const storage = new MemoryStorage();
@@ -17,7 +12,6 @@ function renderIntegratedApp(flushPromptStorage = vi.fn(async () => undefined)) 
     storage,
     ...render(
       <App
-        promptOutputAdapter={outputAdapter}
         promptStorageAdapter={createV2StorageAdapter(storage)}
         flushPromptStorage={flushPromptStorage}
       />,
@@ -66,8 +60,9 @@ describe("integrated PixelPromptStudio", () => {
   it("restores both the Cutout route and the independent prompt view", async () => {
     const { flushPromptStorage } = renderIntegratedApp();
 
-    fireEvent.click(screen.getByRole("button", { name: "Areas" }));
-    expect(screen.getByRole("heading", { name: "Areas" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Willkommen im Cutout-Studio" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "PixelPromptStudio Generator öffnen" }));
     const generator = await screen.findByRole("region", {
@@ -82,7 +77,9 @@ describe("integrated PixelPromptStudio", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "PixelCutoutSprite Studio öffnen" }));
     await waitFor(() => expect(flushPromptStorage).toHaveBeenCalledOnce());
-    expect(screen.getByRole("heading", { name: "Areas" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Willkommen im Cutout-Studio" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "PixelPromptStudio Generator öffnen" }));
     expect(await screen.findByRole("heading", { name: "Kein Vault geöffnet" })).toBeInTheDocument();

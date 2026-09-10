@@ -4,6 +4,10 @@
 
 # Repository inventory for PixelCutoutSprite Studio
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 **Captured:** 2026-09-05
 **Branch:** `main`
 **Starting revision:** `e709b853f0bf2bcfb95da7e7113cf18e43c4fc57`

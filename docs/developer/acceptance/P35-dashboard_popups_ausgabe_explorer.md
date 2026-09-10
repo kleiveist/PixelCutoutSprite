@@ -1,5 +1,9 @@
 # P35 · Dashboard, Profil-Popups, Ausgabe und Dateimanager
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 Datum: 2026-09-10. Ausgangsstand: `7b4cc01` (P34).
 
 Status: **Implementierung und automatisierte Frontend-/Rust-/Chromium-Prüfungen bestanden.**
@@ -56,7 +60,7 @@ Anforderungen: R-G01, R-G02, R-G08, R-D08, R-P01, R-P02, R-P07, R-P08, R-P09, R-
   bleibt während Sitzungsprüfung und nativer Übergabe gehalten. Absolute Pfade, Traversal,
   nichtportable Namen, Symlinks und fehlende/nichtreguläre Ziele werden abgelehnt. Auch der
   ausgewählte Root wird erneut aufgelöst. Es wird kein Shell-String zusammengesetzt.
-- [`useModalFocus.ts`](../../../frontend/src/components/useModalFocus.ts) stellt den Fokus bei
+- [`useModalFocus.ts`](https://github.com/kleiveist/PixelCutoutSprite/blob/f85e24d41197fe74dd64a9d8e2670c382b3f65b8/frontend/src/components/useModalFocus.ts) stellt den Fokus bei
   gemeinsamem Modal-Hintergrund erst nach dessen `inert`-Aufhebung wieder her. Die echte
   Chromium-Prüfung hatte den vorherigen Fokusverlust nach Escape/Schließen sichtbar gemacht.
 - Die [Nutzeranleitung](../../guides/prompt-generator.md) beschreibt den neuen Ablauf und ersetzt

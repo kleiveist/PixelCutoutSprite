@@ -1,368 +1,210 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-import { areaClient, type AreaClient } from "../api/area-client";
-import { assetClient, type AssetClient } from "../api/asset-client";
-import { exportClient, type ExportClient } from "../api/export-client";
-import { motionClient, type MotionClient } from "../api/motion-client";
-import { npcClient, type NpcClient } from "../api/npc-client";
-import { outfitClient, type OutfitClient } from "../api/outfit-client";
-import { projectClient, type ProjectClient } from "../api/project-client";
-import { promptStudioClient, type PromptStudioClient } from "../api/prompt-studio-client";
 import {
   vaultClient,
   type OpenVault,
   type RecoveryStatus,
   type VaultClient,
-} from "../api/vault-client";
+} from "../shared/vault/vault-client";
 import { AppHeader } from "../components/AppHeader";
-import { Breadcrumbs } from "../components/Breadcrumbs";
 import { DialogLayer } from "../components/DialogLayer";
-import { NativeAcceptanceProbe } from "../components/NativeAcceptanceProbe";
-import { PlaceholderView } from "../components/PlaceholderView";
 import { StatusBar } from "../components/StatusBar";
-import { WorkspaceNav } from "../components/WorkspaceNav";
-import type { ProjectCard } from "../domain/projects";
-import type { AreaCard } from "../domain/areas";
-import type { MotionOpenTarget } from "../domain/animations";
-import type { RevisionRef } from "../domain/common";
-import type { AssetImportJobView } from "../domain/inventory";
+import { CutoutStudio } from "../cutout-studio/CutoutStudio";
+import { nativeCutoutClient, type CutoutClient } from "../cutout-studio/client";
 import { PromptGeneratorRoot } from "../prompt-studio/app";
 import { LegacyMigrationDialog, VaultBaseProfileDialog } from "../prompt-studio/features/profiles";
 import { VaultPromptProvider, type VaultPromptProviderProps } from "../prompt-studio/store/vault";
-import type { PromptHandoff, PromptHandoffAvailability } from "../prompt-studio/domain/handoff";
 import {
-  createBrowserOutputWorkspaceAdapter,
+  createVaultPromptRepository,
   initializeSessionWorkspaceStorage,
-  type LegacyV1StorageMigrationResult,
-  type OutputWorkspaceAdapter,
   type V2StorageAdapter,
 } from "../prompt-studio/services";
-import { AnimationDashboard } from "../features/animations/AnimationDashboard";
-import { MotionDummyEditorRoute } from "../features/dummy-editor/MotionDummyEditorRoute";
-import { ExportWorkspace } from "../features/export";
-import { InventoryWorkspace } from "../features/inventory/InventoryWorkspace";
-import { NpcWorkspace } from "../features/npcs";
-import { OutfitEditor } from "../features/outfit";
-import { ProjectDashboard } from "../features/projects/ProjectDashboard";
-import { RecoveryPanel } from "../features/vault/RecoveryPanel";
+import {
+  DataFolderProvider,
+  DataFolderWorkspace,
+  nativeDataFolderClient,
+  type DataFolderClient,
+} from "../shared/data-folder";
 import { ModalHost } from "../shared/dialogs";
-import { ModuleNavigationRow } from "../shared/navigation";
+import { ModuleNavigationRow, type StudioMode } from "../shared/navigation";
 import {
   GlobalSettingsDialog,
   GlobalSettingsProvider,
   type GlobalSettingsClient,
 } from "../shared/settings";
+import { classifyNativeError, observeRejectedClientCalls } from "../shared/storage/nativeErrors";
 import { registerNativeCloseFlush, SaveQueue } from "../shared/storage";
 import { ActiveVaultProvider, type ActiveVault, vaultDisplayName } from "../shared/vault";
-import { SpriteStudioWelcome } from "../sprite-studio";
-import { CutoutDataWorkspace } from "../cutout-studio/CutoutDataWorkspace";
-import { DataFolderProvider, type DataFolderClient } from "../shared/data-folder";
-import {
-  classifyNativeError,
-  guardEditorNavigation,
-  observeRejectedClientCalls,
-  type EditorController,
-  type EditorControllerChange,
-  type EditorRecoveryCopy,
-} from "../features/editing";
-import {
-  navigationItems,
-  promptNavigationItems,
-  routeBreadcrumbs,
-  routeDetails,
-  type PromptView,
-  type StudioMode,
-  type WorkspaceRoute,
-} from "./navigation";
+import { RecoveryPanel } from "../shared/vault/RecoveryPanel";
+import { SpriteStudio } from "../sprite-studio";
+import { nativeSpriteClient, type SpriteClient } from "../sprite-studio/client";
+import { promptNavigationItems, type PromptView } from "./navigation";
 import type { KeyboardAction } from "./shortcuts";
 import { useKeyboardActions } from "./useKeyboardActions";
 
 export interface AppProps {
-  areasApi?: AreaClient;
-  assetsApi?: AssetClient;
-  exportsApi?: ExportClient;
-  motionsApi?: MotionClient;
-  npcsApi?: NpcClient;
-  outfitsApi?: OutfitClient;
-  projectsApi?: ProjectClient;
-  promptApi?: PromptStudioClient;
-  promptOutputAdapter?: OutputWorkspaceAdapter;
-  promptStartupMigration?: LegacyV1StorageMigrationResult;
   promptStorageAdapter?: V2StorageAdapter;
   flushPromptStorage?: () => Promise<void>;
   globalSettingsApi?: GlobalSettingsClient;
   promptVaultRepositoryFactory?: VaultPromptProviderProps["repositoryFactory"];
   vaultApi?: VaultClient;
   dataFolderApi?: DataFolderClient;
+  cutoutApi?: CutoutClient;
+  spriteApi?: SpriteClient;
 }
-
-async function noOpPromptStorageFlush(): Promise<void> {}
-
-const sessionPromptWorkspace = initializeSessionWorkspaceStorage();
-const browserPromptOutput = createBrowserOutputWorkspaceAdapter();
+const noOpFlush = async () => undefined;
 
 export function App({
-  areasApi = areaClient,
-  assetsApi = assetClient,
-  exportsApi = exportClient,
-  motionsApi = motionClient,
-  npcsApi = npcClient,
-  outfitsApi = outfitClient,
-  projectsApi = projectClient,
-  promptApi = promptStudioClient,
-  promptOutputAdapter = browserPromptOutput,
-  promptStartupMigration = sessionPromptWorkspace.migration,
-  promptStorageAdapter = sessionPromptWorkspace.storageAdapter,
-  flushPromptStorage = noOpPromptStorageFlush,
+  promptStorageAdapter,
+  flushPromptStorage = noOpFlush,
   globalSettingsApi,
   promptVaultRepositoryFactory,
   vaultApi = vaultClient,
   dataFolderApi,
+  cutoutApi,
+  spriteApi,
 }: AppProps = {}) {
   const [activeStudio, setActiveStudio] = useState<StudioMode>("cutout");
   const [promptView, setPromptView] = useState<PromptView>("dashboard");
   const [promptDraftDirty, setPromptDraftDirty] = useState(false);
-  const [route, setRoute] = useState<WorkspaceRoute>("welcome");
   const [helpOpen, setHelpOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [baseProfileOpen, setBaseProfileOpen] = useState(false);
   const [legacyMigrationOpen, setLegacyMigrationOpen] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [status, setStatus] = useState("Ready · changes stay on this device");
-  const [vault, setVault] = useState<ActiveVault | null>(null);
-  const [selectedProject, setSelectedProject] = useState<ProjectCard | null>(null);
-  const [selectedArea, setSelectedArea] = useState<AreaCard | null>(null);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  const [selectedTemplateRef, setSelectedTemplateRef] = useState<RevisionRef | null>(null);
-  const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null);
-  const [selectedBindingId, setSelectedBindingId] = useState<string | null>(null);
-  const [npcEditorDirty, setNpcEditorDirty] = useState(false);
-  const [npcMutationInFlight, setNpcMutationInFlight] = useState(false);
-  const [releaseRunning, setReleaseRunning] = useState(false);
-  const [exportRunning, setExportRunning] = useState(false);
-  const [assetImportJob, setAssetImportJob] = useState<AssetImportJobView | null>(null);
-  const [assetImportCancelling, setAssetImportCancelling] = useState(false);
-  const [editorRecoveryCopy, setEditorRecoveryCopy] = useState<EditorRecoveryCopy | null>(null);
-  const mainContent = useRef<HTMLElement>(null);
-  const promptContent = useRef<HTMLElement>(null);
-  const initialRoute = useRef(true);
-  const studioSwitchInFlight = useRef(false);
-  const editorController = useRef<EditorController | null>(null);
-  const npcRecoveryCopy = useRef<EditorRecoveryCopy | null>(null);
-  const vaultRef = useRef<ActiveVault | null>(null);
-  const fallbackSessionGeneration = useRef(0);
-  const saveQueueRef = useRef<SaveQueue | null>(null);
-  if (saveQueueRef.current === null) {
-    saveQueueRef.current = new SaveQueue(() => {
-      const current = vaultRef.current;
-      return current
-        ? { sessionId: current.session_id, generation: current.session_generation }
-        : null;
-    });
-  }
-  const saveQueue = saveQueueRef.current;
-  const recoveryRefreshInFlight = useRef<Promise<void> | null>(null);
-  const handledImportTerminal = useRef<string | null>(null);
-  vaultRef.current = vault;
-
+  const [status, setStatus] = useState("Bereit · wähle einen Vault");
   const openBaseProfile = useCallback(() => setBaseProfileOpen(true), []);
   const openLegacyMigration = useCallback(() => setLegacyMigrationOpen(true), []);
+  const [vault, setVault] = useState<ActiveVault | null>(null);
+  const mainContent = useRef<HTMLElement>(null);
+  const vaultRef = useRef<ActiveVault | null>(null);
+  vaultRef.current = vault;
+  const transitionInFlight = useRef(false);
+  const fallbackGeneration = useRef(0);
+  const closedSessions = useRef(new Set<string>());
+  const [sessionStorage] = useState(() => initializeSessionWorkspaceStorage().storageAdapter);
+  const [saveQueue] = useState(
+    () =>
+      new SaveQueue(() => {
+        const current = vaultRef.current;
+        return current
+          ? { sessionId: current.session_id, generation: current.session_generation }
+          : null;
+      }),
+  );
 
-  const handleNativeRejection = useCallback(
-    (reason: unknown): void => {
-      const failure = classifyNativeError(reason);
-      const opened = vaultRef.current;
-      if (failure.kind !== "recovery_required" || !opened || recoveryRefreshInFlight.current) {
-        return;
-      }
-      const session = opened.session_id;
-      const operation = vaultApi
-        .listRecovery(session)
-        .then((recoveryStatus) => {
-          if (vaultRef.current?.session_id !== session) return;
-          if (recoveryStatus.recovery.length === 0) {
-            setStatus(failure.message);
-            return;
-          }
-          setEditorRecoveryCopy(
-            editorController.current?.recoveryCopy?.() ?? npcRecoveryCopy.current,
-          );
-          setVault((current) =>
-            current?.session_id === session
-              ? {
-                  ...current,
-                  recovery: recoveryStatus.recovery,
-                  recovery_writable: recoveryStatus.recovery_writable,
-                  mode: recoveryStatus.mode,
-                  indexed_objects: recoveryStatus.indexed_objects,
-                }
-              : current,
-          );
-          setStatus(
-            `${recoveryStatus.recovery.length} interrupted operation(s) need explicit recovery`,
-          );
-        })
-        .catch((refreshReason: unknown) => {
-          setStatus(
-            `Vault recovery state could not be loaded · ${classifyNativeError(refreshReason).message}`,
-          );
-        })
-        .finally(() => {
-          if (recoveryRefreshInFlight.current === operation) {
-            recoveryRefreshInFlight.current = null;
-          }
-        });
-      recoveryRefreshInFlight.current = operation;
+  const closeSession = useCallback(
+    async (id: string) => {
+      if (closedSessions.current.has(id)) return;
+      await vaultApi.close(id);
+      closedSessions.current.add(id);
     },
     [vaultApi],
   );
 
-  const observedAreasApi = useMemo(
-    () => observeRejectedClientCalls(areasApi, handleNativeRejection),
-    [areasApi, handleNativeRejection],
-  );
-  const observedAssetsApi = useMemo(
-    () => observeRejectedClientCalls(assetsApi, handleNativeRejection),
-    [assetsApi, handleNativeRejection],
-  );
-  const observedExportsApi = useMemo(
-    () => observeRejectedClientCalls(exportsApi, handleNativeRejection),
-    [exportsApi, handleNativeRejection],
-  );
-  const observedMotionsApi = useMemo(
-    () => observeRejectedClientCalls(motionsApi, handleNativeRejection),
-    [handleNativeRejection, motionsApi],
-  );
-  const observedNpcsApi = useMemo(
-    () => observeRejectedClientCalls(npcsApi, handleNativeRejection),
-    [handleNativeRejection, npcsApi],
-  );
-  const observedOutfitsApi = useMemo(
-    () => observeRejectedClientCalls(outfitsApi, handleNativeRejection),
-    [handleNativeRejection, outfitsApi],
-  );
-  const observedProjectsApi = useMemo(
-    () => observeRejectedClientCalls(projectsApi, handleNativeRejection),
-    [handleNativeRejection, projectsApi],
-  );
+  const flushCurrent = useCallback(async () => {
+    const current = vaultRef.current;
+    await saveQueue.flush(
+      current
+        ? { sessionId: current.session_id, generation: current.session_generation }
+        : undefined,
+    );
+    if (activeStudio === "prompt") await flushPromptStorage();
+  }, [activeStudio, flushPromptStorage, saveQueue]);
 
-  const registerEditorController = useCallback<EditorControllerChange>((controller) => {
-    editorController.current = controller;
-  }, []);
-  const registerNpcRecoveryCopy = useCallback((copy: EditorRecoveryCopy | null) => {
-    npcRecoveryCopy.current = copy;
-  }, []);
-
-  const handleKeyboardAction = useCallback((action: KeyboardAction) => {
-    const controller = editorController.current;
-    if (controller && action === "toggle-playback") {
-      return;
-    }
-    if (controller && (action === "save" || action === "undo" || action === "redo")) {
-      const editorState = controller.getState();
-      if (!editorState.writable) {
-        setStatus(`${controller.label} is read-only`);
+  const observeFailure = useCallback(
+    (reason: unknown, id: string | undefined) => {
+      if (
+        !id ||
+        vaultRef.current?.session_id !== id ||
+        classifyNativeError(reason).kind !== "recovery_required"
+      )
         return;
-      }
-      if (action === "save") {
-        if (editorState.mutationInFlight) {
-          setStatus(`Wait for ${controller.label} to finish ${editorState.status.toLowerCase()}`);
-          return;
-        }
-        setStatus(`Saving ${controller.label}…`);
-        void controller
-          .save()
-          .then(() => setStatus(controller.getState().status))
-          .catch((reason) => {
-            const failure = classifyNativeError(reason);
-            setStatus(
-              failure.kind === "conflict"
-                ? `Save conflict in ${controller.label} · use the recovery actions in the editor`
-                : `${controller.label} was not saved · ${failure.message}`,
-            );
-          });
-        return;
-      }
-      if (editorState.mutationInFlight) {
-        setStatus(`Wait for ${controller.label} to finish ${editorState.status.toLowerCase()}`);
-        return;
-      }
-      if (action === "undo" && editorState.canUndo) {
-        controller.undo();
-        setStatus(`Undid the latest ${controller.label} change`);
-      } else if (action === "redo" && editorState.canRedo) {
-        controller.redo();
-        setStatus(`Redid the latest ${controller.label} change`);
-      } else {
-        setStatus(`Nothing to ${action} in ${controller.label}`);
-      }
-      return;
-    }
-    switch (action) {
-      case "help":
-        setHelpOpen(true);
-        break;
-      case "dismiss":
-        setHelpOpen(false);
-        break;
-      case "toggle-playback":
-        setPlaying((current) => !current);
-        setStatus("Preview playback toggled");
-        break;
-      case "save":
-        setStatus("Nothing to save yet · choose a vault first");
-        break;
-      case "undo":
-        setStatus("Nothing to undo");
-        break;
-      case "redo":
-        setStatus("Nothing to redo");
-        break;
-    }
-  }, []);
-
-  useKeyboardActions(handleKeyboardAction);
-  const details = routeDetails(route);
+      // Read-only discovery, never automatic resume/rollback. Ignore a late result from another vault.
+      void vaultApi
+        .listRecovery(id)
+        .then((result) => {
+          if (vaultRef.current?.session_id !== id) return;
+          setVault((current) => (current?.session_id === id ? { ...current, ...result } : current));
+          setStatus("Interrupted file operations require recovery");
+        })
+        .catch((failure) => {
+          if (vaultRef.current?.session_id === id)
+            setStatus(`Recovery discovery failed · ${classifyNativeError(failure).message}`);
+        });
+    },
+    [vaultApi],
+  );
+  const observedDataFolder = useMemo(
+    () =>
+      observeRejectedClientCalls(dataFolderApi ?? nativeDataFolderClient, (reason) =>
+        observeFailure(reason, vault?.session_id),
+      ),
+    [dataFolderApi, observeFailure, vault?.session_id],
+  );
+  const observedCutout = useMemo(
+    () =>
+      observeRejectedClientCalls(cutoutApi ?? nativeCutoutClient, (reason) =>
+        observeFailure(reason, vault?.session_id),
+      ),
+    [cutoutApi, observeFailure, vault?.session_id],
+  );
+  const observedSprite = useMemo(
+    () =>
+      observeRejectedClientCalls(spriteApi ?? nativeSpriteClient, (reason) =>
+        observeFailure(reason, vault?.session_id),
+      ),
+    [spriteApi, observeFailure, vault?.session_id],
+  );
+  const observedPromptFactory = useCallback<typeof createVaultPromptRepository>(
+    (session, queue) =>
+      observeRejectedClientCalls(
+        (promptVaultRepositoryFactory ?? createVaultPromptRepository)(session, queue),
+        (reason) => observeFailure(reason, session.sessionId),
+      ),
+    [observeFailure, promptVaultRepositoryFactory],
+  );
 
   useEffect(() => {
-    if (activeStudio === "prompt") {
-      promptContent.current?.focus();
-      return;
-    }
-    if (initialRoute.current) {
-      initialRoute.current = false;
-      return;
-    }
     mainContent.current?.focus();
-  }, [activeStudio, promptView, route]);
+  }, [activeStudio, promptView]);
 
-  const sessionId = vault?.session_id ?? null;
-  const heartbeatSessionId =
-    vault && (vault.mode === "read_write" || vault.recovery_writable) ? vault.session_id : null;
+  const sessionId = vault?.session_id;
   useEffect(
     () => () => {
-      if (sessionId) void vaultApi.close(sessionId).catch(() => undefined);
+      if (sessionId) void closeSession(sessionId).catch(() => undefined);
     },
-    [sessionId, vaultApi],
+    [closeSession, sessionId],
   );
+
+  const heartbeatId =
+    vault && (vault.mode === "read_write" || vault.recovery_writable) ? vault.session_id : null;
+  useEffect(() => {
+    if (!heartbeatId) return;
+    let active = true;
+    const heartbeat = () =>
+      void vaultApi.heartbeat(heartbeatId).catch((reason) => {
+        if (active) setStatus(`Vault heartbeat failed · ${classifyNativeError(reason).message}`);
+      });
+    heartbeat();
+    const timer = window.setInterval(heartbeat, 10_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [heartbeatId, vaultApi]);
 
   useEffect(() => {
     let active = true;
-    let unlisten: (() => void) | null = null;
+    let unlisten: (() => void) | undefined;
     void registerNativeCloseFlush(
       async () => {
-        const current = vaultRef.current;
-        await saveQueue.flush(
-          current
-            ? { sessionId: current.session_id, generation: current.session_generation }
-            : undefined,
-        );
-        await flushPromptStorage();
+        await flushCurrent();
+        if (vaultRef.current) await closeSession(vaultRef.current.session_id);
       },
       (reason) => {
-        if (active) {
-          setStatus(`App close blocked · pending data was not saved · ${message(reason)}`);
-        }
+        if (active)
+          setStatus(
+            `App close blocked · pending data was not saved · ${classifyNativeError(reason).message}`,
+          );
       },
     )
       .then((stop) => {
@@ -370,489 +212,148 @@ export function App({
         else stop();
       })
       .catch((reason) => {
-        if (active) setStatus(`Native close protection unavailable · ${message(reason)}`);
+        if (active)
+          setStatus(`Native close protection unavailable · ${classifyNativeError(reason).message}`);
       });
     return () => {
       active = false;
       unlisten?.();
     };
-  }, [flushPromptStorage, saveQueue]);
-
-  const trackAssetImport = useCallback((job: AssetImportJobView): void => {
-    if (vaultRef.current?.session_id === job.session_id) setAssetImportJob(job);
-  }, []);
+  }, [closeSession, flushCurrent]);
 
   useEffect(() => {
-    setAssetImportJob(null);
-    handledImportTerminal.current = null;
-    if (!sessionId || typeof observedAssetsApi.activeImportJobs !== "function") return;
-    let disposed = false;
-    let retryTimer = 0;
-    const attach = (): void => {
-      void observedAssetsApi.activeImportJobs!(sessionId)
-        .then((jobs) => {
-          if (disposed || vaultRef.current?.session_id !== sessionId) return;
-          const attached = jobs.find(isActiveAssetImport) ?? null;
-          setAssetImportJob((current) =>
-            current?.session_id === sessionId && isActiveAssetImport(current) ? current : attached,
-          );
-        })
-        .catch(() => {
-          if (disposed) return;
-          // Opening a vault may race native startup; keep unrelated recovery/heartbeat status
-          // authoritative while the session-level import attachment retries quietly.
-          retryTimer = window.setTimeout(attach, 1_000);
-        });
-    };
-    attach();
-    return () => {
-      disposed = true;
-      window.clearTimeout(retryTimer);
-    };
-  }, [observedAssetsApi, sessionId]);
-
-  useEffect(() => {
-    if (!sessionId || !assetImportJob || !isActiveAssetImport(assetImportJob)) return;
-    let disposed = false;
-    let retryTimer = 0;
-    const poll = (): void => {
-      retryTimer = window.setTimeout(() => {
-        void observedAssetsApi
-          .importJob(sessionId, assetImportJob.job_id)
-          .then((job) => {
-            if (!disposed && vaultRef.current?.session_id === sessionId) {
-              setAssetImportJob(job);
-            }
-          })
-          .catch((reason: unknown) => {
-            if (disposed) return;
-            setStatus(`Import progress temporarily unavailable; retrying · ${message(reason)}`);
-            poll();
-          });
-      }, 250);
-    };
-    poll();
-    return () => {
-      disposed = true;
-      window.clearTimeout(retryTimer);
-    };
-  }, [assetImportJob, observedAssetsApi, sessionId]);
-
-  useEffect(() => {
-    if (!assetImportJob || isActiveAssetImport(assetImportJob)) return;
-    const key = `${assetImportJob.job_id}:${assetImportJob.state}`;
-    if (handledImportTerminal.current === key) return;
-    handledImportTerminal.current = key;
-    if (assetImportJob.state === "completed") {
-      const imported = assetImportJob.result?.imported_assets.length ?? 0;
-      setStatus(
-        assetImportJob.result?.warning
-          ? `${imported} asset image(s) committed · ${assetImportJob.result.warning}`
-          : `${imported} asset image(s) imported successfully`,
-      );
-    } else if (assetImportJob.state === "cancelled") {
-      setStatus("Asset import cancelled safely");
-    } else {
-      setStatus(`Asset import failed · ${assetImportJob.error ?? "unknown import failure"}`);
-    }
-  }, [assetImportJob]);
-
-  useEffect(() => {
-    if (!heartbeatSessionId || typeof vaultApi.heartbeat !== "function") return;
-    let active = true;
-    const heartbeat = (): void => {
-      void vaultApi.heartbeat(heartbeatSessionId).catch((reason) => {
-        if (active) setStatus(`Vault heartbeat failed · ${classifyNativeError(reason).message}`);
-      });
-    };
-    heartbeat();
-    const timer = window.setInterval(heartbeat, 10_000);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [heartbeatSessionId, vaultApi]);
-
-  useEffect(() => {
-    if (
-      !npcMutationInFlight &&
-      !releaseRunning &&
-      !exportRunning &&
-      !promptDraftDirty &&
-      !isActiveAssetImport(assetImportJob)
-    )
-      return;
-    const beforeUnload = (event: BeforeUnloadEvent): void => {
+    if (!promptDraftDirty) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", beforeUnload);
     return () => window.removeEventListener("beforeunload", beforeUnload);
-  }, [assetImportJob, exportRunning, npcMutationInFlight, promptDraftDirty, releaseRunning]);
+  }, [promptDraftDirty]);
 
-  function allowCutoutContextChange(blockActiveImport: boolean): boolean {
-    if ((vault?.recovery?.length ?? 0) > 0) {
+  const handleKeyboardAction = useCallback(
+    (action: KeyboardAction) => {
+      if (action === "help") setHelpOpen(true);
+      if (action === "dismiss") setHelpOpen(false);
+      if (action === "save")
+        void flushCurrent().then(
+          () => setStatus("Ausstehende Änderungen gespeichert"),
+          (reason) =>
+            setStatus(`Speichern fehlgeschlagen · ${classifyNativeError(reason).message}`),
+        );
+    },
+    [flushCurrent],
+  );
+  useKeyboardActions(handleKeyboardAction);
+
+  async function switchStudio(next: StudioMode) {
+    if (next === activeStudio || transitionInFlight.current) return;
+    if (vaultRef.current?.recovery.length) {
       setStatus("Workspace navigation is blocked until vault recovery is complete");
-      return false;
-    }
-    if (blockActiveImport && isActiveAssetImport(assetImportJob)) {
-      setStatus("Studio switch blocked · cancel the active asset import first");
-      return false;
-    }
-    if (exportRunning) {
-      setStatus("Navigation blocked · cancel the active export and wait for it to finish");
-      return false;
-    }
-    if (releaseRunning) {
-      setStatus("Navigation blocked · wait for the immutable motion release to finish");
-      return false;
-    }
-    if (route === "characters" && npcMutationInFlight) {
-      setStatus("Navigation blocked · wait for the current NPC operation to finish");
-      return false;
-    }
-    const activeController = editorController.current;
-    if (activeController) {
-      const decision = guardEditorNavigation(activeController, (message) =>
-        window.confirm(message),
-      );
-      if (!decision.allowed && decision.reason === "mutation_in_flight") {
-        setStatus(
-          `Navigation blocked · wait for ${activeController.label} to finish ${decision.state.status.toLowerCase()}`,
-        );
-        return false;
-      }
-      if (!decision.allowed) {
-        setStatus(`Navigation cancelled · save the ${activeController.label} first`);
-        return false;
-      }
-    }
-    const leavingNpcEditor = route === "characters";
-    if (leavingNpcEditor && npcEditorDirty) {
-      const editorName = "NPC binding";
-      if (!window.confirm(`Discard the unsaved ${editorName} changes?`)) {
-        setStatus(`Navigation cancelled · save the ${editorName} first`);
-        return false;
-      }
-    }
-    if (leavingNpcEditor) setNpcEditorDirty(false);
-    return true;
-  }
-
-  function navigate(nextRoute: WorkspaceRoute): void {
-    if (nextRoute !== route && !allowCutoutContextChange(false)) return;
-    if (nextRoute === "projects" && !vault) {
-      setRoute("welcome");
-      setStatus("Choose or reopen a vault before browsing projects");
       return;
     }
-    if (
-      ["animations", "dummy-editor", "outfit", "characters", "export"].includes(nextRoute) &&
-      !selectedArea
-    ) {
-      setRoute("areas");
-      setStatus("Open an area before entering its animation or NPC workspace");
+    if (activeStudio === "prompt" && promptDraftDirty) {
+      setStatus("Studio switch blocked · wait for prompt autosave or correct the active step");
       return;
     }
-    if (nextRoute === "dummy-editor" && !selectedTemplateId) {
-      setRoute("animations");
-      setStatus("Choose an animation before opening its reusable dummy template");
-      return;
-    }
-    setRoute(nextRoute);
-    setStatus(`${routeDetails(nextRoute).label} selected`);
-  }
-
-  async function switchStudio(nextStudio: StudioMode): Promise<void> {
-    if (nextStudio === activeStudio || studioSwitchInFlight.current) return;
-    if (activeStudio === "cutout" && !allowCutoutContextChange(true)) return;
-    if (activeStudio === "prompt") {
-      if (promptDraftDirty) {
-        setStatus("Studio switch blocked · wait for prompt autosave or correct the active step");
-        return;
-      }
-      studioSwitchInFlight.current = true;
-      try {
-        await saveQueue.flush(
-          vault ? { sessionId: vault.session_id, generation: vault.session_generation } : undefined,
-        );
-        await flushPromptStorage();
-      } catch (reason) {
-        setStatus(`Studio switch blocked · prompt data was not saved · ${message(reason)}`);
-        return;
-      } finally {
-        studioSwitchInFlight.current = false;
-      }
-    }
-    setActiveStudio(nextStudio);
-    setStatus(
-      nextStudio === "prompt"
-        ? "PixelPromptStudio Generator opened"
-        : nextStudio === "sprite"
-          ? "PixelSpriteStudio opened · assembly follows in P41/P42"
-          : `${routeDetails(route).label} restored`,
-    );
-  }
-
-  async function cancelActiveAssetImport(): Promise<void> {
-    if (!sessionId || !assetImportJob || !isActiveAssetImport(assetImportJob)) return;
-    const jobId = assetImportJob.job_id;
-    setAssetImportCancelling(true);
+    transitionInFlight.current = true;
     try {
-      const cancelled = await observedAssetsApi.cancelImport(sessionId, jobId);
-      if (vaultRef.current?.session_id === sessionId) setAssetImportJob(cancelled);
+      await flushCurrent();
+      setActiveStudio(next);
+      setStatus(
+        next === "cutout"
+          ? "Cutout-Studio geöffnet"
+          : next === "prompt"
+            ? "PixelPromptStudio Generator opened"
+            : "PixelSpriteStudio geöffnet",
+      );
     } catch (reason) {
-      if (vaultRef.current?.session_id === sessionId) {
-        setStatus(`Asset import could not be cancelled · ${message(reason)}`);
-      }
+      setStatus(
+        `Studio switch blocked · prompt data was not saved · ${classifyNativeError(reason).message}`,
+      );
     } finally {
-      if (vaultRef.current?.session_id === sessionId) setAssetImportCancelling(false);
+      transitionInFlight.current = false;
     }
   }
 
-  async function openVault(opened: OpenVault): Promise<void> {
-    if (
-      vaultRef.current &&
-      vaultRef.current.session_id !== opened.session_id &&
-      isActiveAssetImport(assetImportJob)
-    ) {
-      setStatus("Vault switch blocked · cancel the active asset import first");
-      return;
-    }
+  async function beforeOpen() {
+    if (transitionInFlight.current) throw new Error("Ein Wechsel läuft bereits.");
+    if (promptDraftDirty)
+      throw new Error("Vor dem Vault-Wechsel muss der Prompt-Entwurf gespeichert sein.");
+    await flushCurrent();
+  }
+
+  async function openVault(opened: OpenVault) {
     const previous = vaultRef.current;
-    if (previous && previous.session_id !== opened.session_id) {
-      try {
-        await saveQueue.flush({
-          sessionId: previous.session_id,
-          generation: previous.session_generation,
-        });
-        await flushPromptStorage();
-      } catch (reason) {
-        setStatus(`Vault switch blocked · pending data was not saved · ${message(reason)}`);
-        return;
-      }
-    }
-    const suppliedGeneration = opened.session_generation;
-    fallbackSessionGeneration.current = Math.max(
-      fallbackSessionGeneration.current + (suppliedGeneration ? 0 : 1),
-      suppliedGeneration ?? 0,
-    );
-    const normalized: ActiveVault = {
-      ...opened,
-      session_generation: suppliedGeneration ?? fallbackSessionGeneration.current,
-      display_name: vaultDisplayName(opened.path),
-      recovery: opened.recovery ?? [],
-      recovery_writable: opened.recovery_writable ?? opened.mode === "read_write",
-      lock_recovery: opened.lock_recovery ?? null,
-    };
-    setVault(normalized);
-    setSelectedProject(null);
-    setSelectedArea(null);
-    setSelectedTemplateId(null);
-    setSelectedTemplateRef(null);
-    setSelectedNpcId(null);
-    setSelectedBindingId(null);
-    setNpcEditorDirty(false);
-    setNpcMutationInFlight(false);
-    setReleaseRunning(false);
-    setEditorRecoveryCopy(null);
-    npcRecoveryCopy.current = null;
-    editorController.current = null;
-    setRoute("projects");
-    setStatus(
-      normalized.notice ??
-        `${normalized.mode === "read_write" ? "Writable" : "Read-only"} vault · ${normalized.indexed_objects} indexed object${normalized.indexed_objects === 1 ? "" : "s"}`,
-    );
-  }
-
-  function updateRecovery(recoveryStatus: RecoveryStatus): void {
-    setVault((current) =>
-      current
-        ? {
-            ...current,
-            recovery: recoveryStatus.recovery,
-            recovery_writable: recoveryStatus.recovery_writable,
-            mode: recoveryStatus.mode,
-            indexed_objects: recoveryStatus.indexed_objects,
-          }
-        : current,
-    );
-    if (recoveryStatus.recovery.length > 0) {
-      setStatus(`${recoveryStatus.recovery.length} interrupted operation(s) still need recovery`);
-      return;
-    }
-    setSelectedProject(null);
-    setSelectedArea(null);
-    setSelectedTemplateId(null);
-    setSelectedTemplateRef(null);
-    setSelectedNpcId(null);
-    setSelectedBindingId(null);
-    setNpcEditorDirty(false);
-    setNpcMutationInFlight(false);
-    setReleaseRunning(false);
-    setEditorRecoveryCopy(null);
-    npcRecoveryCopy.current = null;
-    editorController.current = null;
-    setRoute("projects");
-    setStatus("Vault recovery complete · project index refreshed");
-  }
-
-  async function closeCurrentVault(): Promise<void> {
-    if (isActiveAssetImport(assetImportJob)) {
-      setStatus("Vault close blocked · cancel the active asset import first");
-      return;
-    }
-    if (vault) {
-      try {
-        await saveQueue.flush({
-          sessionId: vault.session_id,
-          generation: vault.session_generation,
-        });
-        await flushPromptStorage();
-      } catch (reason) {
-        setStatus(`Vault close blocked · pending data was not saved · ${message(reason)}`);
-        return;
-      }
-    }
-    setVault(null);
-    setSelectedProject(null);
-    setSelectedArea(null);
-    setSelectedTemplateId(null);
-    setSelectedTemplateRef(null);
-    setSelectedNpcId(null);
-    setSelectedBindingId(null);
-    setNpcEditorDirty(false);
-    setNpcMutationInFlight(false);
-    setReleaseRunning(false);
-    setEditorRecoveryCopy(null);
-    npcRecoveryCopy.current = null;
-    editorController.current = null;
-    setRoute("welcome");
-    setStatus("Vault closed");
-  }
-
-  function openProject(project: ProjectCard): void {
-    setSelectedProject(project);
-    setSelectedArea(null);
-    setSelectedTemplateId(null);
-    setSelectedTemplateRef(null);
-    setSelectedNpcId(null);
-    setSelectedBindingId(null);
-    setRoute("areas");
-    setStatus(`${project.name} opened · choose or create an area`);
-  }
-
-  function openAreaAnimations(area: AreaCard): void {
-    setSelectedArea(area);
-    setSelectedTemplateId(null);
-    setSelectedTemplateRef(null);
-    setSelectedNpcId(null);
-    setSelectedBindingId(null);
-    setRoute("animations");
-    setStatus(`${area.name} animation library opened`);
-  }
-
-  function openAreaInventory(area: AreaCard): void {
-    setSelectedArea(area);
-    setSelectedTemplateId(null);
-    setSelectedTemplateRef(null);
-    setSelectedNpcId(null);
-    setSelectedBindingId(null);
-    setRoute("outfit");
-    setStatus(`${area.name} PNG inventory opened`);
-  }
-
-  function openMotionTarget(target: MotionOpenTarget): void {
-    setSelectedTemplateId(target.template_id);
-    if (target.kind === "dummy_editor") {
-      setSelectedTemplateRef(null);
-      setRoute("dummy-editor");
-      setStatus("Reusable dummy motion editor opened");
-      return;
-    }
-    if (target.kind === "outfit_chooser") {
-      setSelectedBindingId(null);
-      setSelectedTemplateRef({ id: target.template_id, revision: target.template_revision });
-      setRoute("outfit");
-    } else {
-      setSelectedTemplateRef(null);
-      setSelectedNpcId(target.character_id);
-      setSelectedBindingId(target.binding_id);
-      setRoute("characters");
-    }
-    setStatus(
-      target.kind === "binding_editor"
-        ? "NPC binding opened"
-        : target.compatible_character_ids.length > 1
-          ? `Choose one of ${target.compatible_character_ids.length} compatible NPCs or start a new outfit`
-          : "Outfit workflow selected",
-    );
-  }
-
-  const breadcrumbs = selectedProject
-    ? [
-        "Workspace",
-        "Projects",
-        selectedProject.name,
-        ...(selectedArea ? [selectedArea.name] : []),
-        routeDetails(route).label,
-      ]
-    : routeBreadcrumbs(route);
-
-  const promptHandoffAvailability: PromptHandoffAvailability =
-    !vault || !selectedArea
-      ? {
-          available: false,
-          reason: "Öffne zuerst einen Vault und wähle eine Area aus.",
-        }
-      : vault.mode !== "read_write"
-        ? {
-            available: false,
-            reason: "Der geöffnete Vault ist schreibgeschützt.",
-          }
-        : (vault.recovery?.length ?? 0) > 0
-          ? {
-              available: false,
-              reason: "Schließe zuerst die Vault-Wiederherstellung ab.",
-            }
-          : { available: true };
-
-  async function handoffPrompt(handoff: PromptHandoff): Promise<void> {
-    if (!vault || !selectedArea || !promptHandoffAvailability.available) {
-      throw new Error(
-        promptHandoffAvailability.available
-          ? "Kein Cutout-Arbeitsbereich ausgewählt."
-          : promptHandoffAvailability.reason,
-      );
-    }
-    const receipt = await promptApi.handoff(vault.session_id, selectedArea.id, handoff);
-    if (promptDraftDirty) {
-      setStatus(
-        `Prompt reference saved · ${receipt.relative_path} · finish prompt autosave before returning`,
-      );
-      return;
-    }
+    if (previous?.session_id === opened.session_id) return;
+    if (transitionInFlight.current) throw new Error("Ein Wechsel läuft bereits.");
+    transitionInFlight.current = true;
     try {
-      await flushPromptStorage();
+      await flushCurrent();
+      if (previous) await closeSession(previous.session_id);
+      fallbackGeneration.current = Math.max(
+        fallbackGeneration.current + 1,
+        opened.session_generation ?? 0,
+      );
+      const normalized: ActiveVault = {
+        ...opened,
+        session_generation: opened.session_generation ?? fallbackGeneration.current,
+        display_name: vaultDisplayName(opened.path),
+        recovery: opened.recovery ?? [],
+        recovery_writable: opened.recovery_writable ?? false,
+        lock_recovery: opened.lock_recovery ?? null,
+      };
+      vaultRef.current = normalized;
+      setVault(normalized);
+      setPromptDraftDirty(false);
+      setPromptView("dashboard");
+      setStatus(
+        normalized.notice ??
+          `${normalized.mode === "read_write" ? "Writable" : "Read-only"} vault · ${normalized.display_name}`,
+      );
+    } finally {
+      transitionInFlight.current = false;
+    }
+  }
+
+  async function closeCurrentVault() {
+    if (transitionInFlight.current || !vaultRef.current) return;
+    if (promptDraftDirty) {
+      setStatus("Vault close blocked · wait for prompt autosave or correct the active step");
+      return;
+    }
+    transitionInFlight.current = true;
+    try {
+      await flushCurrent();
+      await closeSession(vaultRef.current.session_id);
+      vaultRef.current = null;
+      setVault(null);
+      setPromptDraftDirty(false);
+      setStatus("Vault closed");
     } catch (reason) {
       setStatus(
-        `Prompt reference saved · ${receipt.relative_path} · prompt data flush failed · ${message(reason)}`,
+        `Vault close blocked · pending data was not saved · ${classifyNativeError(reason).message}`,
       );
-      return;
+    } finally {
+      transitionInFlight.current = false;
     }
-    setActiveStudio("cutout");
-    setStatus(`Prompt reference saved · ${receipt.relative_path}`);
   }
 
+  function updateRecovery(recovery: RecoveryStatus) {
+    setVault((current) => (current ? { ...current, ...recovery } : current));
+    setStatus(
+      recovery.recovery.length
+        ? `${recovery.recovery.length} interrupted operation(s) still need recovery`
+        : "Vault recovery complete",
+    );
+  }
+
+  const recovering = !!vault?.recovery.length;
   return (
     <GlobalSettingsProvider client={globalSettingsApi}>
       <ActiveVaultProvider activeVault={vault} saveQueue={saveQueue}>
-        <DataFolderProvider client={dataFolderApi}>
-          <VaultPromptProvider
-            {...(promptVaultRepositoryFactory
-              ? { repositoryFactory: promptVaultRepositoryFactory }
-              : {})}
-          >
+        <DataFolderProvider client={observedDataFolder}>
+          <VaultPromptProvider repositoryFactory={observedPromptFactory}>
             <div className="app-frame" data-studio={activeStudio} data-modal-background>
               <AppHeader
                 activeStudio={activeStudio}
@@ -862,226 +363,77 @@ export function App({
                 onSettings={() => setSettingsOpen(true)}
                 onHelp={() => setHelpOpen(true)}
               />
-              {activeStudio === "cutout" ? (
-                <WorkspaceNav activeRoute={route} items={navigationItems} onNavigate={navigate} />
-              ) : activeStudio === "prompt" ? (
-                <ModuleNavigationRow
-                  module="prompt"
-                  items={promptNavigationItems.map((item) => ({
-                    id: item.id,
-                    label: item.label,
-                    current: promptView === item.id,
-                    onSelect: setPromptView,
-                  }))}
-                  actions={
-                    <button type="button" onClick={() => setPromptView("wizard")}>
-                      <span aria-hidden="true">+</span> Neues Asset
+              <ModuleNavigationRow
+                module={activeStudio}
+                items={
+                  activeStudio === "prompt" && !recovering
+                    ? promptNavigationItems.map((item) => ({
+                        id: item.id,
+                        label: item.label,
+                        current: promptView === item.id,
+                        onSelect: setPromptView,
+                      }))
+                    : []
+                }
+                actions={
+                  vault && !recovering ? (
+                    <button type="button" onClick={() => void closeCurrentVault()}>
+                      Vault schließen
                     </button>
+                  ) : undefined
+                }
+              />
+              <div
+                className={`content-frame ${activeStudio === "prompt" ? "prompt-content-frame" : "image-content-frame"}`}
+              >
+                <main
+                  ref={mainContent}
+                  className={`main-content ${activeStudio === "prompt" ? "prompt-workspace" : ""}`}
+                  tabIndex={-1}
+                  aria-label={
+                    activeStudio === "prompt"
+                      ? "PixelPromptStudio Generator"
+                      : activeStudio === "sprite"
+                        ? "PixelSpriteStudio"
+                        : "PixelCutoutSprite"
                   }
-                />
-              ) : (
-                <ModuleNavigationRow module="sprite" />
-              )}
-              {activeStudio === "cutout" ? (
-                <>
-                  {assetImportJob && isActiveAssetImport(assetImportJob) && (
-                    <section className="app-import-job" aria-label="Active asset import">
-                      <div>
-                        <strong>{assetImportJob.progress.message}</strong>
-                        <span>
-                          {assetImportJob.progress.completed} / {assetImportJob.progress.total} ·{" "}
-                          {assetImportJob.progress.stage}
-                        </span>
-                      </div>
-                      <progress
-                        value={assetImportJob.progress.completed}
-                        max={Math.max(1, assetImportJob.progress.total)}
+                >
+                  {recovering && vault ? (
+                    <RecoveryPanel
+                      client={vaultApi}
+                      vault={vault}
+                      onCloseVault={() => void closeCurrentVault()}
+                      onRecovered={updateRecovery}
+                    />
+                  ) : activeStudio === "cutout" ? (
+                    <DataFolderWorkspace module="cutout">
+                      <CutoutStudio
+                        cutoutClient={observedCutout}
+                        client={vaultApi}
+                        beforeOpen={beforeOpen}
+                        onOpened={openVault}
                       />
-                      <button
-                        type="button"
-                        disabled={assetImportCancelling}
-                        onClick={() => void cancelActiveAssetImport()}
-                      >
-                        {assetImportCancelling ? "Cancelling…" : "Cancel import"}
-                      </button>
-                    </section>
-                  )}
-                  <div className="content-frame">
-                    <Breadcrumbs items={breadcrumbs} />
-                    <CutoutDataWorkspace>
-                      <main
-                        ref={mainContent}
-                        className="main-content"
-                        tabIndex={-1}
-                        aria-label={`${details.label} workspace`}
-                      >
-                        {vault && (vault.recovery?.length ?? 0) > 0 ? (
-                          <RecoveryPanel
-                            client={vaultApi}
-                            editorRecoveryCopy={editorRecoveryCopy}
-                            vault={vault}
-                            onCloseVault={closeCurrentVault}
-                            onRecovered={updateRecovery}
-                          />
-                        ) : route === "projects" && vault ? (
-                          <ProjectDashboard
-                            key={vault.session_id}
-                            client={observedProjectsApi}
-                            sessionId={vault.session_id}
-                            onOpen={openProject}
-                            onStatus={setStatus}
-                          />
-                        ) : route === "animations" && vault && selectedArea ? (
-                          <AnimationDashboard
-                            areaId={selectedArea.id}
-                            characterId={selectedNpcId}
-                            client={observedMotionsApi}
-                            defaultFrameSize={selectedArea.default_frame_size_px}
-                            defaultGroundOrigin={selectedArea.default_ground_origin_px}
-                            onOpen={openMotionTarget}
-                            onOpenNpcs={() => navigate("characters")}
-                            onPublishingChange={setReleaseRunning}
-                            onStatus={setStatus}
-                            sessionId={vault.session_id}
-                          />
-                        ) : route === "dummy-editor" && vault && selectedTemplateId ? (
-                          <MotionDummyEditorRoute
-                            key={selectedTemplateId}
-                            client={observedMotionsApi}
-                            onEditorControllerChange={registerEditorController}
-                            onPlaybackChange={setPlaying}
-                            onStatus={setStatus}
-                            sessionId={vault.session_id}
-                            templateId={selectedTemplateId}
-                          />
-                        ) : route === "outfit" && vault && selectedArea && selectedTemplateRef ? (
-                          <OutfitEditor
-                            areaId={selectedArea.id}
-                            assetsClient={observedAssetsApi}
-                            client={observedOutfitsApi}
-                            importJob={assetImportJob}
-                            onImportJobChange={trackAssetImport}
-                            onEditorControllerChange={registerEditorController}
-                            onOpenDummy={(templateRef) => {
-                              setSelectedTemplateId(templateRef.id);
-                              setSelectedTemplateRef(null);
-                              setRoute("dummy-editor");
-                              setStatus("Reusable dummy motion editor opened");
-                            }}
-                            onPlaybackChange={setPlaying}
-                            onSavedNpc={(npc) => setStatus(`${npc.character.name} saved as an NPC`)}
-                            onStatus={setStatus}
-                            sessionId={vault.session_id}
-                            templateRef={selectedTemplateRef}
-                            writable={vault.mode === "read_write"}
-                          />
-                        ) : route === "outfit" && vault && selectedArea ? (
-                          <InventoryWorkspace
-                            areaId={selectedArea.id}
-                            client={observedAssetsApi}
-                            importJob={assetImportJob}
-                            onImportJobChange={trackAssetImport}
-                            onStatus={setStatus}
-                            sessionId={vault.session_id}
-                          />
-                        ) : route === "characters" && vault && selectedArea ? (
-                          <NpcWorkspace
-                            key={selectedArea.id}
-                            areaId={selectedArea.id}
-                            client={observedNpcsApi}
-                            initialBindingId={selectedBindingId ?? undefined}
-                            initialNpcId={selectedNpcId ?? undefined}
-                            onDirtyChange={setNpcEditorDirty}
-                            onMutationInFlightChange={setNpcMutationInFlight}
-                            onRecoveryCopyChange={registerNpcRecoveryCopy}
-                            onSectionChange={(section, context) => {
-                              setSelectedNpcId(context.npcId);
-                              setSelectedBindingId(context.bindingId);
-                              if (section === "animations") navigate("animations");
-                              if (section === "export") navigate("export");
-                            }}
-                            onSelectionChange={(selection) => {
-                              setSelectedNpcId(selection.npcId);
-                              setSelectedBindingId(selection.bindingId);
-                            }}
-                            onStatus={setStatus}
-                            readOnly={vault.mode !== "read_write"}
-                            sessionId={vault.session_id}
-                          />
-                        ) : route === "export" && vault && selectedArea ? (
-                          <ExportWorkspace
-                            key={selectedArea.id}
-                            areaId={selectedArea.id}
-                            client={observedExportsApi}
-                            initialBindingId={selectedBindingId ?? undefined}
-                            initialNpcId={selectedNpcId ?? undefined}
-                            npcsClient={observedNpcsApi}
-                            onRunningChange={setExportRunning}
-                            onSelectionChange={(selection) => {
-                              setSelectedNpcId(selection.npcId);
-                              setSelectedBindingId(selection.bindingId);
-                            }}
-                            onStatus={setStatus}
-                            readOnly={vault.mode !== "read_write"}
-                            sessionId={vault.session_id}
-                          />
-                        ) : (
-                          <PlaceholderView
-                            details={details}
-                            areaClient={observedAreasApi}
-                            onOpenAreaAnimations={openAreaAnimations}
-                            onOpenAreaInventory={openAreaInventory}
-                            onVaultOpened={openVault}
-                            projectId={selectedProject?.id ?? null}
-                            vault={vault}
-                            vaultClient={vaultApi}
-                          />
-                        )}
-                      </main>
-                    </CutoutDataWorkspace>
-                  </div>
-                </>
-              ) : activeStudio === "prompt" ? (
-                <div className="content-frame prompt-content-frame">
-                  <main
-                    ref={promptContent}
-                    className="main-content prompt-workspace"
-                    tabIndex={-1}
-                    aria-label="PixelPromptStudio Generator"
-                    data-prompt-view={promptView}
-                  >
+                    </DataFolderWorkspace>
+                  ) : activeStudio === "sprite" ? (
+                    <SpriteStudio
+                      spriteClient={observedSprite}
+                      client={vaultApi}
+                      beforeOpen={beforeOpen}
+                      onOpened={openVault}
+                    />
+                  ) : (
                     <PromptGeneratorRoot
                       view={promptView}
                       onNavigate={setPromptView}
                       onDirtyChange={setPromptDraftDirty}
-                      outputAdapter={promptOutputAdapter}
-                      startupMigration={promptStartupMigration}
-                      storageAdapter={promptStorageAdapter}
-                      handoffAvailability={promptHandoffAvailability}
-                      onHandoff={handoffPrompt}
+                      storageAdapter={promptStorageAdapter ?? sessionStorage}
                       onOpenBaseProfile={openBaseProfile}
                       onOpenLegacyMigration={openLegacyMigration}
                     />
-                  </main>
-                </div>
-              ) : (
-                <div className="content-frame sprite-content-frame">
-                  <main
-                    ref={mainContent}
-                    className="main-content"
-                    tabIndex={-1}
-                    aria-label="PixelSpriteStudio"
-                  >
-                    <SpriteStudioWelcome />
-                  </main>
-                </div>
-              )}
-              <StatusBar message={status} playing={playing} />
-              {import.meta.env.VITE_P19_ACCEPTANCE_PROBE === "1" && <NativeAcceptanceProbe />}
-              <span
-                className="visually-hidden"
-                data-selected-template={selectedTemplateId ?? undefined}
-              />
+                  )}
+                </main>
+              </div>
+              <StatusBar message={status} />
               <ModalHost>
                 <DialogLayer open={helpOpen} onClose={() => setHelpOpen(false)} />
                 <GlobalSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
@@ -1100,12 +452,4 @@ export function App({
       </ActiveVaultProvider>
     </GlobalSettingsProvider>
   );
-}
-
-function isActiveAssetImport(job: AssetImportJobView | null | undefined): boolean {
-  return job?.state === "queued" || job?.state === "running";
-}
-
-function message(reason: unknown): string {
-  return reason instanceof Error ? reason.message : String(reason);
 }

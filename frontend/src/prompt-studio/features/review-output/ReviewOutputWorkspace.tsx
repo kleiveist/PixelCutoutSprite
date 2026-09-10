@@ -1,10 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Badge, Surface } from "../../components/ui";
-import {
-  PROMPT_HANDOFF_SCHEMA_VERSION,
-  type PromptHandoff,
-  type PromptHandoffAvailability,
-} from "../../domain/handoff";
 import type { PromptLanguage, PromptStyleVariant } from "../../domain/prompt-engine";
 import { parseWizardDraft } from "../../schemas";
 import type { OutputWorkspaceAdapter, V2StorageAdapter } from "../../services";
@@ -34,8 +29,6 @@ export interface ReviewOutputWorkspaceProps {
   readonly outputAdapter: OutputWorkspaceAdapter;
   readonly storageAdapter: ReviewOutputDraftStorage;
   readonly now?: () => string;
-  readonly handoffAvailability?: PromptHandoffAvailability;
-  readonly onHandoff?: (handoff: PromptHandoff) => Promise<void> | void;
 }
 
 type ActionStatus =
@@ -134,11 +127,6 @@ export function ReviewOutputWorkspace({
   outputAdapter,
   storageAdapter,
   now = currentIsoTimestamp,
-  handoffAvailability = {
-    available: false,
-    reason: "Öffne einen schreibbaren Cutout-Arbeitsbereich für die Übergabe.",
-  },
-  onHandoff,
 }: ReviewOutputWorkspaceProps) {
   const definition = APP_VIEW_DEFINITIONS.output;
   const { navigate } = useNavigation();
@@ -283,44 +271,6 @@ export function ReviewOutputWorkspace({
     }
   };
 
-  const handoffToCutout = async () => {
-    if (!ready || !activePackage || !handoffAvailability.available || !onHandoff) {
-      return;
-    }
-    setActionStatus({
-      kind: "working",
-      message: "Prompt wird an PixelCutoutSprite übergeben …",
-    });
-    const profileReferences: string[] = [ready.profile.baseProfileId];
-    if (ready.profile.categoryProfileId !== undefined) {
-      profileReferences.push(ready.profile.categoryProfileId);
-    }
-    profileReferences.push(ready.definition.sourceAssetProfileId ?? ready.profile.assetProfileId);
-    try {
-      await onHandoff({
-        schemaVersion: PROMPT_HANDOFF_SCHEMA_VERSION,
-        category: ready.profile.categoryData.category,
-        prompt: activePackage.main,
-        negativePrompt: activePackage.negative,
-        technicalPrompt: activePackage.technical,
-        profileReferences,
-        createdAt: now(),
-      });
-      setActionStatus({
-        kind: "success",
-        message: "Prompt wurde dem aktuellen Cutout-Arbeitsbereich übergeben.",
-      });
-    } catch (error) {
-      setActionStatus({
-        kind: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Der Prompt konnte nicht an PixelCutoutSprite übergeben werden.",
-      });
-    }
-  };
-
   const handleTabKeys = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     let nextIndex: number | null = null;
     if (event.key === "ArrowRight") {
@@ -444,14 +394,6 @@ export function ReviewOutputWorkspace({
                 </button>
                 <button type="button" onClick={() => void exportProfileJson()}>
                   JSON exportieren
-                </button>
-                <button
-                  type="button"
-                  disabled={!handoffAvailability.available || !onHandoff}
-                  title={handoffAvailability.available ? undefined : handoffAvailability.reason}
-                  onClick={() => void handoffToCutout()}
-                >
-                  In PixelCutoutSprite übernehmen
                 </button>
               </div>
             </Surface>

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -115,6 +115,96 @@ const SYNTHETIC_FLOW = Object.freeze({
 } satisfies GuidedWizardFlowDefinition<SyntheticValues, SyntheticStepId, SyntheticContext>);
 
 describe("GuidedWizardEngine extension contract", () => {
+  it("keeps a field registered when typing resumes in the autosave commit window", () => {
+    vi.useFakeTimers();
+    const writeDraft = vi.fn(() => ({ status: "ok" as const }));
+    const values = {
+      projectName: INITIAL_DRAFT.projectName,
+      craftNote: "Start",
+      craftEnabled: true,
+    };
+    const rendered = render(
+      <GuidedWizardEngine
+        baselineDraft={INITIAL_DRAFT}
+        baselineValues={values}
+        context={{ fieldLabel: "Notiz" }}
+        draft={INITIAL_DRAFT}
+        draftPersisted={false}
+        flow={SYNTHETIC_FLOW}
+        initialStepId="craft"
+        initialValues={values}
+        now={() => "2026-09-04T10:05:00.000Z"}
+        onDraftEdited={() => undefined}
+        onDraftSaved={() => undefined}
+        storageAdapter={{ writeDraft }}
+      />,
+    );
+    try {
+      const input = screen.getByRole("textbox", { name: "Notiz" });
+      fireEvent.change(input, { target: { value: "Erster Stand" } });
+      act(() => {
+        vi.advanceTimersByTime(300);
+        // Native input arrives before React has committed the save-status render.
+        fireEvent.change(input, { target: { value: "Weitergetippt" } });
+      });
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(writeDraft).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          validation: { errors: [], warnings: ["Weitergetippt"] },
+        }),
+      );
+    } finally {
+      rendered.unmount();
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not cancel pending autosave when only parent callback identities change", () => {
+    vi.useFakeTimers();
+    const writeDraft = vi.fn(() => ({ status: "ok" as const }));
+    const values = {
+      projectName: INITIAL_DRAFT.projectName,
+      craftNote: "Start",
+      craftEnabled: true,
+    };
+    const tree = () => (
+      <GuidedWizardEngine
+        baselineDraft={INITIAL_DRAFT}
+        baselineValues={values}
+        context={{ fieldLabel: "Notiz" }}
+        draft={INITIAL_DRAFT}
+        draftPersisted={false}
+        flow={SYNTHETIC_FLOW}
+        initialStepId="craft"
+        initialValues={values}
+        now={() => "2026-09-04T10:05:00.000Z"}
+        onDraftEdited={() => undefined}
+        onDraftSaved={() => undefined}
+        storageAdapter={{ writeDraft }}
+      />
+    );
+    const rendered = render(tree());
+    try {
+      fireEvent.change(screen.getByRole("textbox", { name: "Notiz" }), {
+        target: { value: "Erhalten" },
+      });
+      rendered.rerender(tree());
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(writeDraft).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          validation: { errors: [], warnings: ["Erhalten"] },
+        }),
+      );
+    } finally {
+      rendered.unmount();
+      vi.useRealTimers();
+    }
+  });
+
   it("passes the current product context through every Draft projection", async () => {
     const user = userEvent.setup();
     const updateDraft = vi.fn(SYNTHETIC_FLOW.updateDraft);

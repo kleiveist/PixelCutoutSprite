@@ -1,5 +1,9 @@
 # P34 · Wizard-Katalog seitenweise
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 Datum: 2026-09-09
 Status: Frontend vollständig umgesetzt und automatisiert geprüft; native/echte Browser-Gates sind
 umgebungsbedingt offen

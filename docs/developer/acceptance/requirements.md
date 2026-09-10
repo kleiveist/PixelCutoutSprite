@@ -4,6 +4,10 @@
 
 # PixelCutoutSprite Studio requirement ledger
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 This is the implementation ledger for the forty mandatory requirements in the product
 specification. P00 established the rows; P22 closes the ledger with component, automated-test and
 bounded manual evidence. A phase checkbox or file name alone is not evidence. The compact rows

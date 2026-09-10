@@ -19,7 +19,7 @@ describe("editor shortcuts", () => {
     expect(resolveShortcut(input("s", { ctrlKey: true }))).toBe("save");
     expect(resolveShortcut(input("z", { metaKey: true }))).toBe("undo");
     expect(resolveShortcut(input("z", { ctrlKey: true, shiftKey: true }))).toBe("redo");
-    expect(resolveShortcut(input(" "))).toBe("toggle-playback");
+    expect(resolveShortcut(input(" "))).toBeNull();
   });
 
   it("does not trigger editor actions from text fields", () => {

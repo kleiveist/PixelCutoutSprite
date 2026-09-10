@@ -1,4 +1,4 @@
-"""Final negative-architecture contracts for PixelCutoutSprite Studio (P22)."""
+"""Shared P22 architecture contracts and P37 Cutout-removal evidence."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ import re
 from pathlib import Path
 
 import tomllib
-
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -24,8 +23,12 @@ def _rust_product_sources() -> str:
 
 
 def test_studio_has_no_database_or_python_runtime() -> None:
-    cargo = tomllib.loads((ROOT / "src-tauri" / "Cargo.toml").read_text(encoding="utf-8"))
-    frontend = json.loads((ROOT / "frontend" / "package.json").read_text(encoding="utf-8"))
+    cargo = tomllib.loads(
+        (ROOT / "src-tauri" / "Cargo.toml").read_text(encoding="utf-8")
+    )
+    frontend = json.loads(
+        (ROOT / "frontend" / "package.json").read_text(encoding="utf-8")
+    )
     rust_dependencies = _dependency_names(cargo["dependencies"])
     node_dependencies = _dependency_names(
         frontend["dependencies"] | frontend["devDependencies"]
@@ -67,11 +70,15 @@ def test_studio_has_no_database_or_python_runtime() -> None:
 
 
 def test_studio_has_only_native_desktop_distribution_targets() -> None:
-    frontend = json.loads((ROOT / "frontend" / "package.json").read_text(encoding="utf-8"))
+    frontend = json.loads(
+        (ROOT / "frontend" / "package.json").read_text(encoding="utf-8")
+    )
     node_dependencies = _dependency_names(
         frontend["dependencies"] | frontend["devDependencies"]
     )
-    config = json.loads((ROOT / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8"))
+    config = json.loads(
+        (ROOT / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8")
+    )
     bundle = config["bundle"]
 
     assert config["build"]["frontendDist"] == "../frontend/dist"
@@ -95,21 +102,79 @@ def test_studio_has_only_native_desktop_distribution_targets() -> None:
 
 def test_desktop_capability_cannot_spawn_sidecars_or_shells() -> None:
     capability = json.loads(
-        (ROOT / "src-tauri" / "capabilities" / "default.json").read_text(encoding="utf-8")
+        (ROOT / "src-tauri" / "capabilities" / "default.json").read_text(
+            encoding="utf-8"
+        )
     )
 
     assert capability["windows"] == ["main"]
-    assert capability["permissions"] == ["core:default", "dialog:allow-open"]
+    # Native close is deliberately delayed until the shared save queue flushes.
+    assert capability["permissions"] == [
+        "core:default",
+        "dialog:allow-open",
+        "core:window:allow-destroy",
+        "core:webview:allow-set-webview-zoom",
+    ]
     assert all("shell" not in permission for permission in capability["permissions"])
 
 
-def test_exporter_emits_sprite_only_godot_resources_without_a_rig() -> None:
-    exporter = (ROOT / "src-tauri" / "src" / "exports" / "godot.rs").read_text(
+def test_p37_removes_legacy_product_sources_and_imports() -> None:
+    """RQ-37/38's retired exporter is replaced by R-C01 removal evidence."""
+    retired_frontend = {
+        "features/projects",
+        "features/areas",
+        "features/animations",
+        "features/dummy-editor",
+        "features/outfit",
+        "features/npcs",
+        "features/inventory",
+        "features/export",
+        "features/directions",
+        "features/timeline",
+        "domain",
+    }
+    for directory in retired_frontend:
+        assert not list((ROOT / "frontend/src" / directory).glob("**/*.*")), directory
+    for directory in (
+        "animation",
+        "asset_io",
+        "directions",
+        "editor",
+        "exports",
+        "render",
+    ):
+        assert not list((ROOT / "src-tauri/src" / directory).glob("**/*.rs")), directory
+    for name in ("project", "area", "motion", "npc", "outfit", "asset", "export"):
+        assert not (ROOT / "frontend/src/api" / f"{name}-client.ts").exists()
+    assert not (ROOT / "frontend/src/styles/projects.css").exists()
+    forbidden = re.compile(
+        r"features/(projects|areas|animations|dummy-editor|outfit|npcs|inventory|export|timeline)"
+        r"|api/(project|area|motion|npc|outfit|asset|export)-client"
+        r"|PromptHandoff|handoff_prompt_to_area"
+    )
+    for path in (ROOT / "frontend/src").rglob("*"):
+        if path.suffix not in {".ts", ".tsx"} or ".test." in path.name:
+            continue
+        assert forbidden.search(path.read_text(encoding="utf-8")) is None, path
+    app = (ROOT / "frontend/src/app/App.tsx").read_text(encoding="utf-8")
+    assert "CutoutStudio" in app
+    cutout = (ROOT / "frontend/src/cutout-studio/CutoutStudio.tsx").read_text(
         encoding="utf-8"
     )
-
-    assert 'type=\\\"Node2D\\\"' in exporter
-    assert 'type=\\\"AnimatedSprite2D\\\"' in exporter
-    for forbidden_node in ("Bone2D", "MeshInstance2D", "Polygon2D", "Skeleton2D"):
-        assert f'type=\\\"{forbidden_node}\\\"' not in exporter
-    assert "script = ExtResource" not in exporter
+    assert "CutoutWelcome" in cutout
+    assert "ModuleNavigationRow" in app
+    assert "DataFolderWorkspace" in app
+    handler = (ROOT / "src-tauri/src/lib.rs").read_text(encoding="utf-8")
+    registered = set(re.findall(r"commands::(\w+),", handler))
+    assert {
+        "open_vault",
+        "list_workspace_entries",
+        "save_prompt_vault_draft",
+    } <= registered
+    for command in registered:
+        if command == "save_cutout_project":
+            continue  # P38's mask document is not the retired generic project workflow.
+        assert (
+            re.search(r"project|area|motion|npc|outfit|export|handoff|example", command)
+            is None
+        )

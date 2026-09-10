@@ -22,6 +22,7 @@
         "minWidth": 480,
         "minHeight": 360,
         "resizable": true,
+        "zoomHotkeysEnabled": true,
         "fullscreen": false
       }
     ]
@@ -37,7 +38,7 @@
       "icons/icon.ico"
     ],
     "category": "GraphicsAndDesign",
-    "shortDescription": "Pixel cutout animation studio",
-    "longDescription": "Offline-first desktop studio for deterministic pixel cutout animation and portable sprite export."
+    "shortDescription": "Offline prompt, cutout and sprite studio",
+    "longDescription": "Local vault-based prompt generation, independent pixel masks, exact PNG parts and non-destructive sprite composition. No cloud service or animation timeline."
   }
 }

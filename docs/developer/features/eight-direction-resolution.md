@@ -4,6 +4,10 @@
 
 # Eight-direction resolution
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](../acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 P10 makes `n`, `ne`, `e`, `se`, `s`, `sw`, `w` and `nw` explicit data rather than presentation
 aliases. A direction definition is editable, horizontally derived or deliberately missing. New
 motions start with five sources (`n/ne/e/se/s`) and three controlled mirrors (`sw/w/nw`), while

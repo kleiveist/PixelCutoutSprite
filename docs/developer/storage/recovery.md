@@ -2,7 +2,61 @@
 [Back to overview](index.md)
 <!-- PYGINDEX:NAVIGATION END -->
 
-# Recovery and data integrity
+# Recovery und Datenintegrität
+
+Stand: P43 · aktueller Vault-/Prompt-/Cutout-/Sprite-Ablauf.
+
+## Aktuelle Dateisatz-Recovery
+
+Neue Bild- und Szenengenerationen verwenden `.PixelStudio/transactions/<uuid>/` mit einem
+validierten Journal sowie eigenen `stage`-/`backup`-Dateien. Das Journal unterscheidet
+`prepared` (noch kein Ziel geändert), `applying` (Publikation läuft) und `committed`.
+Ein offener Satz blockiert die eigenen Leser und neue Publikationen. Beim erneuten Öffnen
+eines schreibbaren Vaults wird ein sicher belegter Satz fortgesetzt oder ein lediglich
+vorbereiteter Satz verworfen. Das Manifest bzw. die Szene wird zuletzt publiziert.
+
+Nach einem Abbruch zuerst den Vault schließen und erneut öffnen. Die App vergleicht jeden
+bereits erledigten Schritt und alle Sicherungen mit ihren Hashes. Ein Konflikt bleibt ein
+Konflikt: Fremddateien werden weder überschrieben noch durch alte Backups ersetzt. Stage,
+Backup und Journal bleiben für die Klärung erhalten. Fehlenden Speicherplatz oder Rechte
+zuerst korrigieren; nicht durch blindes Löschen von Journalen oder Sperren erzwingen.
+
+Leere, UUID-benannte Transaktionsverzeichnisse aus dem engen Fenster vor der ersten
+Journalpublikation werden nur dann entfernt, wenn ausschließlich leere `stage`-/`backup`-
+Unterordner existieren. Unbekannte Dateien, Links und veränderte Sicherungen bleiben erhalten.
+Die Bereinigung löscht ausschließlich inventarisierte eigene Mitglieder, nicht rekursiv
+beliebige Verzeichnisinhalte.
+
+## Quellen- und Szenenkonflikte
+
+Ein beschädigtes PNG, ein neueres JSON-Schema oder ein falscher Hash wird nicht mit Defaults
+repariert. Die geladene Ansicht bleibt erhalten, erhält aber keine falsche Speicherbestätigung.
+Bei geändertem Original bietet der Cutout-Editor die ausdrücklich bestätigte Fortsetzung
+mit seinem geprüften Snapshot an; neue Originalpixel werden nicht mit alten Masken kombiniert.
+
+Eine neue PNG-Generation wird im Sprite-Editor anhand stabiler Teil-IDs abgeglichen. Eine
+veränderte Szene wird nicht still überschrieben. Lokal ungesicherte Änderungen lassen sich
+entweder nach geklärtem Konflikt speichern oder ausdrücklich verwerfen und neu laden.
+Der gemeinsame Queue-Fehlerbeleg kann nach einer erfolgreichen Reparatur einmal zusätzlich
+einen Wechsel blockieren; nach Prüfung der Speicheranzeige den Wechsel erneut ausführen.
+
+## Writer und alte Daten
+
+Der OS-Guard bleibt für die exklusive Writer-Sitzung verbindlich; ein zweiter Writer erhält
+keinen Schreibzugriff. Nur eine ausdrücklich geprüfte verwaiste Metadatensperre lässt sich
+bei gleichzeitig freiem OS-Guard entfernen. Alte Fachprojekte werden nicht migriert.
+Alte, tatsächlich vorhandene Journale bleiben im gesonderten exklusiven Recovery-Dialog
+prüfbar. Legacy-Prompt-Import arbeitet mit Preview und ausdrücklicher Bestätigung; Quelle und
+fremde Nachbarfiles bleiben erhalten.
+
+[Aktuelles Speicherlayout](vault-storage.md) ·
+[P43-Prüfbelege und Grenzen](../acceptance/P43-gesamtabnahme_haertung_dokumentation.md)
+
+## Historischer P18-Nachweis — nicht der aktuelle Fachablauf
+
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](../acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
 
 P18 turns the P03 journal format into the recovery boundary used by the desktop application. It
 does not pretend that a sequence of filesystem writes is one atomic database transaction. Each

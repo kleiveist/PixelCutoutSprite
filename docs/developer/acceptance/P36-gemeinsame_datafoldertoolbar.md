@@ -1,5 +1,9 @@
 # P36 · Gemeinsame DataFolderToolbar und Dateinavigation
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 Datum: 2026-09-10. Ausgangsstand: P35 im Arbeitsverzeichnis, aufbauend auf `7b4cc01` (P34).
 
 Status: **Implementierung und abschließende Frontend-/Rust-/Chromium-Prüfungen bestanden.**
@@ -29,7 +33,7 @@ Dateiauswahl; die Editorloader bleiben P38 beziehungsweise P41 vorbehalten.
 - [`shared/data-folder/`](../../../frontend/src/shared/data-folder/) enthält den gemeinsamen
   Zod-geprüften IPC-Adapter, die sitzungsgebundene Lese-/Thumbnail-Schicht, Provider, Browserzustand,
   Toolbar und Responsive-Hülle. Es gibt keine zwei kopierten Datei-Browser.
-- [`CutoutDataWorkspace.tsx`](../../../frontend/src/cutout-studio/CutoutDataWorkspace.tsx)
+- [`CutoutDataWorkspace.tsx`](https://github.com/kleiveist/PixelCutoutSprite/blob/f85e24d41197fe74dd64a9d8e2670c382b3f65b8/frontend/src/cutout-studio/CutoutDataWorkspace.tsx)
   umschließt vorerst den bestehenden Cutout-Inhalt; die produktive Integration erfolgt in
   [`App.tsx`](../../../frontend/src/app/App.tsx). Während Vault-Recovery wird keine zusätzliche
   Dateinavigation über den bestehenden Recovery-Ablauf gelegt.
@@ -37,7 +41,7 @@ Dateiauswahl; die Editorloader bleiben P38 beziehungsweise P41 vorbehalten.
   verwendet dieselbe Hülle und das `DataFolderViewSlot`-Interface. Dateien-/View-Panels bleiben
   beim Registerwechsel montiert, der Editor ist davon getrennt. Modulbezogene Auswahlbelege
   leben im Provider, nicht in LocalStorage. Der View-Slot zeigt derzeit nur geprüfte Set-Metadaten.
-- [`useModalFocus.ts`](../../../frontend/src/components/useModalFocus.ts) ignoriert nun auch
+- [`useModalFocus.ts`](https://github.com/kleiveist/PixelCutoutSprite/blob/f85e24d41197fe74dd64a9d8e2670c382b3f65b8/frontend/src/components/useModalFocus.ts) ignoriert nun auch
   Bedienelemente innerhalb ausgeblendeter/inert gesetzter Vorfahren. Sonst könnten versteckte
   Registerinhalte den Fokuszyklus des Drawers verfälschen. Die P35-Fokusrückgabe bleibt erhalten.
 - [`workspace/data_folder/mod.rs`](../../../src-tauri/src/workspace/data_folder/mod.rs)
@@ -139,7 +143,7 @@ Für Leser gibt es eine [Bedienanleitung](../../guides/data-folder-navigation.md
 - [`dataFolderClient.test.ts`](../../../frontend/src/shared/data-folder/dataFolderClient.test.ts):
   fünf Adapter-/Lebenszyklusfälle für IPC-Schlüssel, fremde/unsichere Antworten, alte Sitzung,
   Refresh-Epoche, Thumbnail-Parallelität und Cache-/Queue-Abbau.
-- [`useModalFocus.test.tsx`](../../../frontend/src/components/useModalFocus.test.tsx): zwei
+- [`useModalFocus.test.tsx`](https://github.com/kleiveist/PixelCutoutSprite/blob/f85e24d41197fe74dd64a9d8e2670c382b3f65b8/frontend/src/components/useModalFocus.test.tsx): zwei
   bestehende Regressionstests, ergänzt um versteckte Register-Bedienelemente im Fokuszyklus.
 - [`workspace/data_folder/tests.rs`](../../../src-tauri/src/workspace/data_folder/tests.rs):
   neun Tests mit echten temporären Dateien, darunter stabile Seiten, echte externe Änderungen,

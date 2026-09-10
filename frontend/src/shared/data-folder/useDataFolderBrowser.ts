@@ -188,7 +188,9 @@ export function useDataFolderBrowser(module: ImageModule) {
         setMessage(
           result.kind === "image"
             ? `Bild geprüft · ${result.width} × ${result.height} px`
-            : `Teile-Set geprüft · ${result.partCount} Teile${result.complete ? "" : " · ausdrücklich ausgelassene Pflichtteile"}`,
+            : result.kind === "legacy_set"
+              ? `Legacy-Set · ${result.partCount} bekannte Teile, manuelles Ausrichten erforderlich`
+              : `Teile-Set geprüft · ${result.partCount} Teile${result.complete ? "" : " · ausdrücklich ausgelassene Pflichtteile"}`,
         );
       }
     } catch (reason) {

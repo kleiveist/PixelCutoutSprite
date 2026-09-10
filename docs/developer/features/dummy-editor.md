@@ -4,6 +4,10 @@
 
 # Reusable dummy motion editor
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](../acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 P08 replaces the dummy placeholder with the real motion-template editor. Opening a card loads its
 mutable draft together with the exact immutable profile revision pinned by that draft, even when
 the area's current profile has since changed. The route keeps project, area and template context

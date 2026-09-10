@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Core desktop capability for the local PixelCutoutSprite Studio window",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save"]
+  "permissions": ["core:default", "dialog:allow-open", "core:window:allow-destroy", "core:webview:allow-set-webview-zoom"]
 }

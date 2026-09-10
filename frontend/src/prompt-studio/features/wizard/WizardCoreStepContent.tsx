@@ -1214,8 +1214,9 @@ function CatalogReviewStep({ context, form }: CoreStepProps) {
       <p className={styles.eyebrow}>Abschlusskontrolle</p>
       <h3 id="wizard-review-title">Antwortkatalog vollständig geprüft</h3>
       <p>
-        Prüfe die Zusammenfassung rechts. „Entwurf sichern“ bestätigt nur den Katalog; eine Ausgabe
-        wird in diesem Schritt noch nicht erzeugt.
+        Prüfe die Zusammenfassung rechts und bestätige den Katalog mit „Schritt prüfen“.
+        Vollständige Profile werden im Vault gespeichert; ihre Markdown-Ausgaben entstehen
+        automatisch. Den tatsächlichen Dateistand findest du unter „Ausgabe“.
       </p>
       <dl>
         <div>

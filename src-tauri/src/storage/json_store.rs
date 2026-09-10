@@ -4,7 +4,28 @@ use std::path::Path;
 
 use sha2::{Digest, Sha256};
 
-use crate::domain::{parse_document, serialize_document, DomainDocument};
+use crate::domain::{DomainError, Vault};
+use serde::{de::DeserializeOwned, Serialize};
+
+/// Typed JSON validation without a registry of retired application models.
+pub trait StoredJson: Serialize + DeserializeOwned {
+    fn validate(&self) -> Result<(), DomainError>;
+}
+impl StoredJson for Vault {
+    fn validate(&self) -> Result<(), DomainError> {
+        Vault::validate(self)
+    }
+}
+fn parse_document<T: StoredJson>(bytes: &[u8]) -> Result<T, DomainError> {
+    let value: T =
+        serde_json::from_slice(bytes).map_err(|e| DomainError::InvalidJson(e.to_string()))?;
+    value.validate()?;
+    Ok(value)
+}
+fn serialize_document<T: StoredJson>(value: &T) -> Result<Vec<u8>, DomainError> {
+    value.validate()?;
+    serde_json::to_vec_pretty(value).map_err(|e| DomainError::InvalidJson(e.to_string()))
+}
 
 use super::{ResolvedPath, StorageError};
 
@@ -14,8 +35,8 @@ pub struct VersionStamp {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct LoadedDocument {
-    pub value: DomainDocument,
+pub struct LoadedDocument<T> {
+    pub value: T,
     pub stamp: VersionStamp,
 }
 
@@ -51,7 +72,10 @@ impl<R: FileReplacer> JsonStore<R> {
         Self { replacer }
     }
 
-    pub fn load(&self, path: &ResolvedPath) -> Result<LoadedDocument, StorageError> {
+    pub fn load<T: StoredJson>(
+        &self,
+        path: &ResolvedPath,
+    ) -> Result<LoadedDocument<T>, StorageError> {
         let bytes = fs::read(path.as_path())
             .map_err(|error| StorageError::io("read JSON document", path.relative(), error))?;
         let value = parse_document(&bytes)?;
@@ -61,10 +85,10 @@ impl<R: FileReplacer> JsonStore<R> {
         })
     }
 
-    pub fn create(
+    pub fn create<T: StoredJson>(
         &self,
         path: &ResolvedPath,
-        value: &DomainDocument,
+        value: &T,
     ) -> Result<VersionStamp, StorageError> {
         if path.as_path().exists() {
             return Err(StorageError::WriteConflict);
@@ -72,23 +96,23 @@ impl<R: FileReplacer> JsonStore<R> {
         self.write(path, value)
     }
 
-    pub fn write(
+    pub fn write<T: StoredJson>(
         &self,
         path: &ResolvedPath,
-        value: &DomainDocument,
+        value: &T,
     ) -> Result<VersionStamp, StorageError> {
         let bytes = serialize_document(value)?;
         self.write_bytes(path, &bytes, |candidate| {
-            parse_document(candidate).map(|_| ())
+            parse_document::<T>(candidate).map(|_| ())
         })?;
         Ok(VersionStamp::from_bytes(&bytes))
     }
 
-    pub fn compare_and_swap(
+    pub fn compare_and_swap<T: StoredJson>(
         &self,
         path: &ResolvedPath,
         expected: &VersionStamp,
-        value: &DomainDocument,
+        value: &T,
     ) -> Result<VersionStamp, StorageError> {
         let current = fs::read(path.as_path())
             .map_err(|error| StorageError::io("read JSON document", path.relative(), error))?;

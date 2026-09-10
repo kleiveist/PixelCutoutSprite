@@ -4,6 +4,10 @@
 
 # Motion presets and stored card previews
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](../acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 P11 adds six editable starting motions: Idle, Walk, Sprint, Jump, Interact and Attack. They are
 ordinary motion drafts built from five explicit source directions and the three controlled P10
 mirrors. Each preset contains a small number of visible pose keys and, where useful, an explicit

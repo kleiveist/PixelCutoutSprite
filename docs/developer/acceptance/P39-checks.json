@@ -1,0 +1,52 @@
+{
+  "phase": "P39",
+  "date": "2026-09-10",
+  "baseCommit": "f85e24d41197fe74dd64a9d8e2670c382b3f65b8",
+  "workingTree": "uncommitted P37, P38 and P39; no push or release",
+  "implementationGate": "passed",
+  "overallNativeGuiAcceptance": "not established; separate P43 gate",
+  "sourceInventory": {
+    "command": "rg --files frontend/src frontend/e2e src-tauri/src src-tauri/tests tests/source -g '*.ts' -g '*.tsx' -g '*.css' -g '*.json' -g '*.rs' -g '*.py' -0 | sort -z | xargs -0 sha256sum | sha256sum",
+    "sha256": "5ac2cedb8341271d348c9612bbd12454e72deb97a80913d4e359b714df3f3406"
+  },
+  "checks": [
+    {"command": "npm --prefix frontend run test", "status": "passed", "files": 136, "tests": 716, "logSha256": "2b2b2f0a8ddea3431471591c03404528c98671484f1d9308840fada04acb45b7", "excerpt": "Test Files 136 passed (136); Tests 716 passed (716); Duration 101.01s"},
+    {"command": "npm --prefix frontend run test:e2e -- --output=/tmp/p38-p43-validation.Xozjjs/p39-browser", "status": "passed", "tests": 13, "logSha256": "e600e701f3b6fff60049d68cab8a8951d993560ed778131615c79e3318085c7e", "excerpt": "13 passed (32.0s)", "scope": "Production browser frontend with controlled IPC fixtures, not native GUI/file integration"},
+    {"command": "npm --prefix frontend run typecheck", "status": "passed"},
+    {"command": "npm --prefix frontend run lint", "status": "passed"},
+    {"command": "npm --prefix frontend run format:check", "status": "passed"},
+    {"command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features", "status": "passed", "tests": 99, "libTests": 68, "compositionTests": 1, "recoveryTests": 18, "vaultTests": 12, "logSha256": "ff9ee6a613797bb41fe8f6070ce9222ff5ed2d8be080c271c46ea2a9080635e5", "note": "Recovery child-process output is counted once."},
+    {"command": "cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings", "status": "passed"},
+    {"command": "cargo fmt --manifest-path src-tauri/Cargo.toml", "status": "passed"},
+    {"command": "python -m pytest -q -p no:cacheprovider tests/source/test_studio_final_architecture.py tests/source/test_studio_distribution_policy.py tools/tests/test_tauri_control.py tools/tests/test_control_help.py tools/tests/test_configuration.py tools/tests/test_control_test_reporting.py", "status": "passed", "tests": 108, "logSha256": "c74dbcbac71e5ebf96ba6e26642e54fc2de5babfe30f390dbdbae3eb54755d52"},
+    {"command": "python tools/control.py quality architecture", "status": "passed", "typescriptSources": 388, "logSha256": "0bf4f5e0fe12eb1872ac90de7eb7fb1776af45922ae5c71b41c4427b49e4f5af", "excerpt": "TypeScript AST: PASS; Architecture: PASS; Quality gate: PASS"}
+  ],
+  "qualityFixtures": {
+    "source": "src-tauri/src/cutout/segmentation_tests.rs",
+    "kind": "self-authored reproducible synthetic RGBA fixtures, not real-world semantic accuracy claims",
+    "transparentThinSemiAlphaPixels": 94,
+    "opaqueBackgroundForegroundPixels": 528,
+    "multicolorForegroundPixels": 169,
+    "allThreeMasks": "exact equality with expected pixels",
+    "sameColorBoundary": "deterministic seed-distance boundary, explicitly uncertain",
+    "ambiguousIslands": "unchanged draft until positive seed identifies desired island",
+    "protectedOverlap": "retained on visible pixels outside ROI, excluding hard negatives and alpha zero"
+  },
+  "performance": {
+    "cpu": "AMD Ryzen 7 3700X, 8 cores / 16 threads",
+    "environment": "Linux Docker, Rust 1.97.1 debug test binary; eight sequential algorithm tests",
+    "seededWidth": 512, "seededHeight": 512, "seededMilliseconds": 824,
+    "seededConservativeArrayBytes": 5767168,
+    "algorithmCancelMicroseconds": 730,
+    "workerCancelToTerminalMicroseconds": 2060,
+    "workerCancelSourceSize": "512x512; includes any already-running decode in this sample",
+    "testProcessSeconds": 1.008,
+    "peakRssKiB": 32140,
+    "logSha256": "a1526e44d2d41a19e59de1f3893625131097686457fcecf196ece386f3f7a259",
+    "workerCancelLogSha256": "54ea0dcc5707277c21b6e0e8dd9ca8ed8d00ce63c295b8bfc6cf4473d61eb1e2",
+    "limitations": "Samples, not maximum guarantees. Array estimate excludes mask/JSON DTOs, decoder temporaries and frontend canvases. Decoder internals cannot be preempted; cancellation is checked after return. RSS is for the native test process, not the full desktop app."
+  },
+  "jobRevisionSemantics": "maskRevision is the logical editor editSerial captured with immutable job input; persisted mask-file revisions remain separate",
+  "unchangedFromRepositoryBase": ["tools/", "docs/toolingdocs/", "frontend/package-lock.json", "src-tauri/Cargo.lock", "src-tauri/Cargo.toml", "src-tauri/tauri.conf.json"],
+  "artifactsDirectoryEphemeral": "/tmp/p38-p43-validation.Xozjjs"
+}

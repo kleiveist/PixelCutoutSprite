@@ -1,0 +1,109 @@
+.editor {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: clamp(0.75rem, 2vw, 1.5rem);
+}
+.editor h1,
+.editor p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.editor h1 {
+  font-size: 1.4rem;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.canvasPanel {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.canvasHost {
+  height: clamp(15rem, 55dvh, 42rem);
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  overflow: hidden;
+  background: repeating-conic-gradient(#303645 0% 25%, #40495a 0% 50%) 50% / 20px 20px;
+}
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  touch-action: none;
+}
+.canvas:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+.layers {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.layers button {
+  width: 100%;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.layers button[aria-pressed="true"] {
+  outline: 2px solid var(--focus);
+}
+.layers small {
+  display: block;
+}
+.layers li {
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  padding: 0.35rem;
+}
+.layerActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.thumbnail {
+  float: left;
+  width: 40px;
+  height: 40px;
+  margin-right: 0.35rem;
+  image-rendering: pixelated;
+}
+.transformGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 0.7rem;
+  margin-top: 0.7rem;
+}
+.numericField {
+  min-width: 0;
+}
+.numericField label {
+  display: grid;
+  gap: 0.3rem;
+}
+.numericField input {
+  width: 100%;
+  min-width: 0;
+}
+.warning {
+  border-left: 3px solid #a7843c;
+  padding-left: 0.7rem;
+  overflow-wrap: anywhere;
+}
+.error {
+  color: var(--ink);
+  border: 1px solid #bb5a66;
+  padding: 0.65rem;
+  overflow-wrap: anywhere;
+}

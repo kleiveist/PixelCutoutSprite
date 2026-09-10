@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
 import type { PromptGeneratorRootProps } from "../app/PromptGeneratorRoot";
-import { createIntegratedPromptNavigationAdapter } from "../services";
+import {
+  createIntegratedPromptNavigationAdapter,
+  type OutputWorkspaceAdapter,
+  type LegacyV1StorageMigrationResult,
+} from "../services";
 import { NavigationProvider, useNavigation } from "../store/navigation";
 import { SettingsProvider, useSettings } from "../store/settings";
 import { ProfileLibraryProvider } from "../store/profiles";
@@ -17,6 +21,8 @@ import type { StableId } from "../schemas";
 
 interface LegacyProps extends PromptGeneratorRootProps {
   readonly legacySettings?: boolean;
+  readonly outputAdapter: OutputWorkspaceAdapter;
+  readonly startupMigration?: LegacyV1StorageMigrationResult;
 }
 
 function LegacyViews(props: LegacyProps) {
@@ -44,8 +50,7 @@ function LegacyViews(props: LegacyProps) {
     requestResume(id);
     navigate("wizard");
   };
-  const { storageAdapter, outputAdapter, now, createDraftId, handoffAvailability, onHandoff } =
-    props;
+  const { storageAdapter, outputAdapter, now, createDraftId } = props;
 
   return (
     <section
@@ -93,8 +98,6 @@ function LegacyViews(props: LegacyProps) {
           storageAdapter={storageAdapter}
           outputAdapter={outputAdapter}
           {...(now ? { now } : {})}
-          {...(handoffAvailability ? { handoffAvailability } : {})}
-          {...(onHandoff ? { onHandoff } : {})}
         />
       )}
     </section>

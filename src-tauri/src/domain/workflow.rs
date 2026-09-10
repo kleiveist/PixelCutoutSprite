@@ -1,65 +1,6 @@
+use super::DomainError;
 use std::collections::HashSet;
-
-use serde::Serialize;
 use unicode_normalization::UnicodeNormalization;
-
-use super::{
-    canonical_json_bytes, AssetRevision, DomainError, ExportManifest, MotionRevision,
-    ProfileRevision, Sha256Digest,
-};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ExportFreshness {
-    Current,
-    Stale,
-}
-
-pub fn export_freshness(
-    manifest: &ExportManifest,
-    effective_source_fingerprint: &Sha256Digest,
-) -> ExportFreshness {
-    if &manifest.source_fingerprint == effective_source_fingerprint {
-        ExportFreshness::Current
-    } else {
-        ExportFreshness::Stale
-    }
-}
-
-pub fn ensure_motion_revision_unchanged(
-    current: &MotionRevision,
-    candidate: &MotionRevision,
-) -> Result<(), DomainError> {
-    ensure_release_unchanged(
-        "motion_revision",
-        current.reference() == candidate.reference(),
-        current,
-        candidate,
-    )
-}
-
-pub fn ensure_profile_revision_unchanged(
-    current: &ProfileRevision,
-    candidate: &ProfileRevision,
-) -> Result<(), DomainError> {
-    ensure_release_unchanged(
-        "profile_revision",
-        current.reference() == candidate.reference(),
-        current,
-        candidate,
-    )
-}
-
-pub fn ensure_asset_revision_unchanged(
-    current: &AssetRevision,
-    candidate: &AssetRevision,
-) -> Result<(), DomainError> {
-    ensure_release_unchanged(
-        "asset_revision",
-        current.reference() == candidate.reference(),
-        current,
-        candidate,
-    )
-}
 
 pub fn validate_portable_display_name(path: &str, name: &str) -> Result<(), DomainError> {
     super::validate_name(path, name)?;
@@ -125,25 +66,4 @@ pub fn ensure_no_portable_name_collisions<'a>(
 
 pub fn portable_name_key(value: &str) -> String {
     value.nfc().flat_map(char::to_lowercase).collect()
-}
-
-fn ensure_release_unchanged<T: Serialize>(
-    kind: &'static str,
-    same_identity: bool,
-    current: &T,
-    candidate: &T,
-) -> Result<(), DomainError> {
-    if !same_identity {
-        return Err(DomainError::invalid(
-            kind,
-            "immutable revisions must be compared using the same identity",
-        ));
-    }
-    if canonical_json_bytes(current)? != canonical_json_bytes(candidate)? {
-        return Err(DomainError::invalid(
-            kind,
-            "published revisions are immutable; create a new revision instead",
-        ));
-    }
-    Ok(())
 }

@@ -88,17 +88,6 @@ jobs:
           if ($support.tauri_core -ne $env:TAURI_CORE_VERSION) { throw "Tauri core version mismatch" }
           if ($support.tauri_build -ne $env:TAURI_BUILD_VERSION) { throw "Tauri build version mismatch" }
           if ($support.tauri_dialog -ne $env:TAURI_DIALOG_VERSION) { throw "Tauri dialog version mismatch" }
-      - name: Run Rust Studio gates
-        shell: pwsh
-        run: |
-          & cargo fmt --all --manifest-path src-tauri/Cargo.toml -- --check
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & cargo check --locked --manifest-path src-tauri/Cargo.toml --all-targets --all-features
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & cargo test --locked --manifest-path src-tauri/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run frontend Studio gates
         working-directory: frontend
         shell: pwsh
@@ -112,6 +101,17 @@ jobs:
           & npm run format:check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & npm run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run Rust Studio gates
+        shell: pwsh
+        run: |
+          & cargo fmt --all --manifest-path src-tauri/Cargo.toml -- --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cargo check --locked --manifest-path src-tauri/Cargo.toml --all-targets --all-features
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cargo test --locked --manifest-path src-tauri/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run repository architecture and policy gates
         shell: pwsh
@@ -176,11 +176,17 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify native dialog adapter contract
         working-directory: frontend
-        run: npm test -- --run src/features/vault/VaultWelcome.test.tsx src/api/vault-client.test.ts
-      - name: Run production save and export smoke
-        run: >-
-          cargo test --locked --manifest-path src-tauri/Cargo.toml --test outfit_workflow
-          authoritative_npc_export_renders_multiple_actions_and_current_pointer_controls_freshness
+        run: npm test -- --run src/shared/vault/VaultWelcome.test.tsx src/shared/vault/vault-client.test.ts
+      - name: Build frontend for native regression tests
+        working-directory: frontend
+        run: npm run build
+      - name: Run P37 removal and vault preservation smoke
+        shell: pwsh
+        run: |
+          & cargo test --locked --manifest-path src-tauri/Cargo.toml --lib p37_tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cargo test --locked --manifest-path src-tauri/Cargo.toml --test vault_storage --test recovery_integrity
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build and verify unsigned native installer
         shell: pwsh
         env:

@@ -1,5 +1,9 @@
 # P28 · Bestandsaufnahme, Zielverträge und Baseline
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 Datum: 2026-09-09
 Status: umgesetzt; native Kompilierung mangels Rust-Toolchain nicht ausgeführt
 Anforderungen: R-D07, R-P01, R-P09, R-C01, R-C11

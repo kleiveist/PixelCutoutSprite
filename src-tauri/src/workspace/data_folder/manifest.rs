@@ -1,5 +1,5 @@
 use super::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 pub(super) const PART_IDS: [&str; 19] = [
@@ -24,61 +24,63 @@ pub(super) const PART_IDS: [&str; 19] = [
     "hair",
 ];
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Manifest {
-    schema_version: u32,
-    kind: String,
-    set_id: String,
-    generation_id: String,
-    cutout_revision: u64,
-    source: Source,
-    complete: bool,
-    parts: Vec<Part>,
-    omitted_parts: Vec<Omitted>,
-    created_at: String,
+pub struct Manifest {
+    pub schema_version: u32,
+    pub kind: String,
+    pub set_id: String,
+    pub generation_id: String,
+    pub cutout_revision: u64,
+    pub source: Source,
+    pub complete: bool,
+    pub parts: Vec<Part>,
+    pub omitted_parts: Vec<Omitted>,
+    pub created_at: String,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Source {
-    original_path: Option<String>,
-    original_sha256: Option<String>,
-    snapshot_path: String,
-    sha256: String,
-    width: u32,
-    height: u32,
+pub struct Source {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub original_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub original_sha256: Option<String>,
+    pub snapshot_path: String,
+    pub sha256: String,
+    pub width: u32,
+    pub height: u32,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Part {
-    part_id: String,
-    file: String,
-    sha256: String,
-    source_rect: Rect,
-    pivot: Point,
-    default_position: Point,
-    default_z: i64,
-    parent_id: Option<String>,
+pub struct Part {
+    pub part_id: String,
+    pub file: String,
+    pub sha256: String,
+    pub source_rect: Rect,
+    pub pivot: Point,
+    pub default_position: Point,
+    pub default_z: i64,
+    pub parent_id: Option<String>,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
-struct Rect {
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
+pub struct Rect {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
-struct Point {
-    x: f64,
-    y: f64,
+pub struct Point {
+    pub x: f64,
+    pub y: f64,
 }
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Omitted {
-    part_id: String,
-    reason: String,
+pub struct Omitted {
+    pub part_id: String,
+    pub reason: String,
 }
 
 pub(super) fn inspect(
@@ -89,11 +91,22 @@ pub(super) fn inspect(
     let path = checked_path(root, directory, true)?.join("sprite.parts.json");
     match fs::symlink_metadata(path) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            match crate::sprite::legacy::inspect(root, directory) {
+                Ok(Some(selection)) => return Ok(selection),
+                Ok(None) => {}
+                Err(error) => {
+                    return Ok(WorkspaceSelection::Directory {
+                        relative_path: directory.to_owned(),
+                        status: "invalid".to_owned(),
+                        message: Some(format!("Legacy-Teileordner nicht ladbar: {error}")),
+                    })
+                }
+            }
             return Ok(WorkspaceSelection::Directory {
                 relative_path: directory.to_owned(),
                 status: "ordinary".to_owned(),
                 message: None,
-            })
+            });
         }
         Err(error) => return Err(io(&relative, error)),
         Ok(_) => {}
@@ -119,11 +132,12 @@ pub(super) fn inspect(
     }
 }
 
-fn read_set(
+pub(crate) fn read_set(
     root: &VaultRoot,
     directory: &str,
     relative: &str,
 ) -> Result<WorkspaceSelection, StorageError> {
+    crate::workspace::require_settled_file_sets(root)?;
     let bytes = read_bounded(root, relative, 1024 * 1024)?;
     let manifest: Manifest = serde_json::from_slice(&bytes).map_err(|error| {
         invalid(&format!(
@@ -163,6 +177,7 @@ fn read_set(
     if read_bounded(root, relative, 1024 * 1024)? != bytes {
         return Err(StorageError::WriteConflict);
     }
+    crate::workspace::require_settled_file_sets(root)?;
     Ok(WorkspaceSelection::SpriteSet {
         relative_path: directory.to_owned(),
         manifest_path: relative.to_owned(),
@@ -174,10 +189,11 @@ fn read_set(
     })
 }
 
-fn validate_manifest(value: &Manifest) -> Result<(), StorageError> {
+pub(crate) fn validate_manifest(value: &Manifest) -> Result<(), StorageError> {
     if value.schema_version != 1
         || value.kind != "spriteParts"
         || value.cutout_revision == 0
+        || value.cutout_revision > 9_007_199_254_740_991
         || !(1..=18).contains(&value.parts.len())
         || value.omitted_parts.len() > 15
         || !id(&value.set_id)
@@ -185,6 +201,9 @@ fn validate_manifest(value: &Manifest) -> Result<(), StorageError> {
         || chrono::DateTime::parse_from_rfc3339(&value.created_at).is_err()
         || !(1..=8192).contains(&value.source.width)
         || !(1..=8192).contains(&value.source.height)
+        || u64::from(value.source.width) * u64::from(value.source.height) > 16 * 1024 * 1024
+        || value.source.original_path.is_some() != value.source.original_sha256.is_some()
+        || value.complete != value.omitted_parts.is_empty()
     {
         return Err(invalid("Unbekanntes oder ungültiges Teilemanifest."));
     }
@@ -198,17 +217,13 @@ fn validate_manifest(value: &Manifest) -> Result<(), StorageError> {
     }
     let mut included = HashSet::new();
     for part in &value.parts {
-        let Some(position) = PART_IDS.iter().position(|id| *id == part.part_id) else {
+        let Some(definition) = crate::cutout::catalog()
+            .iter()
+            .find(|entry| entry.part_id == part.part_id)
+        else {
             return Err(invalid("Unbekannte Teil-ID."));
         };
-        let number = if position >= 17 {
-            position
-        } else {
-            position + 1
-        };
-        if !included.insert(part.part_id.as_str())
-            || part.file != format!("{number:02}_{}.png", part.part_id)
-        {
+        if !included.insert(part.part_id.as_str()) || part.file != definition.file {
             return Err(invalid(
                 "Doppelte Teil-ID oder falscher normierter PNG-Dateiname.",
             ));
@@ -246,7 +261,7 @@ fn validate_manifest(value: &Manifest) -> Result<(), StorageError> {
     }
     let mut omitted = HashSet::new();
     for part in &value.omitted_parts {
-        if !PART_IDS.contains(&part.part_id.as_str())
+        if !PART_IDS[..15].contains(&part.part_id.as_str())
             || !omitted.insert(part.part_id.as_str())
             || included.contains(part.part_id.as_str())
             || part.reason.trim().is_empty()

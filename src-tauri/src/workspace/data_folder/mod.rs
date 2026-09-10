@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use super::validate_workspace_relative;
 use crate::storage::{StorageError, VaultRoot};
 
-mod manifest;
+pub(crate) mod manifest;
 #[cfg(test)]
 mod tests;
 
@@ -98,6 +98,11 @@ pub enum WorkspaceSelection {
         set_id: String,
         generation_id: String,
         complete: bool,
+        part_count: usize,
+    },
+    LegacySet {
+        relative_path: String,
+        document_sha256: String,
         part_count: usize,
     },
     Directory {
@@ -324,7 +329,10 @@ fn decode_png(bytes: &[u8]) -> Result<DynamicImage, StorageError> {
     decode_image(bytes, ImageFormat::Png)
 }
 
-fn decode_image(bytes: &[u8], expected: ImageFormat) -> Result<DynamicImage, StorageError> {
+pub(crate) fn decode_image(
+    bytes: &[u8],
+    expected: ImageFormat,
+) -> Result<DynamicImage, StorageError> {
     if image::guess_format(bytes).ok() != Some(expected) {
         return Err(invalid("Bildinhalt und Dateityp stimmen nicht überein."));
     }
@@ -332,9 +340,24 @@ fn decode_image(bytes: &[u8], expected: ImageFormat) -> Result<DynamicImage, Sto
     limits.max_image_width = Some(8192);
     limits.max_image_height = Some(8192);
     limits.max_alloc = Some(128 * 1024 * 1024);
+    let animated = match expected {
+        ImageFormat::Png => {
+            image::codecs::png::PngDecoder::with_limits(Cursor::new(bytes), limits.clone())
+                .and_then(|decoder| decoder.is_apng())
+        }
+        ImageFormat::WebP => image::codecs::webp::WebPDecoder::new(Cursor::new(bytes))
+            .map(|decoder| decoder.has_animation()),
+        _ => Ok(false),
+    }
+    .map_err(|e| invalid(&format!("Ungültiger Bildheader: {e}")))?;
+    if animated {
+        return Err(invalid(
+            "Animierte PNG-/WebP-Dateien werden nicht unterstützt. Bitte ein Einzelbild verwenden.",
+        ));
+    }
     let mut reader = ImageReader::with_format(Cursor::new(bytes), expected);
     reader.limits(limits);
-    let decoder = reader
+    let mut decoder = reader
         .into_decoder()
         .map_err(|e| invalid(&format!("Ungültiger oder zu großer Bildheader: {e}")))?;
     let (width, height) = decoder.dimensions();
@@ -345,8 +368,13 @@ fn decode_image(bytes: &[u8], expected: ImageFormat) -> Result<DynamicImage, Sto
     {
         return Err(invalid("Bild überschreitet die Grenze von 8192 px je Achse / 16 Megapixeln / 64 MiB dekodiert."));
     }
-    DynamicImage::from_decoder(decoder)
-        .map_err(|e| invalid(&format!("Bild kann nicht dekodiert werden: {e}")))
+    let orientation = decoder
+        .orientation()
+        .map_err(|e| invalid(&format!("Ungültige Bildorientierung: {e}")))?;
+    let mut image = DynamicImage::from_decoder(decoder)
+        .map_err(|e| invalid(&format!("Bild kann nicht dekodiert werden: {e}")))?;
+    image.apply_orientation(orientation);
+    Ok(image)
 }
 
 fn verify_fingerprint(
@@ -407,7 +435,11 @@ fn checked_path(
     Ok(path)
 }
 
-fn read_bounded(root: &VaultRoot, relative: &str, limit: usize) -> Result<Vec<u8>, StorageError> {
+pub(crate) fn read_bounded(
+    root: &VaultRoot,
+    relative: &str,
+    limit: usize,
+) -> Result<Vec<u8>, StorageError> {
     let path = checked_path(root, relative, false)?;
     let before = fs::symlink_metadata(&path).map_err(|e| io(relative, e))?;
     if !before.is_file() || before.len() > limit as u64 {
@@ -454,7 +486,7 @@ fn is_link(metadata: &Metadata) -> bool {
     }
     metadata.file_type().is_symlink()
 }
-fn technical(relative: &str) -> bool {
+pub(crate) fn technical(relative: &str) -> bool {
     relative.split('/').any(|part| {
         (part.starts_with('.') && part != ".PixelPrompt")
             || matches!(part, "node_modules" | "target")
@@ -483,7 +515,7 @@ fn fingerprint(relative: &str, metadata: &Metadata) -> String {
         .as_bytes(),
     )
 }
-fn image_format(name: &str) -> Option<ImageFormat> {
+pub(crate) fn image_format(name: &str) -> Option<ImageFormat> {
     match name.rsplit('.').next()?.to_ascii_lowercase().as_str() {
         "png" => Some(ImageFormat::Png),
         "jpg" | "jpeg" => Some(ImageFormat::Jpeg),

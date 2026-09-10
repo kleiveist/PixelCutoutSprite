@@ -1,37 +1,29 @@
-import { DataFolderWorkspace, useDataFolder } from "../shared/data-folder";
+import { useActiveVault } from "../shared/vault";
+import { VaultWelcome } from "../shared/vault/VaultWelcome";
+import type { ComponentProps } from "react";
 
-export function SpriteStudioWelcome() {
-  const selection = useDataFolder().selections.sprite;
+export function SpriteStudioWelcome(
+  props: Omit<ComponentProps<typeof VaultWelcome>, "currentVault">,
+) {
+  const { activeVault } = useActiveVault();
   return (
-    <DataFolderWorkspace
-      module="sprite"
-      viewSlot={{
-        content: (
-          <section aria-label="Sprite-View">
-            <h2>View</h2>
-            <p>
-              {selection?.kind === "sprite_set"
-                ? `${selection.partCount} geprüfte Teile · ${selection.generationId}`
-                : "Wähle im Dateien-Register einen Teileordner mit sprite.parts.json."}
-            </p>
-            <p>
-              Der Ebeneneditor folgt in P42. Der Registerwechsel verändert die Dateiauswahl nicht.
-            </p>
-          </section>
-        ),
-      }}
-    >
-      <section className="studio-welcome" aria-labelledby="sprite-studio-title">
-        <p className="view-eyebrow">PIXELSPRITESTUDIO</p>
-        <h1 id="sprite-studio-title">Sprites aus geprüften Teilen zusammensetzen.</h1>
-        <p>
-          Die gemeinsame Dateinavigation prüft bereits Bilder und Teilemanifeste. Der automatische
-          Zusammenbau und die View-Ebenen folgen in P41/P42.
-        </p>
-        <p className="implementation-note" role="status">
-          Dateiauswahl verfügbar · noch kein Zusammenbau und keine Szenenspeicherung.
-        </p>
-      </section>
-    </DataFolderWorkspace>
+    <section className="studio-welcome" aria-labelledby="sprite-studio-title">
+      <p className="view-eyebrow">PIXELSPRITESTUDIO</p>
+      <h1 id="sprite-studio-title">Sprites aus geprüften Teilen zusammensetzen.</h1>
+      <p>
+        Wähle im Data Folder einen Teileordner mit sprite.parts.json. Die Originalanordnung wird aus
+        Crop-Ursprung, Pivot und Standard-Z geladen. Eine gespeicherte gültige Szene hat Vorrang.
+      </p>
+      <VaultWelcome {...props} currentVault={activeVault} />
+      <p>
+        Legacy-PNGs mit bekannten Teilenamen können ohne Manifest betrachtet werden; fehlende
+        ursprüngliche Offsets verlangen manuelles Ausrichten. Fremde PNGs und abgewählte Extras
+        werden nicht hinzugefügt.
+      </p>
+      <p>
+        Die Ansicht verwendet Source-over: halbtransparente Überlappungen können deckender wirken.
+        Einzel-PNGs bleiben unverändert.
+      </p>
+    </section>
   );
 }

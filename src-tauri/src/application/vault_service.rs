@@ -1,28 +1,19 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-use crate::domain::{
-    parse_document, validate_name, DocumentKind, DomainDocument, ObjectId, Project, RecordStatus,
-    RelativePath, UtcTimestamp, Vault, SCHEMA_VERSION, VAULT_FORMAT,
-};
+use crate::domain::{DocumentKind, ObjectId, UtcTimestamp, Vault, SCHEMA_VERSION, VAULT_FORMAT};
 use crate::storage::{
-    is_derived_managed_path, is_managed_namespace_path, managed_json_kind, JsonStore, LockRecovery,
-    ManagedJsonKind, ManagedSupportJsonKind, NoTransactionFault, ObjectIndex, RecoveryCandidate,
-    RecoveryChoice, StorageError, TransactionAction, TransactionPurpose, TransactionService,
-    TransactionStep, VaultLayout, VaultLock, VaultRoot, VersionStamp, ADMIN_DIR,
+    JsonStore, LockRecovery, NoTransactionFault, RecoveryCandidate, RecoveryChoice, StorageError,
+    TransactionService, VaultLayout, VaultLock, VaultRoot, ADMIN_DIR,
 };
 use crate::workspace::{ensure_workspace, preflight_workspace};
-
-use super::{LabelCatalog, MotionDraft, ProjectViewState};
-
-const MAX_PROJECT_MANIFEST_BYTES: u64 = 4 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
@@ -109,13 +100,6 @@ struct VaultSession {
     writer_lock: Option<Arc<VaultLock>>,
     background_mutation: Arc<AtomicBool>,
     recovery_required: bool,
-    index: ObjectIndex,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct VaultSessionContext {
-    pub root: VaultRoot,
-    pub mode: VaultOpenMode,
 }
 
 #[derive(Debug, Default)]
@@ -173,13 +157,13 @@ impl VaultService {
         let layout = VaultLayout::new(root);
         let created_at =
             UtcTimestamp::parse(&Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true))?;
-        let vault = DomainDocument::Vault(Vault {
+        let vault = Vault {
             schema_version: SCHEMA_VERSION,
             kind: DocumentKind::Vault,
             id: ObjectId::new(),
             format: VAULT_FORMAT.to_owned(),
             created_at,
-        });
+        };
         JsonStore::default().create(&layout.vault_manifest()?, &vault)?;
         self.open(layout.root().path())
     }
@@ -194,11 +178,9 @@ impl VaultService {
         let root = VaultRoot::open(path)?;
         preflight_workspace(&root, Some(&vault_id.to_string()))?;
 
-        // Discovery is read-only and precedes every mutation. In particular, a future project
-        // schema prevents creation of runtime/lock files and prevents any older migration.
+        // Legacy files are opaque user data. Discover journals, but never migrate, index,
+        // quarantine or clean up old projects merely by opening the vault.
         let recovery = TransactionService::<NoTransactionFault>::scan_open(&root)?;
-        preflight_authoritative_json(&root)?;
-        let schema_preview = inspect_project_schemas(&root)?;
 
         root.ensure_directory(Path::new(ADMIN_DIR).join("runtime").as_path())?;
         let layout = VaultLayout::new(root.clone());
@@ -233,56 +215,21 @@ impl VaultService {
             );
         }
 
-        let (mode, index) = if !visible_recovery.is_empty() {
+        let mode = if !visible_recovery.is_empty() {
             append_notice(
                 &mut notice,
                 format!(
-                    "{} interrupted operation(s) need explicit resume or rollback before indexing.",
+                    "{} interrupted operation(s) need explicit resume or rollback.",
                     visible_recovery.len()
                 ),
             );
-            (VaultOpenMode::ReadOnly, ObjectIndex::default())
+            VaultOpenMode::ReadOnly
         } else if writer_lock.is_some() {
             ensure_workspace(&root, &vault_id.to_string())?;
             crate::workspace::WorkspaceWriter::new(root.clone()).recover_file_sets()?;
-            TransactionService::<NoTransactionFault>::cleanup_terminal(&root)?;
-            let quarantined =
-                TransactionService::<NoTransactionFault>::quarantine_orphan_project_creations(
-                    &root,
-                )?;
-            if quarantined > 0 {
-                append_notice(
-                    &mut notice,
-                    format!(
-                        "Moved {quarantined} incomplete project creation(s) without journals to the vault trash."
-                    ),
-                );
-            }
-            // Re-read under the writer lease; the preview above exists to guarantee that future
-            // versions are rejected before we create or replace project data.
-            preflight_authoritative_json(&root)?;
-            let migrations = inspect_project_schemas(&root)?;
-            let migrated = migrate_known_projects(&root, migrations)?;
-            if migrated > 0 {
-                append_notice(
-                    &mut notice,
-                    format!(
-                        "Migrated {migrated} project manifest(s) with exact version-0 backups."
-                    ),
-                );
-            }
-            (VaultOpenMode::ReadWrite, ObjectIndex::rebuild(&root)?)
-        } else if schema_preview.is_empty() {
-            (VaultOpenMode::ReadOnly, ObjectIndex::rebuild(&root)?)
+            VaultOpenMode::ReadWrite
         } else {
-            append_notice(
-                &mut notice,
-                format!(
-                    "{} project manifest(s) need migration by the active writer before indexing.",
-                    schema_preview.len()
-                ),
-            );
-            (VaultOpenMode::ReadOnly, ObjectIndex::default())
+            VaultOpenMode::ReadOnly
         };
 
         self.next_generation = self.next_generation.saturating_add(1).max(1);
@@ -293,7 +240,7 @@ impl VaultService {
             vault_id,
             path: root.path().to_string_lossy().into_owned(),
             mode,
-            indexed_objects: index.len(),
+            indexed_objects: usize::from(visible_recovery.is_empty()),
             notice,
             recovery: visible_recovery,
             recovery_writable,
@@ -309,7 +256,6 @@ impl VaultService {
                 writer_lock,
                 background_mutation: Arc::new(AtomicBool::new(false)),
                 recovery_required: !result.recovery.is_empty(),
-                index,
             },
         );
         Ok(result)
@@ -330,7 +276,7 @@ impl VaultService {
                 session.root.path(),
                 session.vault_id,
                 session.mode,
-                session.index.len(),
+                usize::from(!session.recovery_required),
             )
         })
     }
@@ -449,35 +395,6 @@ impl VaultService {
         })
     }
 
-    pub(crate) fn context(
-        &self,
-        session_id: ObjectId,
-    ) -> Result<VaultSessionContext, StorageError> {
-        let session = self
-            .sessions
-            .get(&session_id)
-            .ok_or_else(|| StorageError::InvalidVault("unknown vault session".to_owned()))?;
-        let background_mutation = session.background_mutation.load(Ordering::Acquire);
-        if !background_mutation
-            && !TransactionService::<NoTransactionFault>::scan_open(&session.root)?.is_empty()
-        {
-            return Err(StorageError::RecoveryRequired(
-                "an interrupted transaction blocks workspace access until recovery".to_owned(),
-            ));
-        }
-        Ok(VaultSessionContext {
-            root: session.root.clone(),
-            // Background jobs retain the process writer lease after releasing the service
-            // mutex. Presenting their session as temporarily read-only lets ordinary reads
-            // continue while every existing service-level write guard fails closed.
-            mode: if background_mutation {
-                VaultOpenMode::ReadOnly
-            } else {
-                session.mode
-            },
-        })
-    }
-
     pub fn session_root(
         &self,
         session_id: ObjectId,
@@ -523,27 +440,6 @@ impl VaultService {
         self.session_root(session_id, require_write)
     }
 
-    pub(crate) fn refresh_index(&mut self, session_id: ObjectId) -> Result<(), StorageError> {
-        let session = self
-            .sessions
-            .get_mut(&session_id)
-            .ok_or_else(|| StorageError::InvalidVault("unknown vault session".to_owned()))?;
-        if !TransactionService::<NoTransactionFault>::scan_open(&session.root)?.is_empty() {
-            session.mode = VaultOpenMode::ReadOnly;
-            session.recovery_required = true;
-            return Err(StorageError::RecoveryRequired(
-                "an interrupted transaction blocks index refresh until recovery".to_owned(),
-            ));
-        }
-        if session.mode != VaultOpenMode::ReadWrite || session.recovery_required {
-            return Err(StorageError::InvalidVault(
-                "cannot rebuild a writable index during vault recovery".to_owned(),
-            ));
-        }
-        session.index = ObjectIndex::rebuild(&session.root)?;
-        Ok(())
-    }
-
     fn refresh_recovery(&mut self, session_id: ObjectId) -> Result<RecoveryStatus, StorageError> {
         let session = self
             .sessions
@@ -559,14 +455,8 @@ impl VaultService {
             disable_recovery_actions(&mut recovery, "recovery requires the active writer lease");
         }
         if recovery.is_empty() && session.recovery_required && session.writer_lock.is_some() {
-            TransactionService::<NoTransactionFault>::cleanup_terminal(&session.root)?;
-            TransactionService::<NoTransactionFault>::quarantine_orphan_project_creations(
-                &session.root,
-            )?;
-            preflight_authoritative_json(&session.root)?;
-            let migrations = inspect_project_schemas(&session.root)?;
-            migrate_known_projects(&session.root, migrations)?;
-            session.index = ObjectIndex::rebuild(&session.root)?;
+            ensure_workspace(&session.root, &session.vault_id.to_string())?;
+            crate::workspace::WorkspaceWriter::new(session.root.clone()).recover_file_sets()?;
             session.mode = VaultOpenMode::ReadWrite;
             session.recovery_required = false;
         }
@@ -574,7 +464,7 @@ impl VaultService {
             recovery,
             mode: session.mode,
             recovery_writable,
-            indexed_objects: session.index.len(),
+            indexed_objects: usize::from(!session.recovery_required),
         })
     }
 }
@@ -593,398 +483,22 @@ fn inspect_existing_vault(
         });
     }
     let layout = VaultLayout::new(root.clone());
-    let loaded = JsonStore::default().load(&layout.vault_manifest()?);
+    let loaded = JsonStore::default().load::<Vault>(&layout.vault_manifest()?);
     match loaded {
-        Ok(value) => match value.value {
-            DomainDocument::Vault(vault) => {
-                let lock = layout.writer_lock()?;
-                Ok(VaultInspection::Valid {
-                    path: display_path,
-                    vault_id: vault.id,
-                    writer_present: VaultLock::writer_present(&lock)?,
-                    lock_recovery: VaultLock::inspect_recovery(&lock)?,
-                })
-            }
-            _ => Ok(VaultInspection::Damaged {
+        Ok(value) => {
+            let lock = layout.writer_lock()?;
+            Ok(VaultInspection::Valid {
                 path: display_path,
-                message: "vault.json has the wrong document kind".to_owned(),
-            }),
-        },
+                vault_id: value.value.id,
+                writer_present: VaultLock::writer_present(&lock)?,
+                lock_recovery: VaultLock::inspect_recovery(&lock)?,
+            })
+        }
         Err(error) => Ok(VaultInspection::Damaged {
             path: display_path,
             message: error.to_string(),
         }),
     }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ProjectV0 {
-    schema_version: u32,
-    kind: DocumentKind,
-    id: ObjectId,
-    name: String,
-    created_at: UtcTimestamp,
-    updated_at: UtcTimestamp,
-}
-
-#[derive(Debug, Deserialize)]
-struct ProjectHeader {
-    schema_version: u64,
-    kind: DocumentKind,
-}
-
-#[derive(Debug)]
-struct LegacyProject {
-    folder: PathBuf,
-    original: Vec<u8>,
-    value: ProjectV0,
-}
-
-fn preflight_authoritative_json(root: &VaultRoot) -> Result<(), StorageError> {
-    preflight_authoritative_directory(root, root.path(), 0)
-}
-
-fn preflight_authoritative_directory(
-    root: &VaultRoot,
-    directory: &Path,
-    depth: u8,
-) -> Result<(), StorageError> {
-    if depth > 32 {
-        return Err(StorageError::InvalidVault(
-            "authoritative vault data exceeds the supported nesting depth".to_owned(),
-        ));
-    }
-    let mut entries = fs::read_dir(directory)
-        .map_err(|error| StorageError::io("preflight vault JSON", directory, error))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| StorageError::io("preflight vault JSON", directory, error))?;
-    entries.sort_by_key(fs::DirEntry::file_name);
-    for entry in entries {
-        let path = entry.path();
-        let relative = path
-            .strip_prefix(root.path())
-            .map_err(|_| StorageError::UnsafePath {
-                path: "vault".to_owned(),
-                reason: "authoritative preflight escaped the vault".to_owned(),
-            })?;
-        let kind = entry.file_type().map_err(|error| {
-            StorageError::io("inspect authoritative vault entry", relative, error)
-        })?;
-        if is_derived_managed_path(relative) {
-            continue;
-        }
-        if kind.is_symlink() {
-            if managed_json_kind(root.path(), relative).is_some()
-                || is_managed_namespace_path(root.path(), relative)
-            {
-                return Err(StorageError::UnsafePath {
-                    path: relative.to_string_lossy().into_owned(),
-                    reason: "authoritative vault data cannot be a symbolic link".to_owned(),
-                });
-            }
-            continue;
-        }
-        if kind.is_dir() {
-            preflight_authoritative_directory(root, &path, depth + 1)?;
-            continue;
-        }
-        let Some(managed_kind) = managed_json_kind(root.path(), relative) else {
-            continue;
-        };
-        if !kind.is_file() {
-            return Err(StorageError::UnsafePath {
-                path: relative.to_string_lossy().into_owned(),
-                reason: "authoritative JSON must be a regular file".to_owned(),
-            });
-        }
-        if path.extension().is_none_or(|extension| extension != "json") {
-            continue;
-        }
-        let metadata = entry
-            .metadata()
-            .map_err(|error| StorageError::io("inspect authoritative JSON", relative, error))?;
-        if metadata.len() > MAX_PROJECT_MANIFEST_BYTES {
-            return Err(StorageError::InvalidVault(format!(
-                "authoritative JSON `{}` exceeds the supported size",
-                relative.to_string_lossy()
-            )));
-        }
-        let bytes = fs::read(&path)
-            .map_err(|error| StorageError::io("read authoritative JSON", relative, error))?;
-        let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|error| {
-            StorageError::InvalidVault(format!(
-                "invalid authoritative JSON `{}`: {error}",
-                relative.to_string_lossy()
-            ))
-        })?;
-        let version_value = value.get("schema_version").ok_or_else(|| {
-            StorageError::InvalidVault(format!(
-                "authoritative JSON `{}` has no schema_version",
-                relative.to_string_lossy()
-            ))
-        })?;
-        let version = version_value.as_u64().ok_or_else(|| {
-            StorageError::InvalidVault(format!(
-                "schema_version in `{}` must be an unsigned integer",
-                relative.to_string_lossy()
-            ))
-        })?;
-        if version > u64::from(SCHEMA_VERSION) {
-            return Err(StorageError::FutureSchemaProtected {
-                found: version,
-                supported: SCHEMA_VERSION,
-            });
-        }
-        if version < u64::from(SCHEMA_VERSION) && !(version == 0 && is_project_manifest(relative)) {
-            return Err(StorageError::InvalidVault(format!(
-                "no safe migration is available for schema version {version} in `{}`",
-                relative.to_string_lossy()
-            )));
-        }
-        if version == u64::from(SCHEMA_VERSION) {
-            validate_current_managed_json(relative, managed_kind, &bytes)?;
-        }
-    }
-    Ok(())
-}
-
-fn validate_current_managed_json(
-    relative: &Path,
-    managed_kind: ManagedJsonKind,
-    bytes: &[u8],
-) -> Result<(), StorageError> {
-    match managed_kind {
-        ManagedJsonKind::Domain(expected) => {
-            let document = parse_document(bytes)?;
-            let actual = domain_document_kind(&document);
-            if actual != expected {
-                return Err(StorageError::InvalidVault(format!(
-                    "authoritative JSON `{}` has kind {actual:?}, expected {expected:?}",
-                    relative.to_string_lossy()
-                )));
-            }
-        }
-        ManagedJsonKind::Support(ManagedSupportJsonKind::LabelCatalog) => {
-            let document: LabelCatalog = serde_json::from_slice(bytes).map_err(|error| {
-                StorageError::InvalidVault(format!(
-                    "invalid label catalog `{}`: {error}",
-                    relative.to_string_lossy()
-                ))
-            })?;
-            document.validate()?;
-        }
-        ManagedJsonKind::Support(ManagedSupportJsonKind::ProjectView) => {
-            let document: ProjectViewState = serde_json::from_slice(bytes).map_err(|error| {
-                StorageError::InvalidVault(format!(
-                    "invalid project view `{}`: {error}",
-                    relative.to_string_lossy()
-                ))
-            })?;
-            document.validate()?;
-        }
-        ManagedJsonKind::Support(ManagedSupportJsonKind::MotionDraft) => {
-            let document: MotionDraft = serde_json::from_slice(bytes).map_err(|error| {
-                StorageError::InvalidVault(format!(
-                    "invalid motion draft `{}`: {error}",
-                    relative.to_string_lossy()
-                ))
-            })?;
-            document.validate()?;
-        }
-        ManagedJsonKind::Support(ManagedSupportJsonKind::Other) => {}
-    }
-    Ok(())
-}
-
-fn domain_document_kind(document: &DomainDocument) -> DocumentKind {
-    match document {
-        DomainDocument::Vault(value) => value.kind,
-        DomainDocument::Label(value) => value.kind,
-        DomainDocument::Project(value) => value.kind,
-        DomainDocument::Area(value) => value.kind,
-        DomainDocument::ProfileRevision(value) => value.kind,
-        DomainDocument::MotionTemplate(value) => value.kind,
-        DomainDocument::MotionRevision(value) => value.kind,
-        DomainDocument::Asset(value) => value.kind,
-        DomainDocument::AssetRevision(value) => value.kind,
-        DomainDocument::OutfitDraft(value) => value.kind,
-        DomainDocument::Character(value) => value.kind,
-        DomainDocument::Appearance(value) => value.kind,
-        DomainDocument::AnimationBinding(value) => value.kind,
-        DomainDocument::ExportManifest(value) => value.kind,
-    }
-}
-
-fn is_project_manifest(relative: &Path) -> bool {
-    let parts = relative
-        .components()
-        .map(|component| component.as_os_str())
-        .collect::<Vec<_>>();
-    parts.len() == 3 && parts[1] == ".project" && parts[2] == "project.json"
-}
-
-fn inspect_project_schemas(root: &VaultRoot) -> Result<Vec<LegacyProject>, StorageError> {
-    let mut entries = fs::read_dir(root.path())
-        .map_err(|error| StorageError::io("scan project migrations", root.path(), error))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| StorageError::io("scan project migrations", root.path(), error))?;
-    entries.sort_by_key(fs::DirEntry::file_name);
-    let mut legacy = Vec::new();
-    for entry in entries {
-        let kind = entry.file_type().map_err(|error| {
-            StorageError::io("inspect project migration candidate", &entry.path(), error)
-        })?;
-        if kind.is_symlink() || !kind.is_dir() {
-            continue;
-        }
-        let name = entry.file_name();
-        if name == ADMIN_DIR || name == ".trash" || name.to_string_lossy().starts_with('.') {
-            continue;
-        }
-        let folder = PathBuf::from(name);
-        let manifest = root.resolve(&folder.join(".project/project.json"))?;
-        let metadata = match fs::symlink_metadata(manifest.as_path()) {
-            Ok(metadata) => metadata,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
-            Err(error) => {
-                return Err(StorageError::io(
-                    "inspect project migration manifest",
-                    manifest.relative(),
-                    error,
-                ));
-            }
-        };
-        if metadata.file_type().is_symlink()
-            || !metadata.is_file()
-            || metadata.len() > MAX_PROJECT_MANIFEST_BYTES
-        {
-            return Err(StorageError::UnsafePath {
-                path: manifest.relative().to_string_lossy().into_owned(),
-                reason: "project manifest must be a bounded regular file".to_owned(),
-            });
-        }
-        let bytes = fs::read(manifest.as_path()).map_err(|error| {
-            StorageError::io(
-                "read project migration manifest",
-                manifest.relative(),
-                error,
-            )
-        })?;
-        let header: ProjectHeader = serde_json::from_slice(&bytes).map_err(|error| {
-            StorageError::InvalidVault(format!("invalid project header: {error}"))
-        })?;
-        if header.kind != DocumentKind::Project {
-            return Err(StorageError::InvalidVault(
-                "project manifest has the wrong document kind".to_owned(),
-            ));
-        }
-        if header.schema_version > u64::from(SCHEMA_VERSION) {
-            return Err(StorageError::FutureSchemaProtected {
-                found: header.schema_version,
-                supported: SCHEMA_VERSION,
-            });
-        }
-        match header.schema_version {
-            version if version == u64::from(SCHEMA_VERSION) => {
-                if !matches!(
-                    crate::domain::parse_document(&bytes)?,
-                    DomainDocument::Project(_)
-                ) {
-                    return Err(StorageError::InvalidVault(
-                        "project manifest has the wrong document kind".to_owned(),
-                    ));
-                }
-            }
-            0 => {
-                let value: ProjectV0 = serde_json::from_slice(&bytes).map_err(|error| {
-                    StorageError::InvalidVault(format!("invalid version 0 project: {error}"))
-                })?;
-                if value.schema_version != 0 || value.kind != DocumentKind::Project {
-                    return Err(StorageError::InvalidVault(
-                        "invalid version 0 project discriminator".to_owned(),
-                    ));
-                }
-                validate_name("project.name", &value.name)?;
-                legacy.push(LegacyProject {
-                    folder,
-                    original: bytes,
-                    value,
-                });
-            }
-            version => {
-                return Err(StorageError::FutureSchemaProtected {
-                    found: version,
-                    supported: SCHEMA_VERSION,
-                });
-            }
-        }
-    }
-    Ok(legacy)
-}
-
-fn migrate_known_projects(
-    root: &VaultRoot,
-    projects: Vec<LegacyProject>,
-) -> Result<usize, StorageError> {
-    let count = projects.len();
-    for legacy in projects {
-        let project = Project {
-            schema_version: SCHEMA_VERSION,
-            kind: DocumentKind::Project,
-            id: legacy.value.id,
-            revision: 1,
-            name: legacy.value.name,
-            status: RecordStatus::Active,
-            workspace_label_ids: Vec::new(),
-            created_at: legacy.value.created_at,
-            updated_at: legacy.value.updated_at,
-        };
-        project.validate()?;
-        let transaction_id = ObjectId::new();
-        let stage_root = legacy
-            .folder
-            .join(".project/transactions")
-            .join(format!("{transaction_id}.stage"));
-        let stage = stage_root.join("project.json");
-        let target = legacy.folder.join(".project/project.json");
-        let backup = legacy
-            .folder
-            .join(".project/backups/migrations")
-            .join(transaction_id.to_string())
-            .join("project-v0.json");
-        root.ensure_directory(&stage_root)?;
-        if let Err(error) =
-            JsonStore::default().create(&root.resolve(&stage)?, &DomainDocument::Project(project))
-        {
-            let _ = fs::remove_dir_all(root.resolve(&stage_root)?.as_path());
-            return Err(error);
-        }
-        let steps = vec![TransactionStep {
-            action: TransactionAction::Replace,
-            target: portable(&target)?,
-            staged: portable(&stage)?,
-            backup: Some(portable(&backup)?),
-            expected_sha256: Some(VersionStamp::from_bytes(&legacy.original).sha256),
-        }];
-        let transactions = TransactionService::default();
-        if let Err(error) = transactions.prepare(
-            root,
-            &legacy.folder,
-            transaction_id,
-            TransactionPurpose::Migration,
-            steps,
-        ) {
-            let _ = fs::remove_dir_all(root.resolve(&stage_root)?.as_path());
-            return Err(error);
-        }
-        transactions.execute(root, &legacy.folder, transaction_id)?;
-    }
-    Ok(count)
-}
-
-fn portable(path: &Path) -> Result<RelativePath, StorageError> {
-    RelativePath::parse(path.to_string_lossy().replace('\\', "/")).map_err(StorageError::from)
 }
 
 fn disable_recovery_actions(candidates: &mut [RecoveryCandidate], issue: &str) {

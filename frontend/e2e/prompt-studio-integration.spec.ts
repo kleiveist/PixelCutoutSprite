@@ -24,8 +24,7 @@ test("renders one shared shell and retains independent module navigation", async
   await expect(page.getByRole("button", { name: "Open shortcut help" })).toBeVisible();
   await openStudio(page, "cutout");
 
-  await page.getByRole("button", { name: "Areas" }).click();
-  await expect(page.getByRole("heading", { name: "Areas" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen im Cutout-Studio" })).toBeVisible();
 
   await openStudio(page, "prompt");
   await expect(page.getByRole("region", { name: "PixelPromptStudio Generator" })).toBeVisible();
@@ -38,10 +37,11 @@ test("renders one shared shell and retains independent module navigation", async
   await expect(
     page.getByRole("heading", { name: "Sprites aus geprüften Teilen zusammensetzen." }),
   ).toBeVisible();
-  await expect(page.getByText(/Dateiauswahl verfügbar.*noch kein Zusammenbau/)).toBeVisible();
+  await expect(page.getByText(/Originalanordnung wird aus Crop-Ursprung/)).toBeVisible();
+  await expect(page.getByRole("tab", { name: "View", exact: true })).toBeVisible();
 
   await openStudio(page, "cutout");
-  await expect(page.getByRole("heading", { name: "Areas" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen im Cutout-Studio" })).toBeVisible();
   await openStudio(page, "prompt");
   await expect(page.getByRole("heading", { name: "Kein Vault geöffnet" })).toBeVisible();
 });

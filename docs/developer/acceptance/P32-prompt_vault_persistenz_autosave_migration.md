@@ -1,5 +1,9 @@
 # P32 · Prompt-Vault-Persistenz, Autosave und bestätigte Migration
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 Datum: 2026-09-09
 Status: Frontend-Gates grün; native Dateisystemtests umgebungsbedingt offen
 Anforderungen: R-D01, R-D02, R-D03, R-D04, R-D05, R-D06, R-D07, R-D10, R-P02, R-P09, R-P11, R-P12

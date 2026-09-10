@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { StudioMode } from "../../app/navigation";
+export type StudioMode = "cutout" | "prompt" | "sprite";
 
 export interface ModuleNavigationItem<Id extends string = string> {
   readonly id: Id;

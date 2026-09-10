@@ -1,0 +1,39 @@
+{
+  "phase": "P40",
+  "date": "2026-09-10",
+  "baseCommit": "f85e24d41197fe74dd64a9d8e2670c382b3f65b8",
+  "workingTree": "uncommitted P37 through P40; no push or release",
+  "implementationGate": "passed",
+  "overallNativeGuiAcceptance": "not established; separate P43 gate",
+  "environment": "Linux Docker, AMD Ryzen 7 3700X, Node 24.19.0, npm 11.17.0, Rust 1.97.1",
+  "sourceInventory": {
+    "command": "rg --files frontend/src frontend/e2e src-tauri/src src-tauri/tests tests/source -g '*.ts' -g '*.tsx' -g '*.css' -g '*.json' -g '*.rs' -g '*.py' -0 | sort -z | xargs -0 sha256sum | sha256sum",
+    "sha256": "8bcc99a80906ec839e10eeee4c8b89e0c4fe841fdf3e5823b24290b4013e9aa9"
+  },
+  "checks": [
+    {"command": "npm --prefix frontend run test", "exitCode": 0, "files": 137, "tests": 720, "logSha256": "ec601e747f72c87f2750a4ef40ba69319566f51a343ed79db93541f23f3f75a5", "excerpt": "Test Files 137 passed (137); Tests 720 passed (720); Duration 115.28s"},
+    {"command": "npm --prefix frontend run test:e2e -- --output=/tmp/p38-p43-validation.Xozjjs/p40-browser-final", "exitCode": 0, "tests": 14, "logSha256": "b908360902b0d3839ac18c25cc3d1155fa299942b9a889821e560ca9c66614ea", "excerpt": "14 passed (28.5s)", "scope": "Production browser frontend with controlled IPC fixtures, not native GUI/filesystem acceptance"},
+    {"command": "npm --prefix frontend run typecheck", "exitCode": 0},
+    {"command": "npm --prefix frontend run lint", "exitCode": 0},
+    {"command": "npm --prefix frontend run format:check", "exitCode": 0},
+    {"command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features", "exitCode": 0, "tests": 111, "libTests": 80, "compositionTests": 1, "recoveryTests": 18, "vaultTests": 12, "logSha256": "2bb40686739aa5bb9b68557735aa67724f59c3ce31b2fcf73c5af5d3d54f1218", "note": "Recovery child-process result counted once."},
+    {"command": "cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings", "exitCode": 0},
+    {"command": "cargo fmt --manifest-path src-tauri/Cargo.toml --check", "exitCode": 0},
+    {"command": "python -m pytest -q -p no:cacheprovider tests/source/test_studio_final_architecture.py tests/source/test_studio_distribution_policy.py tools/tests/test_tauri_control.py tools/tests/test_control_help.py tools/tests/test_configuration.py tools/tests/test_control_test_reporting.py", "exitCode": 0, "tests": 108, "logSha256": "01cb5828a1b49d7d68e268ebcc1172e7335badd88be747b465d5a941fc7f26bb"},
+    {"command": "python tools/control.py quality architecture", "exitCode": 0, "typescriptSources": 390, "logSha256": "773c5a2a41b8ecbe6f5ce5de15e62e2069bf4f1c5ec8b3520c58e1b43ab979c5"}
+  ],
+  "generationTests": {
+    "source": "src-tauri/src/cutout/generation_tests.rs",
+    "tests": 9,
+    "initialMigrationPublishSteps": 57,
+    "interruptedSteps": [1, 19, 20, 21, 54, 55, 56, 57],
+    "pixelFixture": "7x5 synthetic asymmetric RGBA, alpha 0/91/255; independent crop/coordinate assertions",
+    "outputNames": "15 mandatory, optional 16_cape.png, 17_belt_accessory.png XOR 17_sword.png, 18_hair.png",
+    "canonicalRecovery": "old owned project/snapshot/masks removed transactionally; location.json redirects to the single active set project",
+    "unchangedFiles": "original image, unknown siblings, existing sprite.scene.json; modified owned/unowned colliding PNGs cause conflict"
+  },
+  "newWriterTests": 3,
+  "newFrontendTests": 4,
+  "unchangedFromRepositoryBase": ["tools/", "docs/toolingdocs/", "frontend/package-lock.json", "src-tauri/Cargo.lock", "src-tauri/Cargo.toml", "src-tauri/tauri.conf.json"],
+  "artifactsDirectoryEphemeral": "/tmp/p38-p43-validation.Xozjjs"
+}

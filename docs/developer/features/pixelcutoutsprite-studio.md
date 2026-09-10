@@ -4,6 +4,10 @@
 
 # PixelCutoutSprite Studio — Produktspezifikation und technische Planung
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](../acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 **Version:** 1.0 · **Stand:** 6. September 2026 · **Sprache:** Deutsch
 **Repository:** `kleiveist/PixelCutoutSprite`
 **Status:** Verbindliche Produktspezifikation; P00–P22 sind umgesetzt und die tatsächlichen

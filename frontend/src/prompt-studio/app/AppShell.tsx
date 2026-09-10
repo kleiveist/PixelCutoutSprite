@@ -2,14 +2,12 @@ import { useCallback } from "react";
 import { ViewLink } from "../components/navigation";
 import { APP_VIEW_IDS, type AppView } from "../domain/navigation";
 import type { AssetCategory } from "../domain/assets";
-import type { PromptHandoff, PromptHandoffAvailability } from "../domain/handoff";
 import { VaultReviewOutputWorkspace } from "../features/review-output/VaultReviewOutputWorkspace";
 import { WizardView, type WizardStorage } from "../features/wizard";
 import { VaultProfileView } from "../features/profiles";
 import { VaultDashboardView } from "../features/dashboard/VaultDashboardView";
 import type { DashboardStorage } from "../features/dashboard/dashboardData";
-import { StableIdSchema, type StableId } from "../schemas";
-import type { LegacyV1StorageMigrationResult, OutputWorkspaceAdapter } from "../services";
+import { StableIdSchema } from "../schemas";
 import { useNavigation } from "../store/navigation";
 import { useWizardSession } from "../store/wizard";
 import { useOptionalVaultPrompt } from "../store/vault";
@@ -17,15 +15,10 @@ import { APP_VIEW_DEFINITIONS } from "./appViewConfig";
 import styles from "./AppShell.module.css";
 
 export interface PromptStudioShellProps {
-  readonly activeBaseProfileId: StableId | null;
   readonly createDraftId?: () => string;
   readonly now?: () => string;
-  readonly handoffAvailability?: PromptHandoffAvailability;
-  readonly onHandoff?: (handoff: PromptHandoff) => Promise<void> | void;
   readonly onOpenBaseProfile?: () => void;
   readonly onOpenLegacyMigration: () => void;
-  readonly outputAdapter: OutputWorkspaceAdapter;
-  readonly startupMigration: LegacyV1StorageMigrationResult;
   readonly storageAdapter: DashboardStorage & WizardStorage;
   readonly view: AppView;
 }

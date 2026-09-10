@@ -1,21 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-const PROMPT_ASSET_CATEGORIES: [&str; 9] = [
-    "character",
-    "movingObject",
-    "staticObject",
-    "texture",
-    "nature",
-    "building",
-    "tileset",
-    "item",
-    "artwork",
-];
-
-pub const PROMPT_HANDOFF_SCHEMA_VERSION: u32 = 1;
 pub const PROMPT_WORKSPACE_SCHEMA_VERSION: u64 = 2;
-pub const MAX_PROMPT_OUTPUT_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -97,90 +83,10 @@ pub struct PromptWorkspaceSnapshot {
     pub migration_backup: Option<Value>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PromptHandoff {
-    pub schema_version: u32,
-    pub category: String,
-    pub prompt: String,
-    pub negative_prompt: String,
-    pub technical_prompt: String,
-    pub profile_references: Vec<String>,
-    pub created_at: String,
-}
-
-impl PromptHandoff {
-    pub fn validate(&self) -> Result<(), String> {
-        if self.schema_version != PROMPT_HANDOFF_SCHEMA_VERSION {
-            return Err("unsupported prompt handoff schemaVersion".to_owned());
-        }
-        bounded_nonempty("category", &self.category, 120)?;
-        if !PROMPT_ASSET_CATEGORIES.contains(&self.category.as_str()) {
-            return Err("prompt handoff category is not supported".to_owned());
-        }
-        bounded_nonempty("prompt", &self.prompt, 1_000_000)?;
-        bounded_nonempty("negativePrompt", &self.negative_prompt, 500_000)?;
-        bounded_nonempty("technicalPrompt", &self.technical_prompt, 500_000)?;
-        bounded_nonempty("createdAt", &self.created_at, 80)?;
-        chrono::DateTime::parse_from_rfc3339(&self.created_at)
-            .map_err(|_| "createdAt must be an RFC 3339 timestamp".to_owned())?;
-        if self.profile_references.len() > 128 {
-            return Err("profileReferences exceeds 128 entries".to_owned());
-        }
-        for reference in &self.profile_references {
-            bounded_nonempty("profileReferences", reference, 128)?;
-        }
-        Ok(())
-    }
-}
-
-fn bounded_nonempty(field: &str, value: &str, maximum: usize) -> Result<(), String> {
-    if value.trim().is_empty() || value.len() > maximum || value.contains('\0') {
-        return Err(format!(
-            "{field} must be non-empty and at most {maximum} bytes"
-        ));
-    }
-    Ok(())
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PromptOutputFormat {
-    Markdown,
-    Json,
-}
-
-impl PromptOutputFormat {
-    pub fn extension(self) -> &'static str {
-        match self {
-            Self::Markdown => "md",
-            Self::Json => "json",
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct PromptHandoffReceipt {
-    pub relative_path: String,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
-
-    fn handoff() -> PromptHandoff {
-        PromptHandoff {
-            schema_version: PROMPT_HANDOFF_SCHEMA_VERSION,
-            category: "character".to_owned(),
-            prompt: "main prompt".to_owned(),
-            negative_prompt: "negative prompt".to_owned(),
-            technical_prompt: "technical prompt".to_owned(),
-            profile_references: vec!["asset_hero".to_owned()],
-            created_at: "2026-09-06T10:00:00Z".to_owned(),
-        }
-    }
-
     #[test]
     fn validates_workspace_file_boundaries() {
         assert!(PromptWorkspaceFile::Settings
@@ -199,22 +105,5 @@ mod tests {
         assert!(PromptWorkspaceFile::Profiles
             .validate(&json!({"baseProfiles": {}, "categoryProfiles": [], "assetProfiles": []}))
             .is_err());
-    }
-
-    #[test]
-    fn validates_handoff_category_timestamp_and_limits() {
-        assert!(handoff().validate().is_ok());
-
-        let mut invalid_category = handoff();
-        invalid_category.category = "animation-project".to_owned();
-        assert!(invalid_category.validate().is_err());
-
-        let mut invalid_timestamp = handoff();
-        invalid_timestamp.created_at = "yesterday".to_owned();
-        assert!(invalid_timestamp.validate().is_err());
-
-        let mut too_many_profiles = handoff();
-        too_many_profiles.profile_references = vec!["profile".to_owned(); 129];
-        assert!(too_many_profiles.validate().is_err());
     }
 }

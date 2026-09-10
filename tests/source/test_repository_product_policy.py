@@ -16,7 +16,9 @@ def test_container_baseline_is_non_root_and_profiled() -> None:
     if not deployment.is_dir():
         pytest.skip("Container baselines are absent from this source profile")
     backend = (deployment / "docker" / "backend.Dockerfile").read_text(encoding="utf-8")
-    frontend = (deployment / "docker" / "frontend.Dockerfile").read_text(encoding="utf-8")
+    frontend = (deployment / "docker" / "frontend.Dockerfile").read_text(
+        encoding="utf-8"
+    )
     compose = (deployment / "compose.yaml").read_text(encoding="utf-8")
 
     assert backend.count("FROM python:3.11.16-slim-bookworm") == 2
@@ -52,8 +54,14 @@ def test_production_locks_match_container_python_runtime() -> None:
     if profile.has_feature("postgres"):
         lock_names.append("requirements-postgres-production.lock")
     lock_paths = tuple(backend / name for name in lock_names)
-    missing = tuple(path.relative_to(REPOSITORY_ROOT).as_posix() for path in lock_paths if not path.is_file())
-    assert not missing, f"source repository is missing production lock(s): {', '.join(missing)}"
+    missing = tuple(
+        path.relative_to(REPOSITORY_ROOT).as_posix()
+        for path in lock_paths
+        if not path.is_file()
+    )
+    assert not missing, (
+        f"source repository is missing production lock(s): {', '.join(missing)}"
+    )
     locks = {path.name: path.read_text(encoding="utf-8") for path in lock_paths}
 
     assert all("pip-compile with Python 3.11" in content for content in locks.values())
@@ -70,7 +78,12 @@ def test_template_tauri_capability_is_least_privilege() -> None:
 
     assert capability["identifier"] == "default"
     assert capability["windows"] == ["main"]
-    assert capability["permissions"] == ["core:default", "dialog:allow-open"]
+    assert capability["permissions"] == [
+        "core:default",
+        "dialog:allow-open",
+        "core:window:allow-destroy",
+        "core:webview:allow-set-webview-zoom",
+    ]
     assert "remote" not in capability
 
 

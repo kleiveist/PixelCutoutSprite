@@ -24,7 +24,7 @@ impl Drop for ReadPermit {
     }
 }
 
-async fn workspace_read<R: Runtime, T: Send + 'static>(
+pub(crate) async fn workspace_read<R: Runtime, T: Send + 'static>(
     app: AppHandle<R>,
     session_id: String,
     generation: u64,
@@ -58,6 +58,37 @@ async fn workspace_read<R: Runtime, T: Send + 'static>(
     })
     .await
     .map_err(|error| format!("Dateinavigation konnte nicht abgeschlossen werden: {error}"))?
+}
+
+pub(crate) async fn workspace_write<R: Runtime, T: Send + 'static>(
+    app: AppHandle<R>,
+    session_id: String,
+    generation: u64,
+    operation: impl FnOnce(&VaultRoot) -> Result<T, StorageError> + Send + 'static,
+) -> Result<T, String> {
+    let id = ObjectId::parse("session_id", &session_id).map_err(|e| e.to_string())?;
+    // Acquire before scheduling: competing/stale/read-only requests never enter the worker.
+    let lease = {
+        let state = app.state::<Mutex<VaultService>>();
+        let service = state
+            .lock()
+            .map_err(|_| "vault service lock is poisoned".to_owned())?;
+        service
+            .session_root_at_generation(id, generation, true)
+            .map_err(|e| e.to_string())?;
+        service.write_lease(id).map_err(|e| e.to_string())?
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = operation(lease.root()).map_err(|e| e.to_string());
+        app.state::<Mutex<VaultService>>()
+            .lock()
+            .map_err(|_| "vault service lock is poisoned".to_owned())?
+            .session_root_at_generation(id, generation, false)
+            .map_err(|e| e.to_string())?;
+        result
+    })
+    .await
+    .map_err(|e| format!("Vault-Speicherung abgebrochen: {e}"))?
 }
 
 #[tauri::command]

@@ -120,7 +120,7 @@ describe("PixelStudio V3 contract envelopes", () => {
       id: "cutout_fixture",
       revision: 1,
       source: {
-        snapshotPath: "Bilder/Kleif/.source/original.png",
+        snapshotPath: ".source/original.png",
         sha256: hash,
         width: 96,
         height: 128,
@@ -144,7 +144,7 @@ describe("PixelStudio V3 contract envelopes", () => {
       generationId: "generation_fixture",
       cutoutRevision: 1,
       source: {
-        snapshotPath: "Bilder/Kleif/.source/original.png",
+        snapshotPath: ".source/original.png",
         sha256: hash,
         width: 96,
         height: 128,
@@ -153,7 +153,7 @@ describe("PixelStudio V3 contract envelopes", () => {
       parts: [
         {
           partId: "head",
-          file: "Bilder/Kleif/01_head.png",
+          file: "01_head.png",
           sha256: hash,
           sourceRect: { x: 8, y: 4, width: 16, height: 20 },
           pivot: { x: 8, y: 16 },
@@ -166,6 +166,12 @@ describe("PixelStudio V3 contract envelopes", () => {
       createdAt: now,
     };
     expect(SpritePartsEnvelopeSchema.safeParse(manifest).success).toBe(true);
+    expect(
+      SpritePartsEnvelopeSchema.safeParse({
+        ...manifest,
+        parts: [{ ...manifest.parts[0], file: "Bilder/Kleif/01_head.png" }],
+      }).success,
+    ).toBe(false);
     expect(
       SpritePartsEnvelopeSchema.safeParse({
         ...manifest,

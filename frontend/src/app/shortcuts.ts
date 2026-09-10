@@ -1,6 +1,6 @@
-import { isTextEditingKeyboardTarget, ownsNativeSpaceKey } from "../components/keyboard";
+import { isTextEditingKeyboardTarget } from "../components/keyboard";
 
-export type KeyboardAction = "save" | "undo" | "redo" | "toggle-playback" | "dismiss" | "help";
+export type KeyboardAction = "save" | "undo" | "redo" | "dismiss" | "help";
 
 export interface KeyboardInput {
   key: string;
@@ -21,9 +21,6 @@ export function resolveShortcut(input: KeyboardInput): KeyboardAction | null {
   if (command && key === "z" && input.shiftKey) return "redo";
   if (command && key === "z") return "undo";
   if (command && key === "y") return "redo";
-  if (!command && !input.altKey && key === " ") {
-    return ownsNativeSpaceKey(input.target) ? null : "toggle-playback";
-  }
   if (!command && !input.altKey && key === "?") {
     return isTextEditingKeyboardTarget(input.target) ? null : "help";
   }

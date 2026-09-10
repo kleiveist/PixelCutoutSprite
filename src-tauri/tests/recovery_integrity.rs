@@ -6,18 +6,40 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
-use pixel_cutout_sprite_studio_lib::application::{
-    AreaService, ProjectService, VaultInspection, VaultOpenMode, VaultService,
-};
+use pixel_cutout_sprite_studio_lib::application::{VaultInspection, VaultOpenMode, VaultService};
 use pixel_cutout_sprite_studio_lib::domain::{
-    DocumentKind, DomainDocument, ObjectId, Project, RecordStatus, RelativePath, UtcTimestamp,
+    validate_name, validate_schema, DocumentKind, DomainError, ObjectId, RelativePath, UtcTimestamp,
 };
 use pixel_cutout_sprite_studio_lib::storage::{
-    hash_managed_path, InterruptAfterStep, JsonStore, LockOwner, NoTransactionFault, ObjectIndex,
-    RecoveryChoice, StorageError, TransactionAction, TransactionPurpose, TransactionService,
-    TransactionState, TransactionStep, VaultLayout, VaultRoot, VersionStamp,
+    hash_managed_path, InterruptAfterStep, JsonStore, LockOwner, NoTransactionFault,
+    RecoveryChoice, StorageError, StoredJson, TransactionAction, TransactionPurpose,
+    TransactionService, TransactionState, TransactionStep, VaultLayout, VaultRoot, VersionStamp,
 };
 use tempfile::TempDir;
+
+// Test-only legacy fixture: no retired model is linked into the production crate.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct Project {
+    schema_version: u32,
+    kind: DocumentKind,
+    id: ObjectId,
+    revision: u32,
+    name: String,
+    status: String,
+    workspace_label_ids: Vec<ObjectId>,
+    created_at: UtcTimestamp,
+    updated_at: UtcTimestamp,
+}
+impl StoredJson for Project {
+    fn validate(&self) -> Result<(), DomainError> {
+        validate_schema(self.schema_version)?;
+        validate_name("fixture.name", &self.name)?;
+        if self.kind != DocumentKind::Project || self.revision == 0 {
+            return Err(DomainError::invalid("fixture", "invalid kind or revision"));
+        }
+        Ok(())
+    }
+}
 
 const PROJECT_FOLDER: &str = "game--11111111";
 const CREATED_AT: &str = "2026-09-05T08:00:00Z";
@@ -34,7 +56,7 @@ fn project(id: ObjectId, name: &str, revision: u32) -> Project {
         id,
         revision,
         name: name.to_owned(),
-        status: RecordStatus::Active,
+        status: "active".to_owned(),
         workspace_label_ids: Vec::new(),
         created_at: timestamp(CREATED_AT),
         updated_at: timestamp(UPDATED_AT),
@@ -58,7 +80,7 @@ fn write_project(root: &VaultRoot, folder: &str, value: Project) {
             &root
                 .resolve(Path::new(folder).join(".project/project.json").as_path())
                 .unwrap(),
-            &DomainDocument::Project(value),
+            &value,
         )
         .unwrap();
 }
@@ -92,7 +114,7 @@ fn real_replace_uses_raw_version_stamp_and_cleans_terminal_administration() {
     write_project(&root, PROJECT_FOLDER, project(project_id, "Before", 1));
     let target = Path::new(PROJECT_FOLDER).join(".project/project.json");
     let loaded = JsonStore::default()
-        .load(&root.resolve(&target).unwrap())
+        .load::<Project>(&root.resolve(&target).unwrap())
         .unwrap();
     let transaction_id = ObjectId::new();
     let stage_root = Path::new(PROJECT_FOLDER)
@@ -107,7 +129,7 @@ fn real_replace_uses_raw_version_stamp_and_cleans_terminal_administration() {
     JsonStore::default()
         .create(
             &root.resolve(&stage).unwrap(),
-            &DomainDocument::Project(project(project_id, "After", 2)),
+            &project(project_id, "After", 2),
         )
         .unwrap();
     let transactions = TransactionService::default();
@@ -130,13 +152,10 @@ fn real_replace_uses_raw_version_stamp_and_cleans_terminal_administration() {
         .execute(&root, Path::new(PROJECT_FOLDER), transaction_id)
         .unwrap();
     assert_eq!(committed.state, TransactionState::Committed);
-    let DomainDocument::Project(saved) = JsonStore::default()
-        .load(&root.resolve(&target).unwrap())
+    let saved = JsonStore::default()
+        .load::<Project>(&root.resolve(&target).unwrap())
         .unwrap()
-        .value
-    else {
-        panic!("project expected");
-    };
+        .value;
     assert_eq!(saved.name, "After");
     assert!(!root.resolve(&backup).unwrap().as_path().exists());
     assert!(!root.resolve(&stage_root).unwrap().as_path().exists());
@@ -180,7 +199,7 @@ fn replacement_crash_window_resumes_or_rolls_back_from_project_local_evidence() 
         JsonStore::default()
             .create(
                 &root.resolve(&stage).unwrap(),
-                &DomainDocument::Project(project(
+                &project(
                     project_id,
                     "Replacement",
                     if choice == RecoveryChoice::Resume {
@@ -188,7 +207,7 @@ fn replacement_crash_window_resumes_or_rolls_back_from_project_local_evidence() 
                     } else {
                         3
                     },
-                )),
+                ),
             )
             .unwrap();
         let transactions = TransactionService::default();
@@ -222,13 +241,10 @@ fn replacement_crash_window_resumes_or_rolls_back_from_project_local_evidence() 
         transactions
             .recover_candidate(&root, transaction_id, choice)
             .unwrap();
-        let DomainDocument::Project(saved) = JsonStore::default()
-            .load(&root.resolve(&target).unwrap())
+        let saved = JsonStore::default()
+            .load::<Project>(&root.resolve(&target).unwrap())
             .unwrap()
-            .value
-        else {
-            panic!("project expected");
-        };
+            .value;
         if choice == RecoveryChoice::Resume {
             assert_eq!(saved.name, expected_name);
         } else {
@@ -295,7 +311,7 @@ fn faulted_plan_enters_same_session_barrier_and_recovers_without_reopening() {
         Err(StorageError::RecoveryRequired(_))
     ));
     assert!(matches!(
-        AreaService::dashboard(&service, opened.session_id, project_id),
+        service.session_root_at_generation(opened.session_id, opened.session_generation, true),
         Err(StorageError::RecoveryRequired(_))
     ));
 
@@ -456,7 +472,7 @@ fn projected_project_rename_hash_survives_crash_after_directory_move() {
     .unwrap();
     let target_manifest = Path::new(PROJECT_FOLDER).join(".project/project.json");
     let loaded = JsonStore::default()
-        .load(&root.resolve(&target_manifest).unwrap())
+        .load::<Project>(&root.resolve(&target_manifest).unwrap())
         .unwrap();
     let transaction_id = ObjectId::new();
     let stage = Path::new(PROJECT_FOLDER)
@@ -470,7 +486,7 @@ fn projected_project_rename_hash_survives_crash_after_directory_move() {
     JsonStore::default()
         .create(
             &root.resolve(&stage).unwrap(),
-            &DomainDocument::Project(project(project_id, "Renamed", 2)),
+            &project(project_id, "Renamed", 2),
         )
         .unwrap();
     let renamed_folder = "renamed--11111111";
@@ -515,8 +531,8 @@ fn projected_project_rename_hash_survives_crash_after_directory_move() {
     TransactionService::default()
         .recover_candidate(&root, transaction_id, RecoveryChoice::Resume)
         .unwrap();
-    let DomainDocument::Project(saved) = JsonStore::default()
-        .load(
+    let saved = JsonStore::default()
+        .load::<Project>(
             &root
                 .resolve(
                     Path::new(renamed_folder)
@@ -526,10 +542,7 @@ fn projected_project_rename_hash_survives_crash_after_directory_move() {
                 .unwrap(),
         )
         .unwrap()
-        .value
-    else {
-        panic!("project expected");
-    };
+        .value;
     assert_eq!(saved.name, "Renamed");
     assert_eq!(
         fs::read(temp.path().join(renamed_folder).join("user-data.bin")).unwrap(),
@@ -640,14 +653,10 @@ fn background_mutation_lease_blocks_all_session_writes_until_its_last_clone_drop
 
     let second = service.write_lease(opened.session_id).unwrap_err();
     assert!(second.to_string().contains("background vault operation"));
-    let synchronous = ProjectService::create(
-        &mut service,
-        opened.session_id,
-        "Blocked while import runs".to_owned(),
-        Vec::new(),
-    )
-    .unwrap_err();
-    assert!(synchronous.to_string().contains("read-only"));
+    let synchronous = service.session_root(opened.session_id, true).unwrap_err();
+    assert!(synchronous
+        .to_string()
+        .contains("background vault operation"));
     assert!(service.session_root(opened.session_id, true).is_err());
 
     drop(lease);
@@ -725,7 +734,7 @@ fn lock_writer_process_helper() {
 }
 
 #[test]
-fn foreign_json_is_preserved_and_never_enters_the_managed_index() {
+fn foreign_json_and_old_projects_are_preserved_without_building_a_legacy_index() {
     let temp = TempDir::new().unwrap();
     initialize_closed(&temp);
     let root = VaultRoot::open(temp.path()).unwrap();
@@ -758,7 +767,7 @@ fn foreign_json_is_preserved_and_never_enters_the_managed_index() {
     let mut service = VaultService::default();
     let opened = service.open(temp.path()).unwrap();
     assert_eq!(opened.mode, VaultOpenMode::ReadWrite);
-    assert_eq!(opened.indexed_objects, 2);
+    assert_eq!(opened.indexed_objects, 1);
     service.close(opened.session_id).unwrap();
 
     assert_eq!(fs::read(&broken_path).unwrap(), broken);
@@ -770,7 +779,7 @@ fn foreign_json_is_preserved_and_never_enters_the_managed_index() {
 }
 
 #[test]
-fn malformed_owned_current_document_blocks_open_without_writing() {
+fn malformed_legacy_documents_are_opaque_user_files_not_an_open_blocker() {
     let temp = TempDir::new().unwrap();
     initialize_closed(&temp);
     let root = VaultRoot::open(temp.path()).unwrap();
@@ -793,46 +802,30 @@ fn malformed_owned_current_document_blocks_open_without_writing() {
     let before = snapshot_tree(temp.path());
 
     let mut service = VaultService::default();
-    assert!(matches!(
-        service.open(temp.path()),
-        Err(StorageError::InvalidDocument(_)) | Err(StorageError::InvalidVault(_))
-    ));
+    let opened = service.open(temp.path()).unwrap();
+    service.close(opened.session_id).unwrap();
     assert_eq!(snapshot_tree(temp.path()), before);
     assert_eq!(fs::read(&manifest).unwrap(), malformed);
 }
 
 #[test]
-fn project_creation_crash_before_journal_is_ignored_then_quarantined_by_the_writer() {
+fn project_creation_crash_without_journal_is_preserved_in_place() {
     let temp = TempDir::new().unwrap();
     initialize_closed(&temp);
     let root = VaultRoot::open(temp.path()).unwrap();
-    let transaction_id = ObjectId::new();
-    let staging = format!(".creating-project--{transaction_id}");
-    let staged_project = project(ObjectId::new(), "Never published", 1);
-    write_project(&root, &staging, staged_project);
+    let staging = format!(".creating-project--{}", ObjectId::new());
+    write_project(
+        &root,
+        &staging,
+        project(ObjectId::new(), "Never published", 1),
+    );
     fs::write(temp.path().join(&staging).join("source.bin"), b"preserve").unwrap();
-
-    assert_eq!(ObjectIndex::rebuild(&root).unwrap().len(), 1);
+    let before = snapshot_tree(temp.path());
     let mut service = VaultService::default();
     let opened = service.open(temp.path()).unwrap();
     assert_eq!(opened.mode, VaultOpenMode::ReadWrite);
-    assert_eq!(opened.indexed_objects, 1);
-    assert!(opened
-        .notice
-        .as_deref()
-        .is_some_and(|notice| notice.contains("incomplete project creation")));
-    assert!(!temp.path().join(&staging).exists());
-    let quarantined = temp
-        .path()
-        .join(format!(".trash/orphaned-project-create--{transaction_id}"));
-    assert_eq!(
-        fs::read(quarantined.join("source.bin")).unwrap(),
-        b"preserve"
-    );
-    assert!(!quarantined
-        .join(format!(".project/transactions/{transaction_id}.json"))
-        .exists());
     service.close(opened.session_id).unwrap();
+    assert_eq!(snapshot_tree(temp.path()), before);
 }
 
 #[test]
@@ -1020,7 +1013,7 @@ fn occupied_project_rename_destination_rolls_back_applied_manifest_only() {
     JsonStore::default()
         .create(
             &root.resolve(&stage).unwrap(),
-            &DomainDocument::Project(project(project_id, "Desired", 2)),
+            &project(project_id, "Desired", 2),
         )
         .unwrap();
     let destination = Path::new("desired--33333333");
@@ -1092,96 +1085,30 @@ fn occupied_project_rename_destination_rolls_back_applied_manifest_only() {
 }
 
 #[test]
-fn migration_precedes_index_preserves_exact_backup_and_future_data_causes_no_write() {
-    let migrated = TempDir::new().unwrap();
-    initialize_closed(&migrated);
-    let legacy = include_bytes!("fixtures/migrations/project-v0.json").to_vec();
-    let legacy_manifest = migrated
-        .path()
-        .join(PROJECT_FOLDER)
-        .join(".project/project.json");
-    fs::create_dir_all(legacy_manifest.parent().unwrap()).unwrap();
-    fs::write(&legacy_manifest, &legacy).unwrap();
-    let mut service = VaultService::default();
-    let opened = service.open(migrated.path()).unwrap();
-    assert_eq!(opened.mode, VaultOpenMode::ReadWrite);
-    assert_eq!(opened.indexed_objects, 2);
-    let DomainDocument::Project(migrated_project) = JsonStore::default()
-        .load(
-            &VaultRoot::open(migrated.path())
-                .unwrap()
-                .resolve(
-                    Path::new(PROJECT_FOLDER)
-                        .join(".project/project.json")
-                        .as_path(),
-                )
-                .unwrap(),
-        )
-        .unwrap()
-        .value
-    else {
-        panic!("migrated project expected");
-    };
-    assert_eq!(migrated_project.revision, 1);
-    assert_eq!(migrated_project.name, "Legacy Adventure");
-    let migrations = migrated
-        .path()
-        .join(PROJECT_FOLDER)
-        .join(".project/backups/migrations");
-    let backup_directories = fs::read_dir(&migrations)
-        .unwrap()
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
-    assert_eq!(backup_directories.len(), 1);
-    assert_eq!(
-        fs::read(backup_directories[0].path().join("project-v0.json")).unwrap(),
-        legacy
-    );
-    service.close(opened.session_id).unwrap();
-
-    let protected = TempDir::new().unwrap();
-    initialize_closed(&protected);
-    let root = VaultRoot::open(protected.path()).unwrap();
-    write_project(
-        &root,
-        PROJECT_FOLDER,
-        project(ObjectId::new(), "Current", 1),
-    );
-    let old_folder = "legacy--33333333";
-    let old_manifest = protected
-        .path()
-        .join(old_folder)
-        .join(".project/project.json");
-    fs::create_dir_all(old_manifest.parent().unwrap()).unwrap();
-    fs::write(&old_manifest, &legacy).unwrap();
-    let future = br#"{
-  "schema_version": 2,
-  "kind": "area",
-  "future_payload": { "must_survive": true }
-}"#;
-    let future_path = protected
-        .path()
-        .join(PROJECT_FOLDER)
-        .join("area--22222222/.area/area.json");
-    fs::create_dir_all(future_path.parent().unwrap()).unwrap();
-    fs::write(&future_path, future).unwrap();
-    let before = snapshot_tree(protected.path());
+fn legacy_and_future_project_files_are_never_migrated_on_open() {
+    let temp = TempDir::new().unwrap();
+    initialize_closed(&temp);
+    let legacy = include_bytes!("fixtures/migrations/project-v0.json");
+    let future = include_bytes!("fixtures/contracts/invalid/future-project.json");
+    for (folder, bytes) in [
+        ("legacy--11111111", legacy.as_slice()),
+        ("future--22222222", future.as_slice()),
+    ] {
+        let target = temp.path().join(folder).join(".project/project.json");
+        fs::create_dir_all(target.parent().unwrap()).unwrap();
+        fs::write(target, bytes).unwrap();
+    }
+    let before = snapshot_tree(temp.path());
     assert!(matches!(
-        VaultService::inspect(protected.path()).unwrap(),
+        VaultService::inspect(temp.path()).unwrap(),
         VaultInspection::Valid { .. }
     ));
-    assert_eq!(snapshot_tree(protected.path()), before);
-    let mut protected_service = VaultService::default();
-    assert!(matches!(
-        protected_service.open(protected.path()),
-        Err(StorageError::FutureSchemaProtected {
-            found: 2,
-            supported: 1
-        })
-    ));
-    assert_eq!(snapshot_tree(protected.path()), before);
-    assert_eq!(fs::read(&future_path).unwrap(), future);
-    assert_eq!(fs::read(&old_manifest).unwrap(), legacy);
+    assert_eq!(snapshot_tree(temp.path()), before);
+    let mut service = VaultService::default();
+    let opened = service.open(temp.path()).unwrap();
+    assert_eq!(opened.mode, VaultOpenMode::ReadWrite);
+    service.close(opened.session_id).unwrap();
+    assert_eq!(snapshot_tree(temp.path()), before);
 }
 
 #[test]
@@ -1213,7 +1140,7 @@ fn a_clean_copied_vault_reopens_without_origin_paths_or_stale_lock_ownership() {
     let opened = service.open(&destination).unwrap();
     assert_eq!(opened.vault_id, vault_id);
     assert_eq!(opened.mode, VaultOpenMode::ReadWrite);
-    assert_eq!(opened.indexed_objects, 2);
+    assert_eq!(opened.indexed_objects, 1);
     assert_eq!(
         opened.path,
         destination.canonicalize().unwrap().to_string_lossy()

@@ -2,9 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use pixel_cutout_sprite_studio_lib::application::{VaultInspection, VaultOpenMode, VaultService};
-use pixel_cutout_sprite_studio_lib::domain::{
-    DomainDocument, ObjectId, RelativePath, UtcTimestamp, Vault,
-};
+use pixel_cutout_sprite_studio_lib::domain::{ObjectId, RelativePath, UtcTimestamp, Vault};
 use pixel_cutout_sprite_studio_lib::storage::{
     write_journal, DeviceSettingsStore, FileReplacer, JsonStore, StorageError, TransactionAction,
     TransactionJournal, TransactionState, TransactionStep, VaultLayout, VaultRoot, ADMIN_DIR,
@@ -146,13 +144,13 @@ fn staged_validation_and_injected_replacement_failure_preserve_the_last_file() {
     let root = VaultRoot::open(temp.path()).unwrap();
     let manifest = VaultLayout::new(root).vault_manifest().unwrap();
     let original = fs::read(manifest.as_path()).unwrap();
-    let value = DomainDocument::Vault(Vault {
+    let value = Vault {
         schema_version: 1,
         kind: pixel_cutout_sprite_studio_lib::domain::DocumentKind::Vault,
         id: opened.vault_id,
         format: "pixel-cutout-sprite-vault".to_owned(),
         created_at: UtcTimestamp::parse("2026-09-05T10:00:00Z").unwrap(),
-    });
+    };
     let failing = JsonStore::with_replacer(FailingReplacer);
     assert!(matches!(
         failing.write(&manifest, &value),
@@ -179,17 +177,13 @@ fn compare_and_swap_rejects_external_changes() {
         .vault_manifest()
         .unwrap();
     let store = JsonStore::default();
-    let loaded = store.load(&manifest).unwrap();
-    let DomainDocument::Vault(mut vault) = loaded.value.clone() else {
-        panic!("expected vault document");
-    };
+    let loaded = store.load::<Vault>(&manifest).unwrap();
+    let mut vault = loaded.value.clone();
     vault.created_at = UtcTimestamp::parse("2026-09-05T10:01:00Z").unwrap();
-    store
-        .write(&manifest, &DomainDocument::Vault(vault.clone()))
-        .unwrap();
+    store.write(&manifest, &vault.clone()).unwrap();
     vault.created_at = UtcTimestamp::parse("2026-09-05T10:02:00Z").unwrap();
     assert!(matches!(
-        store.compare_and_swap(&manifest, &loaded.stamp, &DomainDocument::Vault(vault)),
+        store.compare_and_swap(&manifest, &loaded.stamp, &vault),
         Err(StorageError::WriteConflict)
     ));
 }

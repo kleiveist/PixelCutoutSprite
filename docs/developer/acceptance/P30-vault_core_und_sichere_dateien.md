@@ -1,5 +1,9 @@
 # P30 · Vault-Core und sichere Dateitransaktionen
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 Datum: 2026-09-09
 Status: Frontend-Gates grün; Rust-Implementierung vorhanden, in dieser Sitzung nicht kompilierbar
 Anforderungen: R-G07, R-D01, R-D05, R-D06, R-D09, R-C01

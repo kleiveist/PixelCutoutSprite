@@ -10,6 +10,8 @@ use sha2::{Digest, Sha256};
 use crate::storage::{validate_managed_relative, StorageError, VaultRoot};
 
 pub mod data_folder;
+#[cfg(test)]
+mod hardening_tests;
 
 pub const WORKSPACE_ADMIN_DIR: &str = ".PixelStudio";
 pub const PROMPT_VAULT_DIR: &str = ".PixelPrompt";
@@ -71,6 +73,14 @@ pub struct ManagedFileWrite {
     pub expectation: WriteExpectation,
 }
 
+/// A deletion is permitted only for a previously owned, unchanged file. The
+/// old bytes remain in the transaction backup until the entire set commits.
+#[derive(Debug, Clone)]
+pub struct ManagedFileDelete {
+    pub relative_path: PathBuf,
+    pub expected_sha256: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum FileSetState {
@@ -87,7 +97,7 @@ struct FileSetStep {
     staged: String,
     backup: String,
     before_sha256: Option<String>,
-    result_sha256: String,
+    result_sha256: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,6 +111,15 @@ struct FileSetJournal {
 }
 
 pub trait WorkspaceFault: Clone + Send + Sync + 'static {
+    fn before_stage(&self, _target: &Path) -> Result<(), StorageError> {
+        Ok(())
+    }
+    fn before_backup(&self, _target: &Path) -> Result<(), StorageError> {
+        Ok(())
+    }
+    fn after_backup(&self, _target: &Path) -> Result<(), StorageError> {
+        Ok(())
+    }
     fn after_publish_step(&self, _completed_steps: usize) -> Result<(), StorageError> {
         Ok(())
     }
@@ -186,7 +205,8 @@ impl<F: WorkspaceFault> WorkspaceWriter<F> {
         let before = read_optional_regular(target.as_path(), relative)?;
         check_expectation(before.as_deref(), expectation)?;
 
-        let staged_relative = sibling_relative(relative, &format!("{}.stage", uuid::Uuid::new_v4()))?;
+        let staged_relative =
+            sibling_relative(relative, &format!("{}.stage", uuid::Uuid::new_v4()))?;
         let staged = self.root.resolve(&staged_relative)?;
         stage_file(staged.as_path(), relative, bytes)?;
         let verified = fs::read(staged.as_path())
@@ -213,15 +233,17 @@ impl<F: WorkspaceFault> WorkspaceWriter<F> {
             fs::rename(staged.as_path(), target.as_path())
                 .map_err(|error| StorageError::io("publish workspace file", relative, error))
         };
-        if publish.is_err() {
-            let _ = fs::remove_file(staged.as_path());
-        } else if before.is_none() {
+        if publish.is_err() || before.is_none() {
             let _ = fs::remove_file(staged.as_path());
         }
         publish?;
         sync_directory(target.as_path().parent());
         let value = serde_json::from_slice::<Value>(bytes).ok();
-        Ok(receipt(relative, bytes, value.as_ref().and_then(json_revision)))
+        Ok(receipt(
+            relative,
+            bytes,
+            value.as_ref().and_then(json_revision),
+        ))
     }
 
     /**
@@ -300,8 +322,9 @@ impl<F: WorkspaceFault> WorkspaceWriter<F> {
         if digest(&bytes) != expected_sha256 {
             return Err(StorageError::WriteConflict);
         }
-        fs::remove_file(resolved.as_path())
-            .map_err(|error| StorageError::io("remove relocated workspace file", relative, error))?;
+        fs::remove_file(resolved.as_path()).map_err(|error| {
+            StorageError::io("remove relocated workspace file", relative, error)
+        })?;
         sync_directory(resolved.as_path().parent());
         Ok(true)
     }
@@ -355,6 +378,15 @@ impl<F: WorkspaceFault> WorkspaceWriter<F> {
         &self,
         writes: &[ManagedFileWrite],
     ) -> Result<Vec<WriteReceipt>, StorageError> {
+        self.publish_file_changes(writes, &[])
+    }
+
+    pub fn publish_file_changes(
+        &self,
+        writes: &[ManagedFileWrite],
+        deletes: &[ManagedFileDelete],
+    ) -> Result<Vec<WriteReceipt>, StorageError> {
+        require_settled_file_sets(&self.root)?;
         if writes.is_empty() {
             return Err(StorageError::InvalidVault(
                 "a managed file set cannot be empty".to_owned(),
@@ -364,39 +396,54 @@ impl<F: WorkspaceFault> WorkspaceWriter<F> {
         let transaction_root = Path::new(WORKSPACE_ADMIN_DIR)
             .join("transactions")
             .join(&transaction_id);
-        self.root.ensure_directory(&transaction_root.join("stage"))?;
-        self.root.ensure_directory(&transaction_root.join("backup"))?;
-
         let mut seen = std::collections::HashSet::new();
-        let mut steps = Vec::with_capacity(writes.len());
-        for (index, write) in writes.iter().enumerate() {
-            validate_workspace_relative(&write.relative_path)?;
-            let key = portable(&write.relative_path).to_lowercase();
+        let mut steps = Vec::with_capacity(writes.len() + deletes.len());
+        let entries = deletes
+            .iter()
+            .map(|delete| {
+                (
+                    &delete.relative_path,
+                    None,
+                    WriteExpectation {
+                        expected_sha256: Some(delete.expected_sha256.clone()),
+                        ..Default::default()
+                    },
+                )
+            })
+            .chain(writes.iter().map(|write| {
+                (
+                    &write.relative_path,
+                    Some(write.bytes.as_slice()),
+                    write.expectation.clone(),
+                )
+            }));
+        // Preflight every target before creating anything. In particular, a
+        // conflict at the final manifest cannot strand an unjournaled stage.
+        for (index, (relative, bytes, expectation)) in entries.enumerate() {
+            validate_workspace_relative(relative)?;
+            let key = portable(relative).to_lowercase();
             if !seen.insert(key) {
                 return Err(StorageError::WriteConflict);
             }
-            if write.bytes.len() > MAX_MANAGED_FILE_BYTES {
+            if bytes.is_some_and(|bytes| bytes.len() > MAX_MANAGED_FILE_BYTES) {
                 return Err(StorageError::InvalidVault(
                     "managed file exceeds the 16 MiB limit".to_owned(),
                 ));
             }
-            let parent = write.relative_path.parent().ok_or_else(|| StorageError::UnsafePath {
-                path: portable(&write.relative_path),
-                reason: "managed file needs a parent directory".to_owned(),
-            })?;
-            self.root.ensure_directory(parent)?;
-            let target = self.root.resolve(&write.relative_path)?;
-            let before = read_optional_regular(target.as_path(), &write.relative_path)?;
-            check_expectation(before.as_deref(), &write.expectation)?;
+            let target = self.root.resolve(relative)?;
+            let before = read_optional_regular(target.as_path(), relative)?;
+            check_expectation(before.as_deref(), &expectation)?;
             let staged_relative = transaction_root.join("stage").join(format!("{index}.data"));
-            let staged = self.root.resolve(&staged_relative)?;
-            stage_file(staged.as_path(), &write.relative_path, &write.bytes)?;
             steps.push(FileSetStep {
-                target: portable(&write.relative_path),
+                target: portable(relative),
                 staged: portable(&staged_relative),
-                backup: portable(&transaction_root.join("backup").join(format!("{index}.data"))),
+                backup: portable(
+                    &transaction_root
+                        .join("backup")
+                        .join(format!("{index}.data")),
+                ),
                 before_sha256: digest_optional(before.as_deref()),
-                result_sha256: digest(&write.bytes),
+                result_sha256: bytes.map(digest),
             });
         }
         let journal_relative = transaction_root.join("journal.json");
@@ -407,7 +454,25 @@ impl<F: WorkspaceFault> WorkspaceWriter<F> {
             cursor: 0,
             steps,
         };
+        validate_journal(&journal)?;
+        self.root
+            .ensure_directory(&transaction_root.join("stage"))?;
+        self.root
+            .ensure_directory(&transaction_root.join("backup"))?;
+        // Prepared is durable BEFORE staging. A crash while encoding/staging
+        // may be discarded safely: no target has yet been touched.
         self.persist_journal(&journal_relative, &journal)?;
+        for (index, write) in writes.iter().enumerate() {
+            let staged_relative = Path::new(&journal.steps[index + deletes.len()].staged);
+            let staged = self.root.resolve(staged_relative)?;
+            self.fault.before_stage(&write.relative_path)?;
+            stage_file(staged.as_path(), &write.relative_path, &write.bytes)?;
+        }
+        sync_directory(Some(
+            self.root
+                .resolve(&transaction_root.join("stage"))?
+                .as_path(),
+        ));
         self.resume_journal(&journal_relative, &mut journal)?;
 
         let mut receipts = Vec::with_capacity(writes.len());
@@ -451,12 +516,33 @@ impl<F: WorkspaceFault> WorkspaceWriter<F> {
                 });
             }
             let journal_relative = root_relative.join(entry.file_name()).join("journal.json");
+            if !self
+                .root
+                .resolve(&journal_relative)?
+                .as_path()
+                .try_exists()
+                .map_err(|error| {
+                    StorageError::io("inspect workspace journal", &journal_relative, error)
+                })?
+            {
+                cleanup_empty_unjournaled(
+                    &self.root,
+                    journal_relative
+                        .parent()
+                        .ok_or(StorageError::WriteConflict)?,
+                )?;
+                recovered += 1;
+                continue;
+            }
             let bytes = read_regular_bounded(&self.root, &journal_relative)?;
             let mut journal: FileSetJournal = serde_json::from_slice(&bytes)
                 .map_err(|error| StorageError::InvalidVault(error.to_string()))?;
             validate_journal(&journal)?;
-            if journal.state == FileSetState::Committed {
-                cleanup_transaction(&self.root, &journal_relative)?;
+            validate_journal_location(&journal_relative, &journal)?;
+            if journal.state == FileSetState::Committed || journal.state == FileSetState::Prepared {
+                // Prepared never published a target. Discarding it preserves
+                // the old generation, including any intervening user edits.
+                cleanup_transaction(&self.root, &journal_relative, &journal)?;
             } else {
                 self.resume_journal(&journal_relative, &mut journal)?;
             }
@@ -471,18 +557,45 @@ impl<F: WorkspaceFault> WorkspaceWriter<F> {
         journal: &mut FileSetJournal,
     ) -> Result<(), StorageError> {
         validate_journal(journal)?;
+        validate_journal_location(journal_relative, journal)?;
+        for step in &journal.steps[..journal.cursor] {
+            let target = self.root.resolve(Path::new(&step.target))?;
+            if digest_optional(
+                read_optional_regular(target.as_path(), Path::new(&step.target))?.as_deref(),
+            ) != step.result_sha256
+            {
+                return Err(StorageError::WriteConflict);
+            }
+        }
         journal.state = FileSetState::Applying;
         self.persist_journal(journal_relative, journal)?;
         while journal.cursor < journal.steps.len() {
             let step = &journal.steps[journal.cursor];
-            publish_step(&self.root, step)?;
+            if step.result_sha256.is_some() {
+                let parent = Path::new(&step.target)
+                    .parent()
+                    .ok_or(StorageError::WriteConflict)?;
+                if !parent.as_os_str().is_empty() {
+                    self.root.ensure_directory(parent)?;
+                }
+            }
+            publish_step(&self.root, step, &self.fault)?;
             journal.cursor += 1;
             self.persist_journal(journal_relative, journal)?;
             self.fault.after_publish_step(journal.cursor)?;
         }
+        for step in &journal.steps {
+            let target = self.root.resolve(Path::new(&step.target))?;
+            if digest_optional(
+                read_optional_regular(target.as_path(), Path::new(&step.target))?.as_deref(),
+            ) != step.result_sha256
+            {
+                return Err(StorageError::WriteConflict);
+            }
+        }
         journal.state = FileSetState::Committed;
         self.persist_journal(journal_relative, journal)?;
-        cleanup_transaction(&self.root, journal_relative)
+        cleanup_transaction(&self.root, journal_relative, journal)
     }
 
     fn persist_journal(
@@ -508,7 +621,10 @@ impl<F: WorkspaceFault> WorkspaceWriter<F> {
     }
 }
 
-pub fn preflight_workspace(root: &VaultRoot, expected_vault_id: Option<&str>) -> Result<(), StorageError> {
+pub fn preflight_workspace(
+    root: &VaultRoot,
+    expected_vault_id: Option<&str>,
+) -> Result<(), StorageError> {
     let admin = root.path().join(WORKSPACE_ADMIN_DIR);
     match fs::symlink_metadata(&admin) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
@@ -523,8 +639,9 @@ pub fn preflight_workspace(root: &VaultRoot, expected_vault_id: Option<&str>) ->
     }
     let manifest = Path::new(WORKSPACE_ADMIN_DIR).join("vault.json");
     let bytes = read_regular_bounded(root, &manifest)?;
-    let metadata: WorkspaceMetadata = serde_json::from_slice(&bytes)
-        .map_err(|error| StorageError::InvalidVault(format!("invalid .PixelStudio/vault.json: {error}")))?;
+    let metadata: WorkspaceMetadata = serde_json::from_slice(&bytes).map_err(|error| {
+        StorageError::InvalidVault(format!("invalid .PixelStudio/vault.json: {error}"))
+    })?;
     metadata.validate()?;
     if expected_vault_id.is_some_and(|expected| expected != metadata.vault_id) {
         return Err(StorageError::InvalidVault(
@@ -534,7 +651,10 @@ pub fn preflight_workspace(root: &VaultRoot, expected_vault_id: Option<&str>) ->
     Ok(())
 }
 
-pub fn ensure_workspace(root: &VaultRoot, vault_id: &str) -> Result<WorkspaceMetadata, StorageError> {
+pub fn ensure_workspace(
+    root: &VaultRoot,
+    vault_id: &str,
+) -> Result<WorkspaceMetadata, StorageError> {
     validate_portable_id(vault_id)?;
     // Reject a hostile pre-existing prompt namespace before creating metadata.
     // Failed initialization must not leave a vault looking initialized.
@@ -577,8 +697,9 @@ pub fn ensure_workspace(root: &VaultRoot, vault_id: &str) -> Result<WorkspaceMet
         value
     };
     let prompt = root.ensure_directory(Path::new(PROMPT_VAULT_DIR))?;
-    let prompt_metadata = fs::symlink_metadata(prompt.as_path())
-        .map_err(|error| StorageError::io("inspect .PixelPrompt", Path::new(PROMPT_VAULT_DIR), error))?;
+    let prompt_metadata = fs::symlink_metadata(prompt.as_path()).map_err(|error| {
+        StorageError::io("inspect .PixelPrompt", Path::new(PROMPT_VAULT_DIR), error)
+    })?;
     if prompt_metadata.file_type().is_symlink() || !prompt_metadata.is_dir() {
         return Err(StorageError::UnsafePath {
             path: PROMPT_VAULT_DIR.to_owned(),
@@ -588,7 +709,11 @@ pub fn ensure_workspace(root: &VaultRoot, vault_id: &str) -> Result<WorkspaceMet
     Ok(metadata)
 }
 
-fn publish_step(root: &VaultRoot, step: &FileSetStep) -> Result<(), StorageError> {
+fn publish_step<F: WorkspaceFault>(
+    root: &VaultRoot,
+    step: &FileSetStep,
+    fault: &F,
+) -> Result<(), StorageError> {
     let target_relative = Path::new(&step.target);
     let staged_relative = Path::new(&step.staged);
     let backup_relative = Path::new(&step.backup);
@@ -598,18 +723,37 @@ fn publish_step(root: &VaultRoot, step: &FileSetStep) -> Result<(), StorageError
     let backup = root.resolve(backup_relative)?;
     let current = read_optional_regular(target.as_path(), target_relative)?;
     let current_digest = digest_optional(current.as_deref());
-    if current_digest.as_deref() == Some(step.result_sha256.as_str()) {
+    if step.result_sha256.is_some() && current_digest == step.result_sha256 {
         return Ok(());
     }
     // Resume the narrow crash window after the old target was moved to the
     // transaction backup but before the staged replacement was published.
     let backup_bytes = read_optional_regular(backup.as_path(), backup_relative)?;
     let backup_digest = digest_optional(backup_bytes.as_deref());
-    let target_already_backed_up = current.is_none()
-        && step.before_sha256.is_some()
-        && backup_digest == step.before_sha256;
+    let target_already_backed_up =
+        current.is_none() && step.before_sha256.is_some() && backup_digest == step.before_sha256;
     if current_digest != step.before_sha256 && !target_already_backed_up {
         return Err(StorageError::WriteConflict);
+    }
+    if step.result_sha256.is_none() {
+        if current.is_some() {
+            if backup_bytes.is_some() {
+                return Err(StorageError::WriteConflict);
+            }
+            fault.before_backup(target_relative)?;
+            let target = root.resolve(target_relative)?;
+            let backup = root.resolve(backup_relative)?;
+            fs::rename(target.as_path(), backup.as_path()).map_err(|error| {
+                StorageError::io("stage managed deletion", target_relative, error)
+            })?;
+            sync_directory(target.as_path().parent());
+            sync_directory(backup.as_path().parent());
+            if Some(digest(&read_regular_bounded(root, backup_relative)?)) != step.before_sha256 {
+                return Err(StorageError::WriteConflict);
+            }
+            fault.after_backup(target_relative)?;
+        }
+        return Ok(());
     }
     if !staged.as_path().exists() {
         return Err(StorageError::RecoveryRequired(format!(
@@ -617,9 +761,8 @@ fn publish_step(root: &VaultRoot, step: &FileSetStep) -> Result<(), StorageError
             step.staged
         )));
     }
-    let staged_bytes = fs::read(staged.as_path())
-        .map_err(|error| StorageError::io("read staged file set member", staged_relative, error))?;
-    if digest(&staged_bytes) != step.result_sha256 {
+    let staged_bytes = read_regular_bounded(root, staged_relative)?;
+    if Some(digest(&staged_bytes)) != step.result_sha256 {
         return Err(StorageError::RecoveryRequired(format!(
             "staged file `{}` changed",
             step.staged
@@ -632,19 +775,24 @@ fn publish_step(root: &VaultRoot, step: &FileSetStep) -> Result<(), StorageError
                 step.target
             )));
         }
+        fault.before_backup(target_relative)?;
+        let target = root.resolve(target_relative)?;
+        let backup = root.resolve(backup_relative)?;
         fs::rename(target.as_path(), backup.as_path())
             .map_err(|error| StorageError::io("backup file set member", target_relative, error))?;
-    }
-    if let Err(error) = fs::rename(staged.as_path(), target.as_path()) {
-        if backup.as_path().exists() {
-            let _ = fs::rename(backup.as_path(), target.as_path());
+        sync_directory(backup.as_path().parent());
+        if Some(digest(&read_regular_bounded(root, backup_relative)?)) != step.before_sha256 {
+            return Err(StorageError::WriteConflict);
         }
-        return Err(StorageError::io(
-            "publish file set member",
-            target_relative,
-            error,
-        ));
     }
+    fault.after_backup(target_relative)?;
+    let target = root.resolve(target_relative)?;
+    let staged = root.resolve(staged_relative)?;
+    // Create-only publication: a foreign file appearing after backup must
+    // survive. On any failure retain stage + backup for explicit recovery;
+    // never blindly rename the backup over that foreign target.
+    fs::hard_link(staged.as_path(), target.as_path())
+        .map_err(|error| map_create_error(target_relative, error))?;
     sync_directory(target.as_path().parent());
     Ok(())
 }
@@ -653,17 +801,38 @@ fn validate_journal(journal: &FileSetJournal) -> Result<(), StorageError> {
     if journal.schema_version != 1
         || journal.steps.is_empty()
         || journal.cursor > journal.steps.len()
-        || journal.transaction_id.is_empty()
+        || journal.steps.len() > 1024
+        || journal.state == FileSetState::RollingBack
+        || uuid::Uuid::parse_str(&journal.transaction_id).is_err()
+        || journal.transaction_id != journal.transaction_id.to_lowercase()
     {
         return Err(StorageError::RecoveryRequired(
             "invalid workspace transaction journal".to_owned(),
         ));
     }
-    for step in &journal.steps {
+    let base = format!(
+        "{WORKSPACE_ADMIN_DIR}/transactions/{}",
+        journal.transaction_id
+    );
+    let mut seen = std::collections::HashSet::new();
+    for (index, step) in journal.steps.iter().enumerate() {
         validate_workspace_relative(Path::new(&step.target))?;
-        validate_workspace_relative(Path::new(&step.staged))?;
-        validate_workspace_relative(Path::new(&step.backup))?;
-        validate_digest(&step.result_sha256)?;
+        if step.staged != format!("{base}/stage/{index}.data")
+            || step.backup != format!("{base}/backup/{index}.data")
+            || step
+                .target
+                .to_lowercase()
+                .starts_with(".pixelstudio/transactions/")
+            || !seen.insert(step.target.to_lowercase())
+            || (step.result_sha256.is_none() && step.before_sha256.is_none())
+        {
+            return Err(StorageError::RecoveryRequired(
+                "unsafe file-set journal scope".to_owned(),
+            ));
+        }
+        if let Some(value) = &step.result_sha256 {
+            validate_digest(value)?;
+        }
         if let Some(value) = &step.before_sha256 {
             validate_digest(value)?;
         }
@@ -671,13 +840,164 @@ fn validate_journal(journal: &FileSetJournal) -> Result<(), StorageError> {
     Ok(())
 }
 
-fn cleanup_transaction(root: &VaultRoot, journal_relative: &Path) -> Result<(), StorageError> {
-    let directory = journal_relative.parent().ok_or_else(|| StorageError::RecoveryRequired(
-        "workspace journal has no transaction directory".to_owned(),
-    ))?;
+fn validate_journal_location(
+    relative: &Path,
+    journal: &FileSetJournal,
+) -> Result<(), StorageError> {
+    if portable(relative)
+        != format!(
+            "{WORKSPACE_ADMIN_DIR}/transactions/{}/journal.json",
+            journal.transaction_id
+        )
+    {
+        return Err(StorageError::RecoveryRequired(
+            "workspace journal location mismatch".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+/// A manifest/project must not be read as complete while a managed generation
+/// is publishing, even when its old and new PNG hashes happen to be identical.
+pub(crate) fn require_settled_file_sets(root: &VaultRoot) -> Result<(), StorageError> {
+    let relative = Path::new(WORKSPACE_ADMIN_DIR).join("transactions");
+    let resolved = root.resolve(&relative)?;
+    match fs::read_dir(resolved.as_path()) {
+        Ok(mut entries) => {
+            if entries.next().is_some() {
+                Err(StorageError::WriteConflict)
+            } else {
+                Ok(())
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(StorageError::io(
+            "inspect pending managed generations",
+            &relative,
+            error,
+        )),
+    }
+}
+
+fn cleanup_empty_unjournaled(root: &VaultRoot, directory: &Path) -> Result<(), StorageError> {
+    let id = directory
+        .file_name()
+        .and_then(|id| id.to_str())
+        .ok_or(StorageError::WriteConflict)?;
+    if uuid::Uuid::parse_str(id)
+        .map(|uuid| uuid.to_string())
+        .ok()
+        .as_deref()
+        != Some(id)
+    {
+        return Err(StorageError::WriteConflict);
+    }
     let resolved = root.resolve(directory)?;
-    fs::remove_dir_all(resolved.as_path())
-        .map_err(|error| StorageError::io("clean workspace transaction", directory, error))?;
+    let mut children = Vec::new();
+    for entry in fs::read_dir(resolved.as_path())
+        .map_err(|error| StorageError::io("inspect unjournaled transaction", directory, error))?
+    {
+        let entry = entry
+            .map_err(|error| StorageError::io("inspect transaction entry", directory, error))?;
+        let kind = entry
+            .file_type()
+            .map_err(|error| StorageError::io("inspect transaction entry", directory, error))?;
+        if !matches!(entry.file_name().to_str(), Some("stage" | "backup"))
+            || !kind.is_dir()
+            || kind.is_symlink()
+            || fs::read_dir(entry.path())
+                .map_err(|error| StorageError::io("inspect empty transaction", directory, error))?
+                .next()
+                .is_some()
+        {
+            return Err(StorageError::RecoveryRequired(
+                "Unjournaled transaction contains unknown data; preserved for inspection".into(),
+            ));
+        }
+        children.push(entry.path());
+    }
+    for child in children {
+        fs::remove_dir(&child).map_err(|error| {
+            StorageError::io("remove empty transaction directory", directory, error)
+        })?;
+    }
+    fs::remove_dir(resolved.as_path())
+        .map_err(|error| StorageError::io("remove empty transaction", directory, error))?;
+    sync_directory(resolved.as_path().parent());
+    Ok(())
+}
+
+fn cleanup_transaction(
+    root: &VaultRoot,
+    journal_relative: &Path,
+    journal: &FileSetJournal,
+) -> Result<(), StorageError> {
+    let directory = journal_relative.parent().ok_or_else(|| {
+        StorageError::RecoveryRequired("workspace journal has no transaction directory".to_owned())
+    })?;
+    let resolved = root.resolve(directory)?;
+    // Inventory first, then remove only named transaction members. Unknown
+    // files, symlinks and changed backups are evidence, never cleanup debris.
+    let mut files = Vec::new();
+    let mut directories = Vec::new();
+    for entry in fs::read_dir(resolved.as_path())
+        .map_err(|error| StorageError::io("inspect transaction cleanup", directory, error))?
+    {
+        let entry = entry
+            .map_err(|error| StorageError::io("inspect transaction member", directory, error))?;
+        let name = entry.file_name();
+        if name == "journal.json" {
+            continue;
+        }
+        let kind = entry
+            .file_type()
+            .map_err(|error| StorageError::io("inspect transaction member", directory, error))?;
+        if !matches!(name.to_str(), Some("stage" | "backup")) || !kind.is_dir() || kind.is_symlink()
+        {
+            return Err(StorageError::WriteConflict);
+        }
+        for member in fs::read_dir(entry.path())
+            .map_err(|error| StorageError::io("inspect cleanup members", directory, error))?
+        {
+            let member = member
+                .map_err(|error| StorageError::io("inspect cleanup member", directory, error))?;
+            let relative = directory.join(&name).join(member.file_name());
+            let step = journal
+                .steps
+                .iter()
+                .find(|step| {
+                    Path::new(&step.staged) == relative || Path::new(&step.backup) == relative
+                })
+                .ok_or(StorageError::WriteConflict)?;
+            let bytes = read_regular_bounded(root, &relative)?;
+            let expected = if name == "backup" {
+                &step.before_sha256
+            } else {
+                &step.result_sha256
+            };
+            if (name == "backup" || journal.state != FileSetState::Prepared)
+                && Some(digest(&bytes)) != *expected
+            {
+                return Err(StorageError::WriteConflict);
+            }
+            files.push(relative);
+        }
+        directories.push(directory.join(name));
+    }
+    for relative in files {
+        fs::remove_file(root.resolve(&relative)?.as_path()).map_err(|error| {
+            StorageError::io("clean owned transaction member", &relative, error)
+        })?;
+    }
+    for relative in directories {
+        fs::remove_dir(root.resolve(&relative)?.as_path()).map_err(|error| {
+            StorageError::io("clean empty transaction member directory", &relative, error)
+        })?;
+    }
+    fs::remove_file(root.resolve(journal_relative)?.as_path())
+        .map_err(|error| StorageError::io("clean completed journal", journal_relative, error))?;
+    fs::remove_dir(resolved.as_path())
+        .map_err(|error| StorageError::io("clean empty workspace transaction", directory, error))?;
     sync_directory(resolved.as_path().parent());
     Ok(())
 }
@@ -780,22 +1100,27 @@ pub fn validate_workspace_relative(path: &Path) -> Result<(), StorageError> {
 }
 
 fn is_windows_device_name(segment: &str) -> bool {
-    let stem = segment.split('.').next().unwrap_or(segment).to_ascii_uppercase();
+    let stem = segment
+        .split('.')
+        .next()
+        .unwrap_or(segment)
+        .to_ascii_uppercase();
     matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-        || stem
-            .strip_prefix("COM")
-            .is_some_and(|number| matches!(number, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"))
-        || stem
-            .strip_prefix("LPT")
-            .is_some_and(|number| matches!(number, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"))
+        || stem.strip_prefix("COM").is_some_and(|number| {
+            matches!(number, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+        })
+        || stem.strip_prefix("LPT").is_some_and(|number| {
+            matches!(number, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+        })
 }
 
-fn validate_portable_id(value: &str) -> Result<(), StorageError> {
+pub(crate) fn validate_portable_id(value: &str) -> Result<(), StorageError> {
     let valid = (3..=128).contains(&value.len())
-        && value
-            .bytes()
-            .enumerate()
-            .all(|(index, byte)| byte.is_ascii_lowercase() || byte.is_ascii_digit() || (index > 0 && matches!(byte, b'_' | b'-')));
+        && value.bytes().enumerate().all(|(index, byte)| {
+            byte.is_ascii_lowercase()
+                || byte.is_ascii_digit()
+                || (index > 0 && matches!(byte, b'_' | b'-'))
+        });
     if valid {
         Ok(())
     } else {
@@ -855,10 +1180,16 @@ fn digest_optional(bytes: Option<&[u8]>) -> Option<String> {
 }
 
 fn validate_digest(value: &str) -> Result<(), StorageError> {
-    if value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()) {
+    if value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    {
         Ok(())
     } else {
-        Err(StorageError::InvalidVault("invalid SHA-256 digest".to_owned()))
+        Err(StorageError::InvalidVault(
+            "invalid SHA-256 digest".to_owned(),
+        ))
     }
 }
 
@@ -883,156 +1214,4 @@ fn portable(path: &Path) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-    use tempfile::TempDir;
-
-    fn root() -> (TempDir, VaultRoot) {
-        let directory = TempDir::new().unwrap();
-        let root = VaultRoot::open(directory.path()).unwrap();
-        (directory, root)
-    }
-
-    #[test]
-    fn creates_namespaces_without_replacing_unknown_metadata() {
-        let (_directory, root) = root();
-        let metadata = ensure_workspace(&root, "vault-one").unwrap();
-        assert_eq!(metadata.vault_id, "vault-one");
-        assert!(root.path().join(".PixelPrompt").is_dir());
-
-        fs::write(root.path().join(".PixelStudio/vault.json"), b"{\"unknown\":true}").unwrap();
-        assert!(ensure_workspace(&root, "vault-one").is_err());
-        assert_eq!(
-            fs::read(root.path().join(".PixelStudio/vault.json")).unwrap(),
-            b"{\"unknown\":true}"
-        );
-    }
-
-    #[test]
-    fn rejects_escape_symlink_devices_and_external_changes() {
-        let (_directory, root) = root();
-        ensure_workspace(&root, "vault-one").unwrap();
-        let writer = WorkspaceWriter::new(root.clone());
-        assert!(writer
-            .write_json(Path::new("../outside.json"), &json!({}), &WriteExpectation::default())
-            .is_err());
-        assert!(writer
-            .write_json(Path::new(".PixelPrompt/CON.json"), &json!({}), &WriteExpectation::default())
-            .is_err());
-
-        let path = Path::new(".PixelPrompt/test.json");
-        let first = writer
-            .write_json(
-                path,
-                &json!({"revision": 1}),
-                &WriteExpectation { create_only: true, ..WriteExpectation::default() },
-            )
-            .unwrap();
-        fs::write(root.path().join(path), b"{\"revision\":9}").unwrap();
-        assert!(matches!(
-            writer.write_json(
-                path,
-                &json!({"revision": 2}),
-                &WriteExpectation { expected_sha256: Some(first.sha256), ..WriteExpectation::default() },
-            ),
-            Err(StorageError::WriteConflict)
-        ));
-    }
-
-    #[test]
-    fn interrupted_file_set_resumes_to_one_complete_generation() {
-        let (_directory, root) = root();
-        ensure_workspace(&root, "vault-one").unwrap();
-        let writes = vec![
-            ManagedFileWrite {
-                relative_path: PathBuf::from(".PixelPrompt/A/one.json"),
-                bytes: b"{\"revision\":1}".to_vec(),
-                expectation: WriteExpectation { create_only: true, ..WriteExpectation::default() },
-            },
-            ManagedFileWrite {
-                relative_path: PathBuf::from(".PixelPrompt/A/two.md"),
-                bytes: b"complete generation".to_vec(),
-                expectation: WriteExpectation { create_only: true, ..WriteExpectation::default() },
-            },
-        ];
-        let interrupted = WorkspaceWriter::with_fault(root.clone(), InterruptWorkspaceAfterStep(1));
-        assert!(matches!(
-            interrupted.publish_file_set(&writes),
-            Err(StorageError::TransactionInterrupted { step: 1 })
-        ));
-        assert_eq!(WorkspaceWriter::new(root.clone()).recover_file_sets().unwrap(), 1);
-        assert_eq!(fs::read(root.path().join(".PixelPrompt/A/one.json")).unwrap(), writes[0].bytes);
-        assert_eq!(fs::read(root.path().join(".PixelPrompt/A/two.md")).unwrap(), writes[1].bytes);
-    }
-
-    #[test]
-    fn recovery_resumes_between_backup_and_replacement() {
-        let (_directory, root) = root();
-        ensure_workspace(&root, "vault-one").unwrap();
-        let target = Path::new(".PixelPrompt/A/profile.json");
-        root.ensure_directory(target.parent().unwrap()).unwrap();
-        fs::write(root.path().join(target), b"old").unwrap();
-        let stage = Path::new(".PixelStudio/transactions/manual/stage/0.data");
-        let backup = Path::new(".PixelStudio/transactions/manual/backup/0.data");
-        root.ensure_directory(stage.parent().unwrap()).unwrap();
-        root.ensure_directory(backup.parent().unwrap()).unwrap();
-        fs::write(root.path().join(stage), b"new").unwrap();
-        fs::rename(root.path().join(target), root.path().join(backup)).unwrap();
-        let step = FileSetStep {
-            target: portable(target),
-            staged: portable(stage),
-            backup: portable(backup),
-            before_sha256: Some(digest(b"old")),
-            result_sha256: digest(b"new"),
-        };
-        publish_step(&root, &step).unwrap();
-        assert_eq!(fs::read(root.path().join(target)).unwrap(), b"new");
-        assert_eq!(fs::read(root.path().join(backup)).unwrap(), b"old");
-    }
-
-    #[test]
-    fn invalid_prompt_namespace_does_not_create_workspace_metadata() {
-        let (_directory, root) = root();
-        fs::write(root.path().join(PROMPT_VAULT_DIR), b"foreign").unwrap();
-        assert!(ensure_workspace(&root, "vault-one").is_err());
-        assert!(!root.path().join(WORKSPACE_ADMIN_DIR).exists());
-    }
-
-    #[test]
-    fn json_relocation_is_cas_guarded_and_retryable() {
-        let (_directory, root) = root();
-        ensure_workspace(&root, "vault-one").unwrap();
-        let writer = WorkspaceWriter::new(root.clone());
-        let source = Path::new(".PixelPrompt/Alt/Profil/Profil-profile.json");
-        let target = Path::new(".PixelPrompt/Neu/Profil/Profil-profile.json");
-        let first = writer
-            .write_json(
-                source,
-                &json!({"revision": 1, "name": "Alt"}),
-                &WriteExpectation { create_only: true, ..WriteExpectation::default() },
-            )
-            .unwrap();
-        let changed = json!({"revision": 2, "name": "Neu"});
-        let receipt = writer
-            .relocate_json(
-                source,
-                target,
-                &changed,
-                &WriteExpectation {
-                    expected_revision: Some(1),
-                    expected_sha256: Some(first.sha256),
-                    create_only: false,
-                },
-            )
-            .unwrap();
-        assert!(!root.path().join(source).exists());
-        assert_eq!(writer.read_json(target).unwrap().0, changed);
-        assert_eq!(
-            writer
-                .relocate_json(source, target, &changed, &WriteExpectation::default())
-                .unwrap(),
-            receipt
-        );
-    }
-}
+mod tests;

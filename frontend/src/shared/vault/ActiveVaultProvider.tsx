@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 
-import type { OpenVault } from "../../api/vault-client";
+import type { OpenVault } from "./vault-client";
 import type { SaveQueue, SessionIdentity } from "../storage";
 
 export interface ActiveVault extends OpenVault {

@@ -1,0 +1,33 @@
+.welcome {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-width: 0;
+  padding: clamp(18px, 4vw, 48px);
+  overflow-wrap: anywhere;
+}
+.welcome h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 50px);
+  line-height: 1.1;
+}
+.welcome h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+}
+.welcome p {
+  margin: 0;
+  line-height: 1.6;
+}
+.welcome ol {
+  margin: 0;
+  padding-left: 24px;
+  line-height: 1.8;
+}
+.source {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+}

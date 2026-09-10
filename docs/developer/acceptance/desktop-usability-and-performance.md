@@ -4,6 +4,10 @@
 
 # P19 — Desktop-Usability und Leistung
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 **Stand:** 5. September 2026
 
 **Ergebnis:** Das P19-Gate ist auf dem unten benannten Linux-Referenzgerät erfüllt. Native

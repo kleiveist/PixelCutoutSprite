@@ -1,5 +1,9 @@
 # P31 · Globale Einstellungen und Legacy-Migrationsvorbereitung
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](P37-cutout_altbasis_entfernen_willkommen.md).
+
 Datum: 2026-09-09
 Status: Frontend umgesetzt und getestet; nativer Store nicht ausgeführt
 Anforderungen: R-G01, R-D02, R-D07

@@ -1,6 +1,6 @@
 # Dateien in Cutout und Sprite auswählen
 
-Stand: P36, 2026-09-10. Beide Bildmodule verwenden dieselbe Dateinavigation im geöffneten
+Stand: P37, 2026-09-10. Beide Bildmodule verwenden dieselbe Dateinavigation im geöffneten
 Vault. Dafür ist keine GitHub-Anmeldung nötig. Ohne native Desktop-App steht kein echtes
 Dateisystem-Listing zur Verfügung.
 
@@ -16,11 +16,12 @@ Dateisystem-Listing zur Verfügung.
    Ausgangspunkt öffnen. Der Filter bietet alle Dateien, Bilder mit Ordnern oder nur Ordner.
 5. PNG, JPEG (`.jpg`/`.jpeg`) und WebP werden bei Klick oder Enter erneut auf Inhalt,
    Abmessungen und zwischenzeitliche Änderungen geprüft. Eine erfolgreiche Auswahl erscheint
-   unter **Letzte geprüfte Bildauswahl**. Unbekannte Dateitypen werden nicht ausgeführt.
+   in Cutout unter **Bild ausgewählt**, in Sprite unter **Letzte geprüfte Bildauswahl**.
+   Unbekannte Dateitypen werden nicht ausgeführt.
 
 Diese Phase liefert die geprüfte Auswahl an das jeweilige Modul. Sie lädt noch kein Bild in
 einen neuen Cutout-Editor und baut noch keine Sprite-Komposition auf. Die tatsächlichen
-Editorloader folgen in P38 und P41; der Cutout-Umbau beginnt zuvor mit P37.
+Editorloader folgen in P38 und P41. Die neue Cutout-Willkommen-Seite ist seit P37 verfügbar.
 
 ## Teileordner und View
 
@@ -30,7 +31,7 @@ Set-Auswahl. Ein unfertiger Schreibvorgang oder ein defektes Set liefert eine Me
 gültige Auswahl bleibt erhalten. Absichtlich ausgelassene Pflichtteile sind nur mit expliziter
 Dokumentation im Manifest zulässig und werden als unvollständiges Set gekennzeichnet.
 
-Sprite bietet zusätzlich das Register **View**. In P36 zeigt es Informationen zum gewählten
+Sprite bietet zusätzlich das Register **View**. In P37 zeigt es Informationen zum gewählten
 Set, noch keine interaktive Komposition. Ein Wechsel zwischen Dateien und View setzt den
 Editorzustand nicht zurück. Die letzte geprüfte Auswahl bleibt während dieser Vault-Sitzung
 pro Modul erhalten; beim Vault-Wechsel wird sie verworfen.
@@ -38,7 +39,7 @@ pro Modul erhalten; beim Vault-Wechsel wird sie verworfen.
 ## Aktualisieren und Grenzen
 
 - Nach externem Kopieren, Umbenennen oder Löschen **Dateien aktualisieren** drücken. Auch beim
-  Zurückkehren ins App-Fenster wird nach kurzer Verzögerung neu gelesen. Es gibt in P36 keinen
+  Zurückkehren ins App-Fenster wird nach kurzer Verzögerung neu gelesen. Es gibt in P37 keinen
   dauernden Betriebssystem-Dateiwatcher.
 - Vor Aktivierung und Refresh wird ausstehendes Speichern abgewartet. Bei einem Speicherfehler
   bleibt der bisherige Stand sichtbar. Ein ungültiger Seitencursor verlangt erneutes Einlesen.
@@ -73,7 +74,8 @@ Auch das X und ein Klick auf den abgedunkelten Hintergrund schließen den Drawer
 Fenstern scrollt dessen Inhalt; die Überschrift und die Schließen-Schaltfläche bleiben erreichbar.
 
 Technische Nachweise und offene native Plattformprüfungen stehen im
-[P36-Abnahmebericht](../developer/acceptance/P36-gemeinsame_datafoldertoolbar.md).
+[P36-Abnahmebericht](../developer/acceptance/P36-gemeinsame_datafoldertoolbar.md) und im aktuellen
+[P37-Abnahmebericht](../developer/acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
 
 <!-- PYGINDEX:NAVIGATION START -->
 [Übergeordnete Übersicht](index.md)

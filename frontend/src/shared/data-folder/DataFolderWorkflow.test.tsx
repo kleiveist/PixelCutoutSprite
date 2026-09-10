@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ActiveVaultProvider, type ActiveVault } from "../vault";
 import { SaveQueue } from "../storage";
-import { CutoutDataWorkspace } from "../../cutout-studio/CutoutDataWorkspace";
 import {
   DataFolderProvider,
   DataFolderWorkspace,
@@ -119,9 +118,9 @@ function Content() {
       <button onClick={() => setModule("sprite")}>Sprite-Modul</button>
       <output aria-label="Auswahlereignis">{JSON.stringify(selections)}</output>
       {module === "cutout" ? (
-        <CutoutDataWorkspace>
+        <DataFolderWorkspace module="cutout">
           <Counter label="Editorwert" />
-        </CutoutDataWorkspace>
+        </DataFolderWorkspace>
       ) : (
         <DataFolderWorkspace module="sprite" viewSlot={{ content: <Counter label="Viewwert" /> }}>
           <Counter label="Editorwert" />

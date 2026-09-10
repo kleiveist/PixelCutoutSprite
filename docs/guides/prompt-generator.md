@@ -4,8 +4,10 @@
 
 # PixelPromptStudio Generator verwenden
 
-Stand: P35, 2026-09-10. PixelPromptStudio arbeitet direkt mit den Dateien des geöffneten Vaults.
-Der Studiobutton im gemeinsamen Header wechselt zwischen Generator und Cutout-Bereich.
+Stand: P37, 2026-09-10. PixelPromptStudio arbeitet direkt mit den Dateien des geöffneten Vaults.
+Der gemeinsame Header wechselt zwischen Generator, Cutout-Willkommen und Sprite-Rahmen.
+Die alte Cutout-Area-Übergabe ist einschließlich ihrer nativen Commands entfernt.
+Bilder werden über die [gemeinsame Dateinavigation](cutout-willkommen.md) gewählt.
 
 ## Einen Prompt erstellen
 

@@ -4,6 +4,10 @@
 
 # Deterministic pixel compositor
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](../acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 P07 introduces the single Rust `PixelCompositor` used by later editor previews and exports. Its
 input is already resolved for one direction: a frame canvas and ground origin plus ordered cutout
 parts containing the profile placement, sampled motion, NPC fitting, binding-local override,

@@ -4,6 +4,9 @@
 
 # Features
 
+Diese Seiten beschreiben die historische Cutout-Fachbasis vor P37, nicht den aktuellen
+Funktionsumfang. Aktuell: [P37-Abnahme](../acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 <!-- PYGINDEX:INDEX START -->
 ## Contents
 

@@ -1,0 +1,36 @@
+{
+  "phase": "P38",
+  "date": "2026-09-10",
+  "baseCommit": "f85e24d41197fe74dd64a9d8e2670c382b3f65b8",
+  "workingTree": "uncommitted P37 plus P38; no push or release",
+  "implementationGate": "passed",
+  "overallNativeGuiAcceptance": "not established; P37 WebKitGTK container blocker must be revisited in P43",
+  "sourceInventory": {
+    "command": "rg --files frontend/src frontend/e2e src-tauri/src src-tauri/tests tests/source -g '*.ts' -g '*.tsx' -g '*.css' -g '*.json' -g '*.rs' -g '*.py' -0 | sort -z | xargs -0 sha256sum | sha256sum",
+    "sha256": "1d50c8d9942b27eaf1638972b367ac5a386de2a4b0c157e42d86bf0694c3c792"
+  },
+  "checks": [
+    {"command": "npm --prefix frontend run test", "status": "passed", "files": 135, "tests": 709, "logSha256": "66103617b5d2994f7a3b418f897026a1c81d8425d6c0d93125e436af2f17ec83", "excerpt": "Test Files 135 passed (135); Tests 709 passed (709); Duration 108.12s"},
+    {"command": "npm --prefix frontend run test -- --run src/cutout-studio", "status": "passed", "files": 2, "tests": 14, "note": "Repeated after the final central mask-budget check."},
+    {"command": "npm --prefix frontend run typecheck", "status": "passed"},
+    {"command": "npm --prefix frontend run lint", "status": "passed"},
+    {"command": "npm --prefix frontend run format", "status": "passed"},
+    {"command": "npm --prefix frontend run test:e2e -- --output=/tmp/p38-p43-validation.Xozjjs/p38-browser-final", "status": "passed", "tests": 12, "buildModules": 359, "logSha256": "60bbe8ee943bd2083a60cab4dd71d2e095a95236e55973e31102da5045107f7d", "excerpt": "12 passed (19.3s)", "scope": "Production frontend with explicit IPC fixtures, not native filesystem/OS-DPI acceptance"},
+    {"command": "cargo test --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features", "status": "passed", "tests": 88, "libTests": 57, "compositionTests": 1, "recoveryTests": 18, "vaultTests": 12, "logSha256": "9253960f57001629457b2156b3944a33a5d15fcd03ffc31de0e9790ea8d06b1e", "note": "Recovery child-process output is counted once, not as an additional test."},
+    {"command": "cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings", "status": "passed"},
+    {"command": "cargo fmt --manifest-path src-tauri/Cargo.toml --check", "status": "passed"},
+    {"command": "python -m pytest -q -p no:cacheprovider tests/source/test_studio_final_architecture.py tests/source/test_studio_distribution_policy.py tools/tests/test_tauri_control.py tools/tests/test_control_help.py tools/tests/test_configuration.py tools/tests/test_control_test_reporting.py", "status": "passed", "tests": 108, "logSha256": "34776d917a4f1d9d547e233f13b1422ef2a5826514a898c877c90dbb104d3373", "excerpt": "108 passed in 0.80s"},
+    {"command": "python tools/control.py quality architecture", "status": "passed", "typescriptSources": 385, "logSha256": "4bb50481b5141984c2ea7e2558de13f74df108a99200ba30c602077170d483eb", "excerpt": "TypeScript AST: PASS; Architecture: PASS; Quality gate: PASS"}
+  ],
+  "largeSourceMeasurement": {
+    "test": "cutout::tests::sixteen_megapixel_source_is_bounded_and_releases_decoded_buffers",
+    "mode": "native debug test binary, Linux child-process resource.getrusage; not GUI latency",
+    "width": 8192, "height": 2048, "encodedBytes": 327292, "rgbaBytes": 67108864,
+    "pipelineMilliseconds": 7345, "testProcessSeconds": 7.873, "peakRssKiB": 156700,
+    "logSha256": "a6fc39d88d02bf73a108eff43f8c289059e68bd9028f1ba0fa9fde60e05f6f40",
+    "limitation": "uniform half-transparent source, highly compressible; not representative of every image"
+  },
+  "unchangedFromRepositoryBase": ["tools/", "docs/toolingdocs/", "frontend/package-lock.json", "src-tauri/Cargo.lock"],
+  "limits": {"encodedImageBytes": 16777216, "sourcePixels": 16777216, "edgePixels": 8192, "runsPerMask": 500000, "runsPerProject": 1000000, "historyStepsPerPart": 48, "estimatedHistoryBytesPerPart": 1048576},
+  "artifactsDirectoryEphemeral": "/tmp/p38-p43-validation.Xozjjs"
+}

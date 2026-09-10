@@ -144,56 +144,6 @@ fn cleanup_terminal_journal(
     Ok(())
 }
 
-fn quarantine_orphan_project_creation_trees(root: &VaultRoot) -> Result<usize, StorageError> {
-    let mut quarantined = 0;
-    for entry in read_sorted_directory(root.path(), "scan orphaned project creations")? {
-        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
-            continue;
-        };
-        if !name.starts_with(PROJECT_CREATE_PREFIX) {
-            continue;
-        }
-        let path = entry.path();
-        let file_type = entry.file_type().map_err(|error| {
-            StorageError::io("inspect orphaned project creation", &path, error)
-        })?;
-        if file_type.is_symlink() || !file_type.is_dir() {
-            return Err(StorageError::UnsafePath {
-                path: name,
-                reason: "reserved project-creation staging owner must be a real directory"
-                    .to_owned(),
-            });
-        }
-        let owner = PathBuf::from(&name);
-        let transaction_id = parse_project_create_owner(&owner).ok_or_else(|| {
-            StorageError::RecoveryRequired(format!(
-                "reserved project-creation staging owner `{name}` has no canonical transaction id"
-            ))
-        })?;
-        let journal = root.resolve(
-            &owner
-                .join(".project/transactions")
-                .join(format!("{transaction_id}.json")),
-        )?;
-        if journal.as_path().exists() {
-            continue;
-        }
-        root.ensure_directory(Path::new(".trash"))?;
-        let destination = Path::new(".trash")
-            .join(format!("{PROJECT_CREATE_ORPHAN_PREFIX}{transaction_id}"));
-        let destination = root.resolve(&destination)?;
-        if destination.as_path().exists() {
-            return Err(StorageError::WriteConflict);
-        }
-        rename_managed(
-            &path,
-            destination.as_path(),
-            "quarantine orphaned project creation",
-        )?;
-        quarantined += 1;
-    }
-    Ok(quarantined)
-}
 
 fn workspace_or_project_administration_root(
     path: &Path,

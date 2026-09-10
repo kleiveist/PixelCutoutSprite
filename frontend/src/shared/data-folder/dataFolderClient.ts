@@ -65,6 +65,12 @@ const SelectionSchema = z.discriminatedUnion("kind", [
     status: z.enum(["ordinary", "in_progress", "invalid"]),
     message: z.string().nullable(),
   }),
+  z.strictObject({
+    kind: z.literal("legacy_set"),
+    relativePath: workspacePath,
+    documentSha256: hash,
+    partCount: z.number().int().min(1).max(18),
+  }),
 ]);
 const ThumbnailSchema = z.strictObject({
   dataUrl: z

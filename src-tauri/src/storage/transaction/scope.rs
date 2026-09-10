@@ -30,7 +30,6 @@ fn validate_new_project_folder(project_folder: &Path) -> Result<RelativePath, St
 
 const PROJECT_CREATE_PREFIX: &str = ".creating-project--";
 const PROJECT_CREATE_ROLLBACK_PREFIX: &str = "rolled-back-project-create--";
-const PROJECT_CREATE_ORPHAN_PREFIX: &str = "orphaned-project-create--";
 
 fn validate_journal_owner_folder(project_folder: &Path) -> Result<RelativePath, StorageError> {
     if project_folder == Path::new(super::ADMIN_DIR) {

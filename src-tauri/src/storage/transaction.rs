@@ -456,8 +456,7 @@ impl<F: TransactionFault> TransactionService<F> {
     }
 
     /// Removes administration artifacts for transactions whose terminal journal was made durable.
-    /// This is also run when a writer opens the vault, closing the small crash window between the
-    /// terminal journal write and immediate cleanup.
+    /// Explicit maintenance only: opening a legacy vault never cleans up its files.
     pub fn cleanup_terminal(root: &VaultRoot) -> Result<usize, StorageError> {
         let mut removed = 0;
         for location in collect_journal_locations(root)? {
@@ -473,12 +472,6 @@ impl<F: TransactionFault> TransactionService<F> {
             }
         }
         Ok(removed)
-    }
-
-    /// Quarantines project-creation trees left before their journal was durably created. This is
-    /// called only while holding the vault writer lease; a valid journal remains normal recovery.
-    pub fn quarantine_orphan_project_creations(root: &VaultRoot) -> Result<usize, StorageError> {
-        quarantine_orphan_project_creation_trees(root)
     }
 
     fn execute_at(

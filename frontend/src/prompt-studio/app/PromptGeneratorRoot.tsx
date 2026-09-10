@@ -1,13 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
-import type { PromptHandoff, PromptHandoffAvailability } from "../domain/handoff";
 import type { PromptView } from "../domain/navigation";
-import type {
-  IntegratedPromptNavigationAdapter,
-  LegacyV1StorageMigrationResult,
-  OutputWorkspaceAdapter,
-  V2StorageAdapter,
-} from "../services";
+import type { IntegratedPromptNavigationAdapter, V2StorageAdapter } from "../services";
 import {
   createIntegratedPromptNavigationAdapter,
   createVaultCompatibilityStorage,
@@ -27,10 +21,6 @@ export interface PromptGeneratorRootProps {
   readonly onNavigate: (view: PromptView) => void;
   readonly onDirtyChange?: (dirty: boolean) => void;
   readonly storageAdapter: V2StorageAdapter;
-  readonly outputAdapter: OutputWorkspaceAdapter;
-  readonly startupMigration?: LegacyV1StorageMigrationResult;
-  readonly handoffAvailability?: PromptHandoffAvailability;
-  readonly onHandoff?: (handoff: PromptHandoff) => Promise<void> | void;
   readonly onOpenBaseProfile?: () => void;
   readonly onOpenLegacyMigration?: () => void;
   readonly now?: () => string;
@@ -41,10 +31,6 @@ export interface PromptGeneratorRootProps {
 
 interface PromptWorkspaceProps {
   readonly storageAdapter: V2StorageAdapter;
-  readonly outputAdapter: OutputWorkspaceAdapter;
-  readonly startupMigration: LegacyV1StorageMigrationResult;
-  readonly handoffAvailability: PromptHandoffAvailability;
-  readonly onHandoff?: (handoff: PromptHandoff) => Promise<void> | void;
   readonly onOpenBaseProfile?: () => void;
   readonly onOpenLegacyMigration: () => void;
   readonly onDirtyChange?: (dirty: boolean) => void;
@@ -54,10 +40,6 @@ interface PromptWorkspaceProps {
 
 function PromptWorkspace({
   storageAdapter,
-  outputAdapter,
-  startupMigration,
-  handoffAvailability,
-  onHandoff,
   onOpenBaseProfile,
   onOpenLegacyMigration = () => undefined,
   onDirtyChange,
@@ -116,15 +98,10 @@ function PromptWorkspace({
       <div className="prompt-generator-scroll">
         <div className="prompt-generator-content">
           <PromptStudioShell
-            activeBaseProfileId={settings.activeBaseProfileId}
-            outputAdapter={outputAdapter}
-            startupMigration={startupMigration}
             storageAdapter={storageAdapter}
             view={activeView}
-            handoffAvailability={handoffAvailability}
             {...(onOpenBaseProfile ? { onOpenBaseProfile } : {})}
             onOpenLegacyMigration={onOpenLegacyMigration}
-            {...(onHandoff ? { onHandoff } : {})}
             {...(now ? { now } : {})}
             {...(createDraftId ? { createDraftId } : {})}
           />
@@ -139,13 +116,6 @@ export function PromptGeneratorRoot({
   onNavigate,
   onDirtyChange,
   storageAdapter,
-  outputAdapter,
-  startupMigration = { status: "notNeeded" },
-  handoffAvailability = {
-    available: false,
-    reason: "Öffne einen schreibbaren Cutout-Arbeitsbereich für die Übergabe.",
-  },
-  onHandoff,
   onOpenBaseProfile,
   onOpenLegacyMigration = () => undefined,
   now,
@@ -205,12 +175,8 @@ export function PromptGeneratorRoot({
           <WizardSessionProvider>
             <PromptWorkspace
               storageAdapter={effectiveStorage}
-              outputAdapter={outputAdapter}
-              startupMigration={startupMigration}
-              handoffAvailability={handoffAvailability}
               {...(onOpenBaseProfile ? { onOpenBaseProfile } : {})}
               onOpenLegacyMigration={onOpenLegacyMigration}
-              {...(onHandoff ? { onHandoff } : {})}
               {...(onDirtyChange ? { onDirtyChange } : {})}
               {...(now ? { now } : {})}
               {...(createDraftId ? { createDraftId } : {})}

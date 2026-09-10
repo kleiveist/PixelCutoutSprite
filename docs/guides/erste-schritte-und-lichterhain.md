@@ -4,6 +4,10 @@
 
 # 🌲 Erste Schritte und Beispiel-Vault „Lichterhain“
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](../developer/acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 **Stand:** 6. September 2026
 
 **App-Version:** 0.1.0

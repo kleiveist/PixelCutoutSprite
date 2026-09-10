@@ -4,6 +4,10 @@
 
 # Area PNG inventory and reviewed imports
 
+> Historischer Stand vor P37. Frühere Cutout-Funktionen und damalige Quellpfade sind keine
+> aktuelle Produktzusage. Gültiger Stand und fortgeltende Storage-/Prompt-Nachweise:
+> [P37-Abnahme](../acceptance/P37-cutout_altbasis_entfernen_willkommen.md).
+
 P12 turns the Outfit workspace into an area-owned PNG inventory. An area card opens the inventory,
 and the same view is available from the persistent desktop navigation while that area remains in
 context. `InventoryWorkspace` loads the saved Rust inventory, opens the native Tauri file chooser,
